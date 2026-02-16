@@ -1,6 +1,6 @@
 USE [AppsLCA]
 GO
-/****** Object:  StoredProcedure [dbo].[sp_Upload_InfoOrders_to_PolyPM_withData_2]    Script Date: 13/02/2026 01:55:56 p. m. ******/
+/****** Object:  StoredProcedure [dbo].[sp_Upload_InfoOrders_to_PolyPM_withData_2]    Script Date: 16/02/2026 04:05:07 p. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -22,16 +22,16 @@ BEGIN
  	SET NOCOUNT on;
 
 	--DECLARE @PWModulo varchar(100)
-	SET @PWModulo = LTRIM(RTRIM(@PWModulo))
+	--SET @PWModulo = LTRIM(RTRIM(@PWModulo))
 
-	--SET @PWModulo = 'ASSIGMENT HW FG #777 2025-10-30'
+	--SET @PWModulo = 'ASSIGNMENT HW FG #177 2026-02-16'
 	IF @PWModulo LIKE '%HW%'
 	BEGIN
 
 		UPDATE od SET
 		--SELECT 
 				--[OrderID]		= oi.OrderID
-			 [Comments26]	= (CASE WHEN od.Comments26 IS NULL OR od.Comments26 = ''		THEN oi.Codes			ELSE od.Comments26		END)
+				[Comments26]	= (CASE WHEN od.Comments26 IS NULL OR od.Comments26 = ''		THEN oi.Codes			ELSE od.Comments26		END)
 			,[Comments27]   = (CASE WHEN od.Comments27 IS NULL OR od.Comments27 = ''		THEN oi.StitchCount		ELSE od.Comments27		END)
 			,[Comments25]   = (CASE WHEN od.Comments25 IS NULL OR od.Comments25 = ''		THEN oi.SequenceNo		ELSE od.Comments25		END)
 			,[OrderTypeID4] = (CASE WHEN		od.OrderTypeID4 IS NULL 
@@ -44,7 +44,7 @@ BEGIN
 			,[OrderTypeID2] = (CASE WHEN		od.OrderTypeID2 IS NULL 
 											OR	od.OrderTypeID2 = ''						THEN oi.OrderTypeID2	ELSE od.OrderTypeID2	END)
 
-			FROM [192.168.1.93].AppsLCA.dbo.VW_InfoOrdersToPolyPM	AS oi	WITH(NOLOCK) 
+			FROM [192.168.1.93].[AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW]	AS oi	WITH(NOLOCK) 
 			--FROM AppsLCA.dbo.VW_InfoOrdersToPolyPM	AS oi	WITH(NOLOCK)
 			INNER JOIN LCA.dbo.Orders								AS od	WITH(NOLOCK) ON od.OrderID	= oi.OrderID
 			INNER JOIN (
@@ -66,7 +66,8 @@ BEGIN
 				,[Sequence_Qty]			= od.Comments25
 				,[StitchCount]			= od.Comments27
 				,[ThreadID]				= od.Comments30
-				,[OrderType]			= ddv2.DropDownValue
+				,[OrderTypePPM]			= ddv2.DropDownValue
+				,[OrderTypeTechnique]	= ddv22.DropDownValue
 				FROM	(
 							SELECT DISTINCT 
 								OD.orderID 
@@ -75,8 +76,10 @@ BEGIN
 																							AND LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(mo.Comments7, CHAR(10), ''), CHAR(9), ''), CHAR(13), ''))) = @PWModulo
 						) AS odo 
 				LEFT JOIN	LCA.dbo.Orders			AS od	WITH (NOLOCK) ON odo.OrderID = od.OrderID
+				LEFT JOIN	[192.168.1.93].[AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW] AS oi WITH(NOLOCK) ON odo.OrderID = oi.OrderID
 				LEFT JOIN	LCA.dbo.DropDownValues5 AS ddv5 WITH (NOLOCK) ON od.OrderTypeID4 = ddv5.DropDownValueID
 				LEFT JOIN	LCA.dbo.DropDownValues2 AS ddv2 WITH (NOLOCK) ON od.OrderTypeID2 = ddv2.DropDownValueID AND ddv2.DropDownID = 13
+				LEFT JOIN	LCA.dbo.DropDownValues2 AS ddv22 WITH (NOLOCK) ON oi.OrderTypeID2 = ddv22.DropDownValueID
 	END
 	ELSE
 	BEGIN
@@ -95,7 +98,7 @@ BEGIN
 		,[OrderTypeID2] = (CASE WHEN		od.OrderTypeID2 IS NULL 
 										OR	od.OrderTypeID2 = '' 						THEN oi.OrderTypeID2	ELSE od.OrderTypeID2	END)
 
-		FROM [192.168.1.93].AppsLCA.dbo.VW_InfoOrdersToPolyPM_Emb_Apparel	AS oi	WITH(NOLOCK)
+		FROM [192.168.1.93].[AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_Apparel]	AS oi	WITH(NOLOCK)
 		INNER JOIN LCA.dbo.Orders								AS od	WITH(NOLOCK) ON od.OrderID	= oi.OrderID
 		INNER JOIN (
 						SELECT DISTINCT 
@@ -114,7 +117,8 @@ BEGIN
 		,[Sequence_Qty]			= od.Comments25
 		,[StitchCount]			= od.Comments27
 		,[ThreadID]				= od.Comments30
-		,[OrderType]			= ddv2.DropDownValue
+		,[OrderTypePPM]			= ddv2.DropDownValue
+		,[OrderTypeTechnique]	= ddv22.DropDownValue
 		FROM	(
 					SELECT DISTINCT 
 						OD.orderID 
@@ -123,8 +127,10 @@ BEGIN
 																					AND mo.Comments7 = @PWModulo
 				) AS odo 
 		LEFT JOIN	LCA.dbo.Orders			AS od	WITH (NOLOCK) ON odo.OrderID = od.OrderID
+		LEFT JOIN	[192.168.1.93].[AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_Apparel] AS oi WITH(NOLOCK) ON odo.OrderID = oi.OrderID
 		LEFT JOIN	LCA.dbo.DropDownValues5 AS ddv5 WITH (NOLOCK) ON od.OrderTypeID4 = ddv5.DropDownValueID
 		LEFT JOIN	LCA.dbo.DropDownValues2 AS ddv2 WITH (NOLOCK) ON od.OrderTypeID2 = ddv2.DropDownValueID AND ddv2.DropDownID = 13
+		LEFT JOIN	LCA.dbo.DropDownValues2 AS ddv22 WITH (NOLOCK) ON oi.OrderTypeID2 = ddv22.DropDownValueID
 
 	END
 
