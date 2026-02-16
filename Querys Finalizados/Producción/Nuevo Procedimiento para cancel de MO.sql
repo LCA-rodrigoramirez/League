@@ -1,6 +1,6 @@
 USE [AppsLCA]
 GO
-/****** Object:  StoredProcedure [dbo].[SP_Orders_Cancelled_L2Brands]    Script Date: 08/08/2025 06:46:15 a. m. ******/
+/****** Object:  StoredProcedure [dbo].[SP_Orders_Cancelled_L2Brands]    Script Date: 16/02/2026 07:58:57 a. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON

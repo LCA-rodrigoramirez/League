@@ -5,7 +5,7 @@ INSERT INTO AppsLCA.dbo.ImportExport_CommercialInvoice_Status
 VALUES
 ('AIR-APP-20260211','Pending',GETDATE(),NULL,NULL)
 
---update AppsLCA.dbo.ImportExport_CommercialInvoice_Status set Status = 'Pending' WHERE waybill = 'HW-20260212'
+--update AppsLCA.dbo.ImportExport_CommercialInvoice_Status set Status = 'Pending' WHERE waybill = 'AIR-SMS-20260213'
 --update AppsLCA.dbo.ImportExport_CommercialInvoice_Status_Drawback set Status = 'Pending' WHERE waybill = 'AIR-APP-20250319'
 
 INSERT INTO AppsLCA.dbo.ImportExport_CommercialInvoice_Status_Drawback

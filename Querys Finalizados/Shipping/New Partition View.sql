@@ -1,12 +1,18 @@
 USE [LCA]
 GO
 
-/****** Object:  View [dboReaders].[VW_PACKED_PARTITION_PONUMBER_PACKED]    Script Date: 06/06/2025 10:33:23 a. m. ******/
+/****** Object:  View [dboReaders].[VW_PACKED_PARTITION_PONUMBER_PACKED]    Script Date: 16/02/2026 08:02:23 a. m. ******/
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
+
+
+
+
+
+
 
 
 
@@ -53,6 +59,12 @@ WITH CTE AS (SELECT
 		,TBMO.CountryOfOrigin							as [CountryOfOrigin]
 		,ManufactureOrders.ManufactureID				as ManufactureID
 		,ManufactureOrders.ManufactureNumber
+		,Styles.Comments9								AS ProductDivision
+		,CASE 
+			WHEN ( Orders.[PONumber] LIKE 'ORD%') AND CHARINDEX('-',Orders.Comments6) > 0 
+				THEN SUBSTRING(Orders.Comments6,1,CHARINDEX('-',Orders.Comments6) -1) 
+			ELSE Orders.Comments6 END						AS CustomerOrder					
+
 
 	FROM                PackedItems                         WITH (NOLOCK)
 		LEFT OUTER JOIN FinishedGoods                       WITH (NOLOCK)
@@ -115,6 +127,7 @@ WITH CTE AS (SELECT
 		 and (PackedBoxes.OrderID IS NOT NULL)
         --AND PackedPallets.PalletNumber IS NOT NULL
         AND GB.Bin IS NOT NULL
+		AND (GB.Bin LIKE 'Skid%' OR GB.Bin LIKE 'RT%' OR GB.Bin LIKE 'AIR%' OR GB.Bin LIKE 'SM%' OR GB.Bin LIKE 'TRUCK%')
         -- and orders2.ponumber = 'PO021122-STOCK-LCA'
         -- AND Orders2.OrderID=    181773
         -- AND Orders2.PONumber LIKE '%po021122-stock-lca%'
@@ -139,12 +152,15 @@ WITH CTE AS (SELECT
 --SELECT * FROM CTE WHERE BOXNUMBER ='00648574'
 
 SELECT top 100 percent
-     CONCAT(TB.[TariffCategory],'-',
-	    TB.CountryOfOrigin,'-',
-		TB.[SeasonF],'_'
-        ,FORMAT(ISNULL(TBG.[ROWF],
-          (TBG_2.[ROWF] +10000)
-        ),'0000') )     AS [KeyDat]
+
+------------- SE MODIFICÓ PARA REALIZAR UN SOLO SHIPMENT
+  --   CONCAT(TB.[TariffCategory],'-',
+	 --   TB.CountryOfOrigin,'-',
+		--TB.[SeasonF],'_'
+  --      ,FORMAT(ISNULL(TBG.[ROWF],
+  --        (TBG_2.[ROWF] +10000)
+  --      ),'0000') )     AS [KeyDat]
+  [KeyDat] = 'ONE SHIPMENT'
     -- ,TBG.[ROWF]
     ,TB.[OrderID]
     ,TB.[PONumber]
@@ -163,6 +179,8 @@ SELECT top 100 percent
     ,TB.[STATUS]
 	,TB.[BasePrice]
 	,TB.[TotalPrintValue]
+	,TB.ProductDivision
+	,TB.CustomerOrder
 
 FROM CTE AS TB
 LEFT OUTER JOIN  (
@@ -242,13 +260,14 @@ LEFT OUTER JOIN  (
 -- WHERE TB.PONumber ='ORD-2796736'
 -- WHERE TB.PONumber ='PO0728-STOCK-LCA'
 GROUP BY 
-      CONCAT(TB.[TariffCategory],'-',
-	    TB.CountryOfOrigin,'-',
-	    TB.[SeasonF],'_'
-        ,FORMAT(ISNULL(TBG.[ROWF],
-          (TBG_2.[ROWF] +10000)
-        ),'0000') )   
-    ,TB.[OrderID]
+------------- SE MODIFICÓ PARA REALIZAR UN SOLO SHIPMENT
+     -- CONCAT(TB.[TariffCategory],'-',
+	    --TB.CountryOfOrigin,'-',
+	    --TB.[SeasonF],'_'
+     --   ,FORMAT(ISNULL(TBG.[ROWF],
+     --     (TBG_2.[ROWF] +10000)
+     --   ),'0000') )   
+    TB.[OrderID]
     ,TB.[PONumber]
     ,TB.[StyleNumber]
     ,TB.[StyleColor]
@@ -265,17 +284,20 @@ GROUP BY
     ,TB.[STATUS]
 	,TB.[BasePrice]
 	,TB.[TotalPrintValue]
+	,TB.ProductDivision
+	,TB.CustomerOrder
 
     -- ,TBG.[ROWF]
     -- ,TBG_2.[ROWF]
 ORDER BY 
-         CONCAT(TB.[TariffCategory],'-',
-		 TB.CountryOfOrigin,'-',
-		 TB.[SeasonF],'_'
-        ,FORMAT(ISNULL(TBG.[ROWF],
-          (TBG_2.[ROWF] +10000)
-        ),'0000') )
-        ,TB.[OrderID]
+------------- SE MODIFICÓ PARA REALIZAR UN SOLO SHIPMENT
+   --      CONCAT(TB.[TariffCategory],'-',
+		 --TB.CountryOfOrigin,'-',
+		 --TB.[SeasonF],'_'
+   --     ,FORMAT(ISNULL(TBG.[ROWF],
+   --       (TBG_2.[ROWF] +10000)
+   --     ),'0000') )
+        TB.[OrderID]
         ,TB.[PONumber]
         ,TB.[BoxNumber]
 		

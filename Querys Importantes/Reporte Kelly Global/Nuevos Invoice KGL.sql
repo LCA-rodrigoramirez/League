@@ -1,0 +1,16 @@
+SELECT 
+*
+FROM AppsLCA.dbo.TB_Transfer_WaybillEntry_AfterPSC
+WHERE [Entry #] = 'BHE04273542'
+
+UPDATE WE SET
+	InvoiceLCA = 'NO CAFTA RULE 9802'
+	,[Invoice #] = '8'
+	,Waybill = 'AIR-BUND-20250326'
+FROM AppsLCA.dbo.TB_Transfer_WaybillEntry_AfterPSC AS WE
+WHERE [Entry #] = 'BHE04274003' AND ID = 1161
+
+INSERT INTO AppsLCA.dbo.TB_Transfer_WaybillEntry_AfterPSC
+VALUES
+('2025-03-26','AIR-HW-20250326','NO CAFTA RULE 9802','81042708153','2025-03-28','BHE04274003','9',1,GETDATE(),NULL)
+
