@@ -16,7 +16,7 @@ BEGIN
 	DROP TABLE IF EXISTS #ORDERS;
 	DROP TABLE IF EXISTS #DIGITIZING;
 	DROP TABLE IF EXISTS #APPLIQUE;
-	DROP TABLE IF EXISTS [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW];
+	DROP TABLE IF EXISTS #TB_Final;
 
 SELECT
 	OE.ItemDetailID
@@ -74,7 +74,7 @@ SELECT
 	,VLG.OrderTypeID AS OrderTypeID2
 	,VLD3.ThreadID
 	,VLA.AppliqueColor
-INTO [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW]
+INTO #TB_Final
 	
 FROM #DIGITIZING VLD WITH (NOLOCK)
 
@@ -275,6 +275,12 @@ GROUP BY
 		,VLG.OrderTypeID
 		,VLD3.ThreadID
 		,VLA.AppliqueColor
+
+TRUNCATE TABLE [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW];
+
+INSERT INTO [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_HW]
+SELECT *
+FROM #TB_Final;
 END
 GO
 
