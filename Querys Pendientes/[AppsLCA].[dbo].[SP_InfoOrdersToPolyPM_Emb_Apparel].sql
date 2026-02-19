@@ -249,11 +249,11 @@ INNER JOIN
 								,STRING_AGG(RTRIM(AppliqueMaterial), ',') WITHIN GROUP (ORDER BY EmbType) AS AppliqueMaterial
 							FROM
 								(
-								SELECT 
+								SELECT DISTINCT
 									 CASE 
-										WHEN (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM AppsLCA.legacycaps.VW_view_LCA_Applique VV WITH (NOLOCK) 
+										WHEN (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
 												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location]) = 0 AND LogoStyleName LIKE '%Foam%' THEN 1
-										ELSE (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM AppsLCA.legacycaps.VW_view_LCA_Applique VV WITH (NOLOCK) 
+										ELSE (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
 												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location])
 										END as Num_Applique
 									,VVLA.ItemDetailID
@@ -269,7 +269,7 @@ INNER JOIN
 						) AS App_Mat ON VVLA.ItemDetailID = App_Mat.ItemDetailID AND VVLA.[Location] = App_Mat.[Location]
 						LEFT JOIN [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial] AS LAM WITH(NOLOCK) ON VVLA.LogoStyle = LAM.LogoStyle
 						where (LogoStyleName NOT LIKE '%Screen Print%' AND LogoStyleName NOT LIKE '%Over Print%' AND LogoStyleName <> 'Sublimation' AND LogoStyleName NOT LIKE '%High Definition Print%' AND LogoStyleName <> 'Direct White Label') 
-					--	and VVLA.ItemDetailID = 4761254
+						
 						
 					) TB_Ini
 				
@@ -379,7 +379,8 @@ TRUNCATE TABLE [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_Apparel];
 
 INSERT INTO [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_Apparel]
 SELECT *
-FROM #TB_Final;
+FROM #TB_Final
+-- WHERE ItemDetailID = 5517779
 END
 
 GO

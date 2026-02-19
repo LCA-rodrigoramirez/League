@@ -12,7 +12,7 @@ SELECT
 	,TypeChange = 'CAFTA - NO CAFTA RULE 9802'
 INTO #TB_EntrysChange_Cafta_9802
 FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly WITH(NOLOCK)
-WHERE NewTariffCategory = 'NO CAFTA RULE 9802' 
+WHERE NewTariffCategory = 'NO CAFTA RULE 9802'  AND EntryDate <= '2025-11-10'
 AND OriginalTariffCategory IS NULL
 --AND OriginalTariffCategory IS NOT NULL AND New_TotalQty > CI_TotalQty
 AND WayBill IN
@@ -79,7 +79,7 @@ SELECT
 	,TypeChange = 'NO CAFTA - NO CAFTA RULE 9802'
 INTO #TB_EntrysChange_NoCafta_9802
 FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly WITH(NOLOCK)
-WHERE NewTariffCategory = 'NO CAFTA RULE 9802' 
+WHERE NewTariffCategory = 'NO CAFTA RULE 9802'  AND EntryDate <= '2025-11-10'
 AND OriginalTariffCategory IS NULL
 --AND OriginalTariffCategory IS NOT NULL AND New_TotalQty > CI_TotalQty
 AND WayBill NOT IN
@@ -149,7 +149,7 @@ INTO #TB_EntrysPartialChange_NoCafta_9802
 FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly WITH(NOLOCK)
 WHERE NewTariffCategory = 'NO CAFTA RULE 9802' 
 --AND OriginalTariffCategory IS NULL
-AND OriginalTariffCategory IS NOT NULL AND New_TotalQty > CI_TotalQty
+AND OriginalTariffCategory IS NOT NULL AND New_TotalFob <> CI_TotalFob AND EntryDate <= '2025-11-10'
 AND Entry# NOT IN (SELECT DISTINCT Entry# FROM #TB_EntrysChange_NoCafta_9802 
 					UNION
 					SELECT DISTINCT Entry# FROM #TB_EntrysChange_Cafta_9802)
