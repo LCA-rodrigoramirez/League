@@ -1,9 +1,73 @@
 DROP TABLE IF EXISTS #TB_CodesEMB
 DROP TABLE IF EXISTS #TB_OrdersExport
 
+	DROP TABLE IF EXISTS #ORDERS;
+	DROP TABLE IF EXISTS #DIGITIZING;
+	DROP TABLE IF EXISTS #APPLIQUE;
+	DROP TABLE IF EXISTS #TB_Final;
+
+SELECT DISTINCT
+	OE.ItemDetailID
+	,OE.Brand
+	,mo.ManufactureID
+	,od.OrderID
+	,od.PONumber
+INTO #ORDERS
+FROM (SELECT StatusID FROM [192.168.1.53].LCA.dbo.StatusNames sn with (nolock) WHERE StatusID in (40,51,53,55,78)) AS SN
+INNER JOIN
+[192.168.1.53].LCA.dbo.ManufactureOrders mo WITH (NOLOCK)
+ON SN.StatusID = MO.StatusID
+INNER JOIN
+[192.168.1.53].LCA.dbo.Orders od with (nolock)
+ON OD.OrderID = mo.OrderID
+LEFT JOIN
+[192.168.1.53].LCA.dbo.OrderItems oi with (nolock)
+ON od.OrderID = oi.OrderID AND mo.FirstOrderItemID = oi.OrderItemID
+INNER JOIN
+[192.168.1.53].LCA.dbo.Styles st with (nolock)
+ON oi.StyleID = st.StyleID and st.Comments9 LIKE '%Apparel%'
+LEFT JOIN 
+[192.168.1.53].[AppsLCA].[legacycaps].[VW_view_qryLCA_Order_Export] AS OE WITH(NOLOCK)
+ON 'ORD-' + CAST(OE.ItemDetailID AS varchar) = od.PONumber;
+
 SELECT
-	od.OrderID,
-	od.PONumber,
+	CO.ItemDetailID
+	,[Location]
+	,SequenceNo
+	,EmbType
+	,SpoolID
+INTO #DIGITIZING
+FROM #ORDERS AS CO WITH(NOLOCK)
+INNER JOIN AppsLCA.legacycaps.VW_view_LCA_Digitizing VLD WITH (NOLOCK) ON VLD.ItemDetailID = CO.ItemDetailID;
+
+SELECT DISTINCT
+	VVLA.ItemDetailID
+	,VVLA.SKUID
+	,VVLA.EmbType
+	,VVLA.Location
+	,VVLA.DesignItemID
+	,VVLA.DesignItemNo
+	,VVLA.LogoStyle
+	,VVLA.LogoStyleName
+	,VVLA.DesignWidthmm
+	,VVLA.DesignHeightmm
+	,VVLA.DigitizingID
+	,VVLA.DigitizingWidthmm
+	,DigitizingHeightmm
+	,DigitizeDate
+	,DigitizedBy
+	,StitchCount
+	,AppliqueFilename
+	,AppliqueMaterial
+	,AppliqueColor
+INTO #APPLIQUE
+FROM #ORDERS AS CO WITH(NOLOCK)
+INNER JOIN AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
+ON VVLA.ItemDetailID = CO.ItemDetailID;
+
+SELECT 
+	CO.OrderID,
+	CO.PONumber,
 	VLD.ItemDetailID, 
 	ISNULL(VLD2.[Location],VLA.[Location]) AS [Location], 
 	VLA.Codes,
@@ -14,10 +78,12 @@ SELECT
 	,VLA.AppliqueColor
 	,VLG.LogoStyle
 	,VLG.OrderTypeID as OrderTypeID2
+	
+INTO #TB_Final
 
-INTO #TB_CodesEMB
-FROM AppsLCA.legacycaps.VW_view_LCA_Digitizing VLD WITH (NOLOCK)
+FROM #DIGITIZING AS VLD WITH (NOLOCK)
 
+INNER JOIN #ORDERS AS CO WITH(NOLOCK) ON VLD.ItemDetailID = CO.ItemDetailID
 
 LEFT JOIN 
 		(SELECT 
@@ -32,7 +98,7 @@ LEFT JOIN
 				STRING_AGG(SpoolID,',') AS SpoolID,
 				EmbType,
 				MAX(SequenceNo) as SequenceNo 
-			FROM AppsLCA.legacycaps.VW_view_LCA_Digitizing  WITH (NOLOCK)
+			FROM #DIGITIZING  WITH (NOLOCK)
 			--where ItemDetailID = 4098052
 			GROUP BY ItemDetailID,[Location],EmbType
 		) VLD
@@ -51,7 +117,7 @@ LEFT JOIN
 				[Location],
 				SpoolID,
 				EmbType
-			FROM AppsLCA.legacycaps.VW_view_LCA_Digitizing  WITH (NOLOCK)
+			FROM #DIGITIZING WITH (NOLOCK)
 			--where ItemDetailID = 4098052
 		) VLD
 		GROUP BY ItemDetailID) 
@@ -175,7 +241,8 @@ INNER JOIN
 							,App_Mat.AppliqueColor
 							,LAM.AppliqueMaterial
 							,App_Mat.Num_Applique
-						FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK) 
+						FROM #APPLIQUE AS VVLA WITH(NOLOCK)
+						
 						LEFT JOIN 
 						(
 							SELECT
@@ -186,20 +253,19 @@ INNER JOIN
 								,STRING_AGG(RTRIM(AppliqueMaterial), ',') WITHIN GROUP (ORDER BY EmbType) AS AppliqueMaterial
 							FROM
 								(
-								SELECT 
+								SELECT DISTINCT
 									 CASE 
-										WHEN (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM AppsLCA.legacycaps.VW_view_LCA_Applique VV WITH (NOLOCK) 
-												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY ItemDetailID,[Location]) = 0 AND LogoStyleName LIKE '%Foam%' THEN 1
-										ELSE (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM AppsLCA.legacycaps.VW_view_LCA_Applique VV WITH (NOLOCK) 
-												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY ItemDetailID,[Location])
+										WHEN (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
+												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location]) = 0 AND LogoStyleName LIKE '%Foam%' THEN 1
+										ELSE (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
+												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location])
 										END as Num_Applique
-									,ItemDetailID
+									,VVLA.ItemDetailID
 									,[Location]
 									,AppliqueColor
 									,EmbType
 									,AppliqueMaterial
-								FROM
-								AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
+								FROM #APPLIQUE AS VVLA WITH(NOLOCK)
 								) AS TB
 							GROUP BY
 								ItemDetailID
@@ -207,7 +273,7 @@ INNER JOIN
 						) AS App_Mat ON VVLA.ItemDetailID = App_Mat.ItemDetailID AND VVLA.[Location] = App_Mat.[Location]
 						LEFT JOIN [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial] AS LAM WITH(NOLOCK) ON VVLA.LogoStyle = LAM.LogoStyle
 						where (LogoStyleName NOT LIKE '%Screen Print%' AND LogoStyleName NOT LIKE '%Over Print%' AND LogoStyleName <> 'Sublimation' AND LogoStyleName NOT LIKE '%High Definition Print%' AND LogoStyleName <> 'Direct White Label') 
-					--	and VVLA.ItemDetailID = 4761254
+						AND VVLA.ItemDetailID = 5534057
 						
 					) TB_Ini
 				
@@ -256,7 +322,7 @@ INNER JOIN
 						,VVLA.EmbType
 						,VVLA.LogoStyle AS LogoStyleL2
 						,IIF(LG.LogoStyle IS NULL, 'TBD', LG.LogoStyle) AS LogoStyle
-					FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK) 
+					FROM #APPLIQUE AS VVLA WITH(NOLOCK)
 					LEFT JOIN OPENQUERY([MARIADB],'SELECT LogoStyle, OrderTypeDescription AS OrdType FROM wordpress.L2Brands_LogoStyle') AS LG ON VVLA.LogoStyle = LG.LogoStyle
 				) AS TB
 				LEFT JOIN
@@ -269,7 +335,7 @@ INNER JOIN
 						SELECT DISTINCT
 							 VVLA.ItemDetailID
 							,IIF(LG.OrderType IS NULL, 'TBD', LG.OrderType) AS OrderType
-						FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK) 
+						FROM #APPLIQUE AS VVLA WITH(NOLOCK)
 						LEFT JOIN OPENQUERY([MARIADB],'SELECT LogoStyle, OrderTypeDescription AS OrderType FROM wordpress.L2Brands_LogoStyle') AS LG ON VVLA.LogoStyle = LG.LogoStyle
 						--ORDER BY ItemDetailID
 					) AS TB_OT
@@ -280,26 +346,44 @@ INNER JOIN
 			) AS TB_F
 		) AS VLG ON VLD.ItemDetailID = VLG.ItemDetailID
 
-LEFT JOIN 
-	[192.168.1.53].LCA.dbo.Orders od with (nolock)
-	ON 'ORD-' + CAST(VLD.ItemDetailID AS varchar) = od.PONumber
+-- LEFT JOIN 
+-- 	[192.168.1.53].LCA.dbo.Orders od with (nolock)
+-- 	ON 'ORD-' + CAST(VLD.ItemDetailID AS varchar) = od.PONumber
 
-INNER JOIN
-	[192.168.1.53].LCA.dbo.ManufactureOrders mo WITH (NOLOCK)
-	ON od.OrderID = mo.OrderID AND MO.StatusID <= 90			
-LEFT JOIN
-	[192.168.1.53].LCA.dbo.OrderItems oi with (nolock)
-	ON od.OrderID = oi.OrderID AND mo.FirstOrderItemID = oi.OrderItemID
-INNER JOIN
-	[192.168.1.53].LCA.dbo.Styles st with (nolock)
-	ON oi.StyleID = st.StyleID and st.Comments9 LIKE '%Apparel%'
+-- INNER JOIN
+-- 	[192.168.1.53].LCA.dbo.ManufactureOrders mo WITH (NOLOCK)
+-- 	ON od.OrderID = mo.OrderID AND MO.StatusID < 90			
+-- LEFT JOIN
+-- 	[192.168.1.53].LCA.dbo.OrderItems oi with (nolock)
+-- 	ON od.OrderID = oi.OrderID AND mo.FirstOrderItemID = oi.OrderItemID
+-- INNER JOIN
+-- 	[192.168.1.53].LCA.dbo.Styles st with (nolock)
+-- 	ON oi.StyleID = st.StyleID and st.Comments9 LIKE '%Apparel%'
 
 LEFT JOIN 
 	(SELECT * FROM OPENQUERY([MARIADB],'SELECT * FROM wordpress.Embelishment_Location_L2B_PPM')) EL2BPPM
 	ON EL2BPPM.[Location_L2B] = VLD2.[Location]
 
 --WHERE VLA.Codes LIKE '0%'
-GROUP BY od.OrderID,VLD.ItemDetailID, od.PONumber,ISNULL(VLD2.[Location],VLA.[Location]), VLD2.SequenceNo,VLA.StitchCount,VLA.Codes,EL2BPPM.ID_PPM_Location,VLD3.ThreadID,VLA.AppliqueColor,VLG.LogoStyle,VLG.OrderTypeID
+GROUP BY 
+	 CO.OrderID
+	,VLD.ItemDetailID
+	,CO.PONumber
+	,ISNULL(VLD2.[Location],VLA.[Location])
+	,VLD2.SequenceNo
+	,VLA.StitchCount
+	,VLA.Codes
+	,EL2BPPM.ID_PPM_Location
+	,VLD3.ThreadID
+	,VLA.AppliqueColor
+	,VLG.LogoStyle
+	,VLG.OrderTypeID
+
+
+SELECT
+*
+INTO #TB_CodesEmb
+FROM #TB_Final
 
  SELECT DISTINCT
 	 OD.OrderID
@@ -347,12 +431,15 @@ SELECT
 	 OD.OrderID
 	,OD.PONumber
 	,OD.Comments26
+	,vvla.app
 	,CE.*
 	--UPDATE OD SET
 	--Comments26 = CE.Codes
 FROM #TB_CodesEMB AS CE
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON CE.OrderID = OD.OrderID
-WHERE Codes LIKE '%0%'
+INNER JOIN (SELECT ItemDetailID,COUNT(AppliqueMaterial) as app FROM AppsLCA.legacycaps.VW_view_LCA_Applique GROUP BY ItemDetailID) AS VVLA ON CE.ItemDetailID = vvla.ItemDetailID
+WHERE LEFT(Codes,1) <> VVLA.app
+
 
 
 --SELECT
