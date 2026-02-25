@@ -795,10 +795,10 @@ ORDER BY
      COALESCE(TBC.[YearEntry], TBA.[YearEntry])
     ,COALESCE(TBC.[MonthEntry], TBA.[MonthEntry])
 
-RETURN
 
-SELECT * FROM #TB_CI_New 
-WHERE TypeData = 'NO CAFTA RULE 9802'
+
+-- SELECT * FROM #TB_CI_New 
+-- WHERE TypeData = 'NO CAFTA RULE 9802'
 -- UPDATE TBS SET
 --      [CI_TotalQty]      = TBC.[CI_TotalQty]
 --     ,[CI_TotalFOB]      = TBC.[CI_TotalFOB]
@@ -1117,13 +1117,50 @@ WHERE TypeData = 'NO CAFTA RULE 9802'
 -- INSERT INTO AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
 -- SELECT * FROM #TB_Summary WHERE WayBill = 'AIR-BUND-20240724'
 
-SELECT * FROM #TB_CI_New WHERE Entry# = 'BHE04203689' 
+-- SELECT * FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
+-- SELECT TOP 1 * FROM #TB_Summary
+
+-- SELECT * FROM #TB_CI_New WHERE Entry# = 'BHE04203689' 
 
 DROP TABLE IF EXISTS AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
 
 SELECT * 
 INTO AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
 FROM #TB_Summary
+
+RETURN
+
+INSERT INTO AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
+SELECT *
+FROM #TB_Summary
+WHERE Entry# IN (
+
+'BHE04315368'
+,'BHE04315905'
+,'BHE04316028'
+,'BHE04316416'
+,'BHE04316473'
+,'BHE04316648'
+,'BHE04316762'
+,'BHE04316887'
+,'BHE04316945'
+,'BHE04317141'
+,'BHE04317331'
+,'BHE04317471'
+,'BHE04317513'
+,'BHE04317521'
+,'BHE04319816'
+,'BHE04319824'
+,'BHE04319964'
+,'BHE04320004'
+,'BHE04320269'
+,'BHE04320285'
+,'BHE04320772'
+,'BHE04320848'
+,'BHE04320871'
+
+)
+
 -- where [Entry#] not Like '%BHE04309999%'
 
 return
