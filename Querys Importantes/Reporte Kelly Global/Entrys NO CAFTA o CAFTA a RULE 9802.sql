@@ -166,6 +166,10 @@ SELECT
 	,EntryDate
 	,STRING_AGG(TypeChange, ',') AS TypeChange
 	,TotalDrawback = CAST(NULL AS decimal(18,2))
+	,[301China_Drawback] = CAST(NULL AS decimal(18,2))
+	,Fentanyl_Drawback = CAST(NULL AS decimal(18,2))
+	,Reciprocal_Drawback = CAST(NULL AS decimal(18,2))
+	,HTS_Drawback = CAST(NULL AS decimal(18,2))
 INTO #TB_AllEntriesWithDrawback
 FROM
 (
@@ -189,14 +193,32 @@ YearEntry
 
 UPDATE NR SET
 	TotalDrawback = Res.Drawback
+	,[301China_Drawback] = RES.DrawBack301China
+	,Fentanyl_Drawback = Res.DrawBackFentayl
+	,Reciprocal_Drawback = Res.DrawBackReciprocal
+	,HTS_Drawback = Res.DrawBackHTS
 FROM #TB_AllEntriesWithDrawback AS NR
 INNER JOIN 
 (
 	SELECT
 		Entry#
 		,Drawback = SUM(NewDrawBack)
+		,DrawBack301China = SUM(DrawBack301China)
+		,DrawBackFentayl = SUM(DrawBackFenta)
+		,DrawBackReciprocal = SUM(DrawBackRecip)
+		,DrawBackHTS = SUM(DrawBackHTS)
 	FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly AS SNCK WITH(NOLOCK)
 	GROUP BY Entry#
 ) AS Res ON NR.Entry# = Res.Entry#
 
-SELECT * FROM #TB_AllEntriesWithDrawback
+SELECT  
+	YearEntry
+	,Entry#
+	,EntryDate
+	,TypeChange
+	,[301China_Drawback]
+	,Fentanyl_Drawback
+	,Reciprocal_Drawback
+	,HTS_Drawback
+	,TotalDrawback
+FROM #TB_AllEntriesWithDrawback

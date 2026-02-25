@@ -1072,7 +1072,7 @@ INNER JOIN (
 				    AND B.[CountryOfOrigin] = S.[CountryOfOrigin]
 				    AND B.[DateTo]          = S.[DateTo]
 			) AS TT2  ON    TT2.[Type] = A.[ProductDivision]
-										AND TT2.[CountryOfOrigin] = A.[FAMOCountryOfOrigin]
+										AND TT2.[CountryOfOrigin] = ISNULL(A.[FAMOCountryOfOrigin], A.[CountryOfOrigin])
 										AND        A.[ExportDate] > TT2.[DateFrom]  
 										 
 							
@@ -1358,6 +1358,8 @@ FROM #TB_Transfer_Trazabilidad
 -- WHERE [Entry #] = 'BHE04254518'
 order by R
 
+
+select * from [AppsLCA].[dbo].[TB_Transfer_Validation_allExport_AfterPSC] WHERE FinalComment <> 'OK'
 RETURN
 
 SELECT 

@@ -7,13 +7,21 @@ DROP TABLE IF EXISTS #TB_OrdersExport
 	DROP TABLE IF EXISTS #TB_Final;
 
 SELECT DISTINCT
-	OE.ItemDetailID
+	ItemDetailID	= CASE
+						WHEN OE.ItemDetailID IS NOT NULL THEN OE.ItemDetailID
+						WHEN ( od.[PONumber] LIKE 'ORD-PO%') THEN
+							NULL
+						WHEN ( od.[PONumber] LIKE 'ORD-%') and ( ISNUMERIC ( REPLACE ( od.[PONumber],'ORD-','') ) = 1)  THEN
+							cast(REPLACE ( od.[PONumber],'ORD-','') AS BIGINT)
+						ELSE
+							NULL
+						END 
 	,OE.Brand
 	,mo.ManufactureID
 	,od.OrderID
 	,od.PONumber
 INTO #ORDERS
-FROM (SELECT StatusID FROM [192.168.1.53].LCA.dbo.StatusNames sn with (nolock) WHERE StatusID in (40,51,53,55,78)) AS SN
+FROM (SELECT StatusID FROM [192.168.1.53].LCA.dbo.StatusNames sn with (nolock) WHERE StatusID in (40,51,53,55,78,90)) AS SN
 INNER JOIN
 [192.168.1.53].LCA.dbo.ManufactureOrders mo WITH (NOLOCK)
 ON SN.StatusID = MO.StatusID
@@ -28,7 +36,7 @@ INNER JOIN
 ON oi.StyleID = st.StyleID and st.Comments9 LIKE '%Apparel%'
 LEFT JOIN 
 [192.168.1.53].[AppsLCA].[legacycaps].[VW_view_qryLCA_Order_Export] AS OE WITH(NOLOCK)
-ON 'ORD-' + CAST(OE.ItemDetailID AS varchar) = od.PONumber;
+ON 'ORD-' + CAST(OE.ItemDetailID AS varchar) = od.PONumber
 
 SELECT
 	CO.ItemDetailID
@@ -38,7 +46,7 @@ SELECT
 	,SpoolID
 INTO #DIGITIZING
 FROM #ORDERS AS CO WITH(NOLOCK)
-INNER JOIN AppsLCA.legacycaps.VW_view_LCA_Digitizing VLD WITH (NOLOCK) ON VLD.ItemDetailID = CO.ItemDetailID;
+INNER JOIN AppsLCA.legacycaps.VW_view_LCA_Digitizing VLD WITH (NOLOCK) ON VLD.ItemDetailID = CO.ItemDetailID
 
 SELECT DISTINCT
 	VVLA.ItemDetailID
@@ -63,7 +71,7 @@ SELECT DISTINCT
 INTO #APPLIQUE
 FROM #ORDERS AS CO WITH(NOLOCK)
 INNER JOIN AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
-ON VVLA.ItemDetailID = CO.ItemDetailID;
+ON VVLA.ItemDetailID = CO.ItemDetailID
 
 SELECT 
 	CO.OrderID,
@@ -255,10 +263,10 @@ INNER JOIN
 								(
 								SELECT DISTINCT
 									 CASE 
-										WHEN (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
-												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location]) = 0 AND LogoStyleName LIKE '%Foam%' THEN 1
-										ELSE (SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
-												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] GROUP BY VV.ItemDetailID,[Location])
+										WHEN ISNULL((SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
+												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] AND VVLA.AppliqueMaterial IS NOT NULL GROUP BY VV.ItemDetailID,[Location]),0) = 0 AND LogoStyleName LIKE '%Foam%' THEN 1
+										ELSE ISNULL((SELECT COUNT(AppliqueMaterial) as AppliqueMaterial FROM #APPLIQUE VV WITH (NOLOCK) 
+												WHERE VV.ItemDetailID = VVLA.ItemDetailID AND VV.[Location] = VVLA.[Location] AND VVLA.AppliqueMaterial IS NOT NULL GROUP BY VV.ItemDetailID,[Location]),0)
 										END as Num_Applique
 									,VVLA.ItemDetailID
 									,[Location]
@@ -266,6 +274,7 @@ INNER JOIN
 									,EmbType
 									,AppliqueMaterial
 								FROM #APPLIQUE AS VVLA WITH(NOLOCK)
+								-- where vvla.ItemDetailID in (5235241,5178518)
 								) AS TB
 							GROUP BY
 								ItemDetailID
@@ -273,7 +282,7 @@ INNER JOIN
 						) AS App_Mat ON VVLA.ItemDetailID = App_Mat.ItemDetailID AND VVLA.[Location] = App_Mat.[Location]
 						LEFT JOIN [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial] AS LAM WITH(NOLOCK) ON VVLA.LogoStyle = LAM.LogoStyle
 						where (LogoStyleName NOT LIKE '%Screen Print%' AND LogoStyleName NOT LIKE '%Over Print%' AND LogoStyleName <> 'Sublimation' AND LogoStyleName NOT LIKE '%High Definition Print%' AND LogoStyleName <> 'Direct White Label') 
-						AND VVLA.ItemDetailID = 5534057
+						-- AND VVLA.ItemDetailID = 5534057
 						
 					) TB_Ini
 				
@@ -391,39 +400,39 @@ FROM #TB_Final
 	,OD.Comments26
 	,SH.WayBill
 INTO #TB_OrdersExport
-FROM (SELECT ShipmentID,WayBill FROM [192.168.1.53].LCA.dbo.Shipments AS SH WITH(NOLOCK) WHERE WayBill LIKE '%20260213%') AS SH
+FROM (SELECT ShipmentID,WayBill FROM [192.168.1.53].LCA.dbo.Shipments AS SH WITH(NOLOCK) WHERE WayBill LIKE '%20260224%') AS SH
 INNER JOIN [192.168.1.53].LCA.dbo.PackedBoxes							AS PB	WITH(NOLOCK) ON SH.ShipmentID		= PB.ShipmentID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders								AS OD	WITH(NOLOCK) ON PB.OrderID			= OD.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON OD.OrderID			= MO.OrderID AND MO.StatusID <= 90
 INNER JOIN [192.168.1.53].AppsLCA.dbo.TB_MO_PartNumber_IM_MOProcess	AS MOP	WITH(NOLOCK) ON MO.ManufactureID	= MOP.ManufactureID AND (EmbAPP = 1)
-
+--WHERE PONumber = 'ORD-5616598'
 -- SELECT DISTINCT
---	 OD.OrderID
---	,OD.PONumber
---	,OD.Comments26
---INTO #TB_OrdersExport
+-- 	 OD.OrderID
+-- 	,OD.PONumber
+-- 	,OD.Comments26
+-- INTO #TB_OrdersExport
 
---FROM (SELECT ShipmentID,OrderID FROM [192.168.1.53].LCA.dbo.PackedBoxes	AS PB	WITH(NOLOCK) WHERE StatusID IN (25,27)) AS PB
---INNER JOIN [192.168.1.53].LCA.dbo.Orders								AS OD	WITH(NOLOCK) ON PB.OrderID			= OD.OrderID
---INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON OD.OrderID			= MO.OrderID AND MO.StatusID <= 90
---INNER JOIN [192.168.1.53].AppsLCA.dbo.TB_MO_PartNumber_IM_MOProcess	AS MOP	WITH(NOLOCK) ON MO.ManufactureID	= MOP.ManufactureID AND (EmbAPP = 1)
+-- FROM (SELECT ShipmentID,OrderID FROM [192.168.1.53].LCA.dbo.PackedBoxes	AS PB	WITH(NOLOCK) WHERE StatusID IN (25,27)) AS PB
+-- INNER JOIN [192.168.1.53].LCA.dbo.Orders								AS OD	WITH(NOLOCK) ON PB.OrderID			= OD.OrderID
+-- INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON OD.OrderID			= MO.OrderID AND MO.StatusID <= 90
+-- INNER JOIN [192.168.1.53].AppsLCA.dbo.TB_MO_PartNumber_IM_MOProcess	AS MOP	WITH(NOLOCK) ON MO.ManufactureID	= MOP.ManufactureID AND (EmbAPP = 1)
 
 
 SELECT 
 	OE.OrderID
 	,OE.PONumber
 	,OE.Comments26
-	,OE.WayBill
+	-- ,OE.WayBill
 	,CE.ItemDetailID
 	,CE.Codes
 	,CE.StitchCount
 	,CE.LogoStyle
---UPDATE OD SET
---	Comments26 = 'CA2'
+-- UPDATE OD SET
+-- 	Comments26 = CE.Codes
 FROM #TB_OrdersExport AS OE
-INNER JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
+LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID IN (5534220,5534244)
+WHERE OE.Comments26 <> CE.Codes
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
 
@@ -433,15 +442,30 @@ SELECT
 	,OD.Comments26
 	,vvla.app
 	,CE.*
-	--UPDATE OD SET
-	--Comments26 = CE.Codes
+	-- UPDATE OD SET
+	-- Comments26 = CE.Codes
 FROM #TB_CodesEMB AS CE
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON CE.OrderID = OD.OrderID
 INNER JOIN (SELECT ItemDetailID,COUNT(AppliqueMaterial) as app FROM AppsLCA.legacycaps.VW_view_LCA_Applique GROUP BY ItemDetailID) AS VVLA ON CE.ItemDetailID = vvla.ItemDetailID
-WHERE LEFT(Codes,1) <> VVLA.app
+WHERE Codes <> OD.Comments26
+-- LEFT(Codes,1) <> VVLA.app
+
+SELECT
+*
+FROM [AppsLCA].[dbo].[InfoOrdersToPolyPM_Emb_Apparel]
+where ItemDetailID = 5461466
+
+-- SELECT*
+-- FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
+-- WHERE ItemDetailID in (5616598)
 
 
-
+SELECT *
+FROM AppsLCA.legacycaps.VW_view_LCA_DesignColors VVLA WITH (NOLOCK)
+WHERE ItemDetailID = 5631957
+-- SELECT *
+-- FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
+-- WHERE DesignNo = 'DTG069764'
 --SELECT
 --*
 --FROM [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial]
