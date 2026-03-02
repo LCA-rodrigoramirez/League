@@ -1,14 +1,19 @@
 USE [AppsLCA]
 GO
 
-/****** Object:  View [dbo].[VW_InfoOrdersToPolyPM]    Script Date: 13/02/2026 01:56:54 p. m. ******/
+/****** Object:  View [L2Brand].[VW_L2Brands_Units_Invoiced]    Script Date: 27/02/2026 08:44:21 a. m. ******/
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE OR ALTER VIEW [L2Brand].[VW_L2Brands_Units_Invoiced]
+
+
+
+
+
+ALTER   VIEW [L2Brand].[VW_L2Brands_Units_Invoiced]
 AS
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ----------VISTA PARA L2B INVOICE LCA-------------------------------------------------------------------------------------------------------------------------------------------
@@ -18,45 +23,69 @@ AS
 ------2) Consolida base de facturacion historica por Waybill/Box/MO/Style/Color/Size.
 ------3) Cruza packed items + shipment + ordenes + estilos para construir el detalle final.
 ------4) Determina precio facturado segun fecha de cambio de regla.
-
+--;
 WITH CTE_Prices
 AS
 (
     ----Embarques a considerar para la vista (fecha de inicio de proceso)
     SELECT
-         *
+          [id]
+		 ,SCP.[Waybill]
+		 ,ISNULL(SCP.[ShipDate], AF.ShipDate) AS ShipDate
     FROM AppsLCA.dbo.TB_ShipmentCheckPrices AS SCP WITH (NOLOCK)
-    WHERE SCP.ShipDate >= '2026-02-01'
+	INNER JOIN
+	( SELECT DISTINCT 
+		Waybill
+		,ShipDate
+	  FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH (NOLOCK)
+	) AS AF ON SCP.Waybill = AF.Waybill
+    WHERE ISNULL(SCP.[ShipDate], AF.ShipDate) >= '2026-02-01'
+
+	
+	
 ),
 CTE_Bill
 AS
 (
     ----Base de facturacion consolidada por combinacion clave
     SELECT
-         Waybill
-        ,BoxNumber
-        ,ManufactureID
-        ,StyleNumber
-        ,StyleColor
-        ,[Size]
-        ,BasePrice
-    FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH (NOLOCK)
+         [Waybill]         = AF.[Waybill]
+		,[ManufactureID]   = AF.[ManufactureID]
+		,[StyleNumber]     = AF.[StyleNumber]
+		,[StyleColor]      = AF.[StyleColor]
+		,[Size]            = AF.[Size]
+		,[BasePrice]       = AF.[BasePrice]
+		,[Quantity]		   = SUM(AF.[Qty])
+    FROM CTE_Prices AS CP
+	INNER JOIN AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH (NOLOCK) ON CP.Waybill = AF.Waybill
     GROUP BY
-         Waybill
-        ,BoxNumber
-        ,ManufactureID
-        ,StyleNumber
-        ,StyleColor
-        ,[Size]
-        ,BasePrice
+         AF.[Waybill]
+        ,AF.[BoxNumber]
+        ,AF.[ManufactureID]
+        ,AF.[StyleNumber]
+        ,AF.[StyleColor]
+        ,AF.[Size]
+        ,AF.[BasePrice]
+)
+,
+CTE_L2BrandInv
+AS
+(
+	SELECT
+		Style
+		,Color
+		,Size
+		,InvItemID
+		,ROW_NUMBER() OVER(PARTITION BY Style, Color, Size ORDER BY Style, Color, Size) AS R
+	FROM AppsLCA.legacycaps.VW_LCA_L2B_InventoryID AS L2BInv WITH(NOLOCK)
 ),
 CTE_Final
 AS
 (
     SELECT
-        [Size]            = FG.GarmentSize
+        [Size]             = AF.Size
         ,[StyleColor]      = SCPD.Color
-        ,[Quantity]        = SUM(PBI.Quantity)
+        ,[Quantity]        = SUM(AF.Quantity)
         ,[Style]           = AF.StyleNumber
         ,[StyleID]         = SCPD.StyleID
         ,[TransactionDate] = SCP.ShipDate
@@ -75,29 +104,21 @@ AS
                             END
         ,[StyleOption]     = SCPD.StyleOption
         ,[Waybill]         = SCP.Waybill
-        -- ,[StyleOptionID] = SCPD.StyleOptionID
-        -- ,[Season]        = SCPD.Season
-    FROM CTE_Prices                                AS SCP    WITH (NOLOCK)
-    INNER JOIN AppsLCA.dbo.TB_ShipmentCheckPricesDetail AS SCPD   WITH (NOLOCK) ON SCP.ID             = SCPD.shipmentCheckPrices_id
-    INNER JOIN LCA.dbo.PackedItems                 AS PBI    WITH (NOLOCK) ON SCPD.ManufactureID      = PBI.ManufactureID
-                                                                        AND PBI.Quantity > 0
-    INNER JOIN LCA.dbo.PackedBoxes                 AS PB     WITH (NOLOCK) ON PBI.PackedBoxID         = PB.PackedBoxID
-    INNER JOIN LCA.dbo.Shipments                   AS SH     WITH (NOLOCK) ON PB.ShipmentID           = SH.ShipmentID
-                                                                        AND SCP.Waybill                = SH.WayBill
-    INNER JOIN LCA.dbo.FinishedGoods               AS FG     WITH (NOLOCK) ON FG.FinishedGoodsID      = PBI.FinishedGoodsID
-    INNER JOIN LCA.dbo.Orders                      AS OD     WITH (NOLOCK) ON SCPD.OrderID            = OD.OrderID
-    INNER JOIN LCA.dbo.Styles                      AS ST     WITH (NOLOCK) ON ST.StyleID              = FG.StyleID
-    LEFT JOIN LCA.dbo.Styles                       AS STB    WITH (NOLOCK) ON STB.StyleID             = ST.BlankStyleID
-    LEFT JOIN AppsLCA.legacycaps.VW_LCA_L2B_InventoryID AS L2BInv WITH (NOLOCK) ON ISNULL(STB.StyleNumber, SCPD.Style) = L2BInv.Style
-                                                                        AND SCPD.Color                 = L2BInv.Color
-                                                                        AND FG.GarmentSize             = L2BInv.[Size]
-    LEFT JOIN CTE_Bill                             AS AF     WITH (NOLOCK) ON SCPD.ManufactureID      = AF.ManufactureID
-                                                                        AND ISNULL(STB.StyleNumber, SCPD.Style) = AF.StyleNumber
-                                                                        AND SCPD.Color                 = AF.StyleColor
-                                                                        AND FG.GarmentSize             = AF.[Size]
-                                                                        AND PB.BoxNumber               = AF.BoxNumber
+         --,[StyleOptionID] = SCPD.StyleOptionID
+         --,[Season]        = SCPD.Season
+    FROM CTE_Prices										AS SCP    WITH (NOLOCK)
+    LEFT JOIN CTE_Bill									AS AF     WITH (NOLOCK) ON  SCP.waybill							= AF.Waybill
+    INNER JOIN AppsLCA.dbo.TB_ShipmentCheckPricesDetail AS SCPD   WITH (NOLOCK) ON  SCP.ID								= SCPD.shipmentCheckPrices_id 
+																				AND SCPD.ManufactureID					= AF.ManufactureID
+    INNER JOIN LCA.dbo.Orders							AS OD     WITH (NOLOCK) ON  SCPD.OrderID						= OD.OrderID
+    INNER JOIN LCA.dbo.Styles							AS ST     WITH (NOLOCK) ON  ST.StyleID							= SCPD.StyleID
+    LEFT JOIN  LCA.dbo.Styles							AS STB    WITH (NOLOCK) ON  STB.StyleID							= ST.BlankStyleID
+    LEFT JOIN  CTE_L2BrandInv							AS L2BInv WITH (NOLOCK) ON  ISNULL(STB.StyleNumber, SCPD.Style) = L2BInv.Style
+																				AND SCPD.Color							= L2BInv.Color
+																				AND AF.Size								= L2BInv.[Size]
+																				AND L2BInv.R							= 1
     GROUP BY
-        FG.GarmentSize
+         AF.Size
         ,SCPD.Color
         ,AF.StyleNumber
         ,SCPD.StyleID
@@ -130,11 +151,13 @@ SELECT
     ,[MO_ID]
     ,[ItemDetailID]
     ,[Item #]
-    ,[InvoicedPrice]
+    ,[InvoicedPrice] as Blank_Invoiced_Price
     ,[CustomerPO]
     ,[StyleOption]
     ,[Waybill]
 
 FROM CTE_Final
 -- WHERE Waybill = 'APP-20260218' AND Style = '30008'
+GO
+
 
