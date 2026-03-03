@@ -1,12 +1,13 @@
 USE [AppsLCA]
 GO
 
-/****** Object:  View [L2Brand].[VW_L2Brands_Units_Invoiced]    Script Date: 27/02/2026 08:44:21 a. m. ******/
+/****** Object:  View [L2Brand].[VW_L2Brands_Units_Invoiced]    Script Date: 03/03/2026 07:30:28 a. m. ******/
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
+
 
 
 
@@ -55,6 +56,8 @@ AS
 		,[StyleColor]      = AF.[StyleColor]
 		,[Size]            = AF.[Size]
 		,[BasePrice]       = AF.[BasePrice]
+		,[TotalDecoration] = AF.[Screen_Print] + AF.[Embroidery] + AF.[Sublimation]
+		,[UnitPrice]	   = AF.Price
 		,[Quantity]		   = SUM(AF.[Qty])
     FROM CTE_Prices AS CP
 	INNER JOIN AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH (NOLOCK) ON CP.Waybill = AF.Waybill
@@ -66,6 +69,10 @@ AS
         ,AF.[StyleColor]
         ,AF.[Size]
         ,AF.[BasePrice]
+		,AF.Price
+		,AF.Screen_Print
+		,AF.Embroidery
+		,AF.Sublimation
 )
 ,
 CTE_L2BrandInv
@@ -83,27 +90,36 @@ CTE_Final
 AS
 (
     SELECT
-        [Size]             = AF.Size
-        ,[StyleColor]      = SCPD.Color
-        ,[Quantity]        = SUM(AF.Quantity)
-        ,[Style]           = AF.StyleNumber
-        ,[StyleID]         = SCPD.StyleID
-        ,[TransactionDate] = SCP.ShipDate
-        ,[MO]              = SCPD.MO
-        ,[MO_ID]           = SCPD.ManufactureID
-        ,[ItemDetailID]    = SCPD.ItemDetailID
-        ,[Item #]          = L2BInv.InvItemID
-        ,[InvoicedPrice]   = CASE
-                                WHEN SCP.ShipDate < '2026-02-10' THEN AF.BasePrice
-                                ELSE SCPD.TotalBlank
-                            END
-        ,[CustomerPO]      = CASE
-                                WHEN (OD.[PONumber] LIKE 'ORD%') AND CHARINDEX('-', OD.Comments6) > 0
-                                    THEN SUBSTRING(OD.Comments6, 1, CHARINDEX('-', OD.Comments6) - 1)
-                                ELSE OD.Comments6
-                            END
-        ,[StyleOption]     = SCPD.StyleOption
-        ,[Waybill]         = SCP.Waybill
+        [Size]						= AF.Size
+        ,[StyleColor]				= SCPD.Color
+        ,[Quantity]					= SUM(AF.Quantity)
+        ,[Style]					= AF.StyleNumber
+        ,[StyleID]					= SCPD.StyleID
+        ,[TransactionDate]			= SCP.ShipDate
+        ,[MO]						= SCPD.MO
+        ,[MO_ID]					= SCPD.ManufactureID
+        ,[ItemDetailID]				= SCPD.ItemDetailID
+        ,[Item #]					= L2BInv.InvItemID
+        ,[InvoicedPrice]			= CASE
+									     WHEN SCP.ShipDate < '2026-02-10' THEN AF.BasePrice
+									     ELSE SCPD.TotalBlank
+									 END
+		,[Decoration_Invoiced_Price] = CASE
+									     WHEN SCP.ShipDate < '2026-02-10' THEN AF.[TotalDecoration]
+									     ELSE SCPD.TotalDecoration
+									 END
+		,[Unit_Invoiced_Price]		= CASE
+									     WHEN SCP.ShipDate < '2026-02-10' THEN AF.UnitPrice
+									     ELSE SCPD.TotalBlank + SCPD.TotalDecoration
+									 END
+		
+        ,[CustomerPO]				= CASE
+									     WHEN (OD.[PONumber] LIKE 'ORD%') AND CHARINDEX('-', OD.Comments6) > 0
+									         THEN SUBSTRING(OD.Comments6, 1, CHARINDEX('-', OD.Comments6) - 1)
+									     ELSE OD.Comments6
+									 END
+        ,[StyleOption]				= SCPD.StyleOption
+        ,[Waybill]					= SCP.Waybill
          --,[StyleOptionID] = SCPD.StyleOptionID
          --,[Season]        = SCPD.Season
     FROM CTE_Prices										AS SCP    WITH (NOLOCK)
@@ -138,6 +154,14 @@ AS
         END
         ,SCPD.StyleOption
         ,SCP.Waybill
+		,CASE
+		     WHEN SCP.ShipDate < '2026-02-10' THEN AF.UnitPrice
+		     ELSE SCPD.TotalBlank + SCPD.TotalDecoration
+		 END
+		,CASE
+		    WHEN SCP.ShipDate < '2026-02-10' THEN AF.[TotalDecoration]
+		    ELSE SCPD.TotalDecoration
+		END
 )
 
 SELECT 
@@ -155,9 +179,11 @@ SELECT
     ,[CustomerPO]
     ,[StyleOption]
     ,[Waybill]
-
+	,[Decoration_Invoiced_Price]
+	,[Unit_Invoiced_Price]
+	
 FROM CTE_Final
--- WHERE Waybill = 'APP-20260218' AND Style = '30008'
+ --WHERE Waybill = 'HW-20260116'
 GO
 
 
