@@ -262,11 +262,11 @@ UPDATE SCFC SET
                                                   ELSE NULL
                                         END
           ,[Option_US_HTSCode]        = CASE
-                                                  WHEN ST.[Comments9] NOT LIKE '%Head%' AND HTS.[US_HTSCode] IS NOT NULL THEN 1
-                                                  WHEN LMN.[US_HTSCode] IS NOT NULL THEN 2
-                                                  WHEN LMN.[CA_HTSCode] IS NOT NULL THEN 3
-                                                  WHEN HTS.[US_HTSCode] IS NOT NULL THEN 4
-                                                  ELSE 5
+                                                  WHEN ST.[Comments9] NOT LIKE '%Head%' AND HTS.[US_HTSCode] IS NOT NULL THEN '1- HTSStyleCodes Apparel Only'
+                                                  WHEN LMN.[US_HTSCode] IS NOT NULL THEN '2- US_HTSCode RawMaterials using Component and PartColor'
+                                                  WHEN LMN.[CA_HTSCode] IS NOT NULL THEN '3- CA_HTSCode RawMaterials using Component and PartColor'
+                                                  WHEN HTS.[US_HTSCode] IS NOT NULL THEN '4- HTSStyleCodes'
+                                                  ELSE 'NOT FOUND'
                                         END
      INTO #TB_StyleColor_HTS
      FROM (SELECT * FROM [LCA].[dbo].[StatusNames] AS SN WITH(NOLOCK) WHERE [StatusID] = 64) AS FILSN
@@ -323,12 +323,12 @@ UPDATE SCFC SET
           ELSE NULL
      END
      ,CASE
-          WHEN ST.[Comments9] NOT LIKE '%Head%' AND HTS.[US_HTSCode] IS NOT NULL THEN 1
-          WHEN LMN.[US_HTSCode] IS NOT NULL THEN 2
-          WHEN LMN.[CA_HTSCode] IS NOT NULL THEN 3
-          WHEN HTS.[US_HTSCode] IS NOT NULL THEN 4
-          ELSE 5
-     END
+          WHEN ST.[Comments9] NOT LIKE '%Head%' AND HTS.[US_HTSCode] IS NOT NULL THEN '1- HTSStyleCodes Apparel Only'
+          WHEN LMN.[US_HTSCode] IS NOT NULL THEN '2- US_HTSCode RawMaterials using Component and PartColor'
+          WHEN LMN.[CA_HTSCode] IS NOT NULL THEN '3- CA_HTSCode RawMaterials using Component and PartColor'
+          WHEN HTS.[US_HTSCode] IS NOT NULL THEN '4- HTSStyleCodes'
+          ELSE 'NOT FOUND'
+      END
 
 ---------------------------------------------------------------- HTS Codes Style Number - Style Color --------------------------------------------------------------------
 
@@ -343,14 +343,15 @@ SELECT
      ,[InvoicingDescription_RawMaterial]          = CAST(NULL AS VARCHAR(200))
      ,[InvoicingDescription_StyleColorOption]     = CAST(NULL AS VARCHAR(200))
      ,[InvoicingDescription_Component_QtyDesc]    = CAST(NULL AS VARCHAR(200))
-     ,[FinalCI_InvoicingDescription]              = CAST(NULL AS VARCHAR(200))
-     ,[OptionCI_InvoicingDescription]             = CAST(NULL AS INT)
+     ,[Final_InvoicingDescription]                = CAST(NULL AS VARCHAR(200))
+     ,[OptionCI_InvoicingDescription]             = CAST(NULL AS VARCHAR(100))
+     ,[FinalReportCI_InvoicingDescription]        = CAST(NULL AS VARCHAR(200))
      ,[US_HTSCode_StyleCodes]                     = CAST(NULL AS VARCHAR(100))
      ,[US_HTSCode_RawMaterials]                   = CAST(NULL AS VARCHAR(100))
      ,[CA_HTSCode_RawMaterials]                   = CAST(NULL AS VARCHAR(100))
      ,[US_HTSCode_StyleCodes2]                    = CAST(NULL AS VARCHAR(100))
      ,[FinalCI_US_HTSCode]                        = CAST(NULL AS VARCHAR(100))
-     ,[Option_US_HTSCode]                         = CAST(NULL AS INT)
+     ,[Option_US_HTSCode]                         = CAST(NULL AS VARCHAR(100))
 INTO #TB_AllStyleInfo
 FROM #TB_ActiveStyle AS ST
 LEFT JOIN  [LCA].[dbo].[StyleVariations]         AS   STV  WITH(NOLOCK)   ON   ST.[StyleID]             = STV.[StyleID]
@@ -367,7 +368,7 @@ UPDATE SI SET
       [InvoicingDescription_Component]            = SC.[InvoicingDescription_Components]
      ,[InvoicingDescription_Component2]           = SCR.[InvoicingDescription_Components]
      ,[InvoicingDescription_RawMaterial]          = SCR.[InvoicingDescription_RawMaterials]
-     ,[FinalCI_InvoicingDescription]              = CASE
+     ,[Final_InvoicingDescription]                = CASE
                                                        WHEN (SCR.[InvoicingDescription_Components] IS NOT NULL AND REPLACE(REPLACE(REPLACE(TRIM(SCR.[InvoicingDescription_Components]),CHAR(10),''),CHAR(13),''),CHAR(9),'') != '')
                                                             AND SCR.[InvoicingDescription_RawMaterials] IS NOT NULL
                                                                  THEN SCR.[InvoicingDescription_Components] + SCR.[InvoicingDescription_RawMaterials]
@@ -386,18 +387,18 @@ UPDATE SI SET
      ,[OptionCI_InvoicingDescription]             = CASE
                                                        WHEN (SCR.[InvoicingDescription_Components] IS NOT NULL AND REPLACE(REPLACE(REPLACE(TRIM(SCR.[InvoicingDescription_Components]),CHAR(10),''),CHAR(13),''),CHAR(9),'') != '')
                                                             AND SCR.[InvoicingDescription_RawMaterials] IS NOT NULL
-                                                                 THEN 1
+                                                                 THEN '1- Concat FabricContent RawMaterials + Components'
                                                        WHEN (SCR.[InvoicingDescription_Components] IS NULL OR REPLACE(REPLACE(REPLACE(TRIM(SCR.[InvoicingDescription_Components]),CHAR(10),''),CHAR(13),''),CHAR(9),'') = '')
                                                             AND SCR.[InvoicingDescription_RawMaterials] IS NOT NULL
-                                                                 THEN 2
+                                                                 THEN '2- FabricContent RawMaterials'
                                                        WHEN (SCR.[InvoicingDescription_Components] IS NOT NULL AND REPLACE(REPLACE(REPLACE(TRIM(SCR.[InvoicingDescription_Components]),CHAR(10),''),CHAR(13),''),CHAR(9),'') != '')
                                                             AND SCR.[InvoicingDescription_RawMaterials] IS NULL
-                                                                 THEN 3
-                                                       WHEN SC.[InvoicingDescription_Components] IS NOT NULL THEN 4
-                                                       WHEN SCO.[InvoicingDescription_ComponentsSO] IS NOT NULL THEN 6
-                                                       WHEN SCQ.[InvoicingDescription_Components] IS NOT NULL THEN 7
-                                                       WHEN SI.[InvoicingDescription_Styles] IS NOT NULL THEN 5
-                                                       ELSE 8
+                                                                 THEN '3- FabricContent Components from StyleVariations'
+                                                       WHEN SC.[InvoicingDescription_Components] IS NOT NULL THEN '4- FabricContent Components from StyleDetails'
+                                                       WHEN SI.[InvoicingDescription_Styles] IS NOT NULL THEN '5- Description3 Styles'
+                                                       WHEN SCO.[InvoicingDescription_ComponentsSO] IS NOT NULL THEN '6- FabricContent Components using StyleOptions'
+                                                       WHEN SCQ.[InvoicingDescription_Components] IS NOT NULL THEN '7- FabricContent Components (RowNumber order by Quantity desc of StyleDetails)'
+                                                       ELSE 'NOT FOUND'
                                                     END
      ,[US_HTSCode_StyleCodes]                     = SCH.[US_HTSCode_StyleCodes]
      ,[US_HTSCode_RawMaterials]                   = SCH.[US_HTSCode_RawMaterials]
@@ -412,6 +413,10 @@ LEFT JOIN #TB_StyleComponents_QtyDesc AS SCQ ON SI.[StyleNumber] = SCQ.[StyleNum
 LEFT JOIN #TB_StyleComponents_Options AS SCO ON SI.[StyleNumber] = SCO.[StyleNumber] AND SI.[StyleColor] = SCO.[StyleColor] AND SI.[StyleOptionID] = SCO.[StyleOptionID] AND SCO.[RowN] = 1
 LEFT JOIN #TB_StyleColor_HTS          AS SCH ON SI.[StyleNumber] = SCH.[StyleNumber] AND SI.[StyleColor] = SCH.[StyleColor]
 
+UPDATE ASI SET
+     [FinalReportCI_InvoicingDescription] = CONCAT([DescribeText],' ',[Final_InvoicingDescription])
+FROM #TB_AllStyleInfo AS ASI
+
 SELECT 
       [StyleNumber]
      ,[StyleColor]
@@ -419,7 +424,7 @@ SELECT
      ,[InvoicingDescription_Component2]
      ,[InvoicingDescription_RawMaterial]
      ,[InvoicingDescription_Styles]
-     ,[FinalCI_InvoicingDescription]
+     ,[Final_InvoicingDescription]
      ,[OptionCI_InvoicingDescription]
      ,[US_HTSCode_StyleCodes]
      ,[US_HTSCode_RawMaterials]

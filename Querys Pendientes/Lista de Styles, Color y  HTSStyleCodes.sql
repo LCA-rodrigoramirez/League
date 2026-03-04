@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS #TB_Seasons
+DROP TABLE IF EXISTS #TB_StyleColor_HTS
 
 SELECT
      [SeasonID]
@@ -42,6 +43,7 @@ SELECT
                                         WHEN HTS.[US_HTSCode] IS NOT NULL THEN 4
                                         ELSE 5
                                   END
+INTO #TB_StyleColor_HTS
 FROM (SELECT * FROM [LCA].[dbo].[StatusNames] AS SN WITH(NOLOCK) WHERE [StatusID] = 64) AS FILSN
 INNER JOIN  [LCA].[dbo].[Styles]            AS  ST  WITH(NOLOCK)    ON  ST.[StatusID]           = FILSN.[StatusID]
 INNER JOIN  #TB_Seasons                     AS  SNS WITH(NOLOCK)    ON  ST.[SeasonID]           = SNS.[SeasonID]
@@ -102,3 +104,7 @@ GROUP BY
         WHEN HTS.[US_HTSCode] IS NOT NULL THEN 4
         ELSE 5
     END
+
+SELECT
+*
+FROM #TB_StyleColor_HTS    
