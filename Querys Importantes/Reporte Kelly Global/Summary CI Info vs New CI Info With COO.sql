@@ -54,7 +54,7 @@ FROM(
         ,[Entry#]           = [Entry #]
         ,[EntryDate]        = [Entry Date]
         ,[Invoice#]         = [Invoice #]
-        -- ,[CountryCode]      = [Origin]
+        ,[CountryCode]      = LEFT(MANUFID,2)
         ,[Kelly_TotalQty]   = CAST(SUM(QtyTotal) AS DECIMAL(18,2))
         ,[Kelly_TotalFOB]   = CAST(SUM(IIF(Flag = 1, [Value], 0.00)) AS DECIMAL(18,2))
         ,[Kelly_TotalDuty]  = CAST(SUM(Duty) AS DECIMAL(18,2))
@@ -101,6 +101,7 @@ FROM(
         ,[Entry #]
         ,[Entry Date]
         ,[Invoice #]
+        ,LEFT(MANUFID,2)
         -- ,[Origin]
 ) AS TB
 
@@ -113,16 +114,16 @@ FROM (
         ,[MonthEntry]       = MONTH([EntryDate])
         ,[Entry#]           = CI.[Entry#]
         ,[EntryDate]        = CI.[EntryDate]
-        -- ,[Invoice#]         = CI.[InvoiceKelly]
+        ,[Invoice#]         = CI.[InvoiceKelly]
         ,[Waybill]          = CI.[WayBill]
-        -- ,[TypeData]         = CI.[TypeData]
-        -- ,[CountInvoice]     = CASE 
-        --                         WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 2 THEN 3
-        --                         WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 1 THEN 2
-        --                         WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 0 THEN 1
-        --                       END
+        ,[TypeData]         = CI.[TypeData]
+        ,[CountInvoice]     = CASE 
+                                WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 2 THEN 3
+                                WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 1 THEN 2
+                                WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 0 THEN 1
+                              END
         ,[CountryOfOrigin]  = ISNULL(CI.[CountryOfOrigin],'El Salvador')
-        -- ,[CountryCode]      = CI.[CountryCode]
+        ,[CountryCode]      = CI.[CountryCode]
         ,[CI_TotalQty]      = SUM(CI.[Quantity])
         ,[CI_TotalFOB]      = SUM(CI.[CI_Total])    
         ,[CI_TotalPrice]    = SUM(CI.[TotalPrice])
@@ -141,11 +142,16 @@ FROM (
         ,MONTH([EntryDate])
         ,CI.[Entry#]
         ,CI.[EntryDate]
-        -- ,CI.[InvoiceKelly]
+        ,CI.[InvoiceKelly]
         ,CI.[WayBill]
-        -- ,CI.[TypeData]
+        ,CASE 
+            WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 2 THEN 3
+            WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 1 THEN 2
+            WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 0 THEN 1
+         END
+        ,CI.[TypeData]
         ,ISNULL(CI.[CountryOfOrigin],'El Salvador')
-        -- ,CI.[CountryCode]
+        ,CI.[CountryCode]
 ) AS TB
 
 SELECT
@@ -153,10 +159,10 @@ SELECT
     ,[MonthEntry]
     ,[Entry#]
     ,[EntryDate]
-    -- ,[Invoice#]
+    ,[Invoice#]
     ,[Waybill]
     ,[TariffCategory]
-    -- ,[CountInvoice]
+    ,[CountInvoice]
     ,[CountryOfOrigin]
     -- ,[CountryCode]
     ,[New_TotalQty]     = CAST(SUM([New_TotalQty]) AS DECIMAL(18,2))
@@ -175,10 +181,10 @@ FROM
         ,[MonthEntry]       = [Month_ExportDate]
         ,[Entry#]           = [Entry #]
         ,[EntryDate]        = [ExportDate]
-        -- ,[Invoice#]         = [InvoiceKelly]
+        ,[Invoice#]         = [InvoiceKelly]
         ,[Waybill]          = [Waybill]
         ,[TariffCategory]   = [TariffCategory]
-        -- ,[CountInvoice]     = [CountInvoice]
+        ,[CountInvoice]     = [CountInvoice]
         ,[CountryOfOrigin]  = [FAMOCountryOfOrigin] 
         -- ,[CountryCode]      = [CountryCode] 
         ,[New_TotalQty]     = CAST(SUM([QtyExport]) AS DECIMAL(18,2))
@@ -200,10 +206,10 @@ FROM
         ,[Month_ExportDate]
         ,[Entry #]
         ,[ExportDate]
-        -- ,[InvoiceKelly]
+        ,[InvoiceKelly]
         ,[Waybill]
         ,[TariffCategory]
-        -- ,[CountInvoice]
+        ,[CountInvoice]
         ,[FAMOCountryOfOrigin] 
         -- ,[CountryCode]
 
@@ -214,10 +220,10 @@ FROM
         ,[MontEntry]        = MONTH([Entry Date])
         ,[Entry#]           = [Entry #]
         ,[EntryDate]        = [Entry Date]
-        -- ,[Invoice#]         = [InvoiceKelly]
+        ,[Invoice#]         = [InvoiceKelly]
         ,[Waybill]          = [Waybill]
         ,[TariffCategory]   = [InvoiceLCA]
-        -- ,[CountInvoice]     = [CountInvoice]
+        ,[CountInvoice]     = [CountInvoice]
         ,[CountryOfOrigin]  = 'El Salvador'
         -- ,[CountryCode]      = 'SV'
         ,[New_TotalQty]     = CAST(SUM([Qty]) AS DECIMAL(18,2))
@@ -234,488 +240,487 @@ FROM
     ,MONTH([Entry Date])
     ,[Entry #]
     ,[Entry Date]
-    -- ,[InvoiceKelly]
+    ,[InvoiceKelly]
     ,[Waybill]
     ,[InvoiceLCA]
-    -- ,[CountInvoice]
+    ,[CountInvoice]
 ) AS TB
 GROUP BY
     [YearEntry]
     ,[MonthEntry]
     ,[Entry#]
     ,[EntryDate]
-    -- ,[Invoice#]
+    ,[Invoice#]
     ,[Waybill]
     ,[TariffCategory]
-    -- ,[CountInvoice]
+    ,[CountInvoice]
     ,[CountryOfOrigin]
     -- ,[CountryCode]
 
--- UPDATE TBS SET
---      [Kelly_TotalDuty] = ROUND(TBK.[TotalDutyKelly],2)
---     ,[Kelly_TotalQty]  = ROUND(TBK.[TotalQtyKelly],2)
---     ,[Kelly_TotalFOB]  = ROUND(TBK.[TotalFOBKelly],2)
---     ,[Kelly_301China$] = ROUND(TBK.[Total301Kelly],2)
---     ,[Kelly_Fenta$]	   = ROUND(TBK.[TotalFentaKelly],2)  
---     ,[Kelly_Recip$]	   = ROUND(TBK.[TotalRecipKelly],2)
---     ,[Kelly_HTS$]	   = ROUND(TBK.[TotalHTSKelly],2)
--- FROM #TB_CI_New AS TBS
--- -- FROM #TB_Summary AS TBS
--- LEFT JOIN
--- (
---     SELECT 
---         TBS.[Entry#]
---         ,TBS.[EntryDate]
---         ,TBS.[Invoice#]
---         -- ,TBS.[CountryCode]
---         ,TotalDutyKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,TotalQtyKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,TotalFOBKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,Total301Kelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,TotalFentaKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,TotalRecipKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
---         ,TotalHTSKelly = SUM(
---                             COALESCE(CASE
---                                         WHEN TBS.[CountInvoice] = 1 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                         END
---                                         WHEN TBS.[CountInvoice] = 2 THEN 
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                         WHEN TBS.[CountInvoice] = 3 THEN
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,LEFT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,TRIM(
---                                                                                                                     SUBSTRING(TBS.[Invoice#]
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                 ,CHARINDEX(',',TBS.[Invoice#]
---                                                                                                                                             ,CHARINDEX(',',TBS.[Invoice#])+1
---                                                                                                                                         ) - CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                             )
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                                                         +
---                                                                         CASE
---                                                                             WHEN CONCAT(TBS.[Entry#],'-'
---                                                                                                             ,RIGHT(TBS.[Invoice#]
---                                                                                                                     ,CHARINDEX(',',TBS.[Invoice#])-1
---                                                                                                                 )
---                                                                                         ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
---                                                                             ELSE 0
---                                                                         END 
---                                     END
---                                 ,0)
---                             )
+UPDATE TBS SET
+     [Kelly_TotalDuty] = ROUND(TBK.[TotalDutyKelly],2)
+    ,[Kelly_TotalQty]  = ROUND(TBK.[TotalQtyKelly],2)
+    ,[Kelly_TotalFOB]  = ROUND(TBK.[TotalFOBKelly],2)
+    ,[Kelly_301China$] = ROUND(TBK.[Total301Kelly],2)
+    ,[Kelly_Fenta$]	   = ROUND(TBK.[TotalFentaKelly],2)  
+    ,[Kelly_Recip$]	   = ROUND(TBK.[TotalRecipKelly],2)
+    ,[Kelly_HTS$]	   = ROUND(TBK.[TotalHTSKelly],2)
+FROM #TB_CI_New AS TBS
+-- FROM #TB_Summary AS TBS
+LEFT JOIN
+(
+    SELECT 
+        TBS.[Entry#]
+        ,TBS.[EntryDate]
+        ,TBS.[Invoice#]
+        ,TBS.[CountryCode]
+        ,TotalDutyKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalDuty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,TotalQtyKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalQty],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,TotalFOBKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFOB],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,Total301Kelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[Total301],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,TotalFentaKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalFenta],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,TotalRecipKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalRecip],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
+        ,TotalHTSKelly = SUM(
+                            COALESCE(CASE
+                                        WHEN TBS.[CountInvoice] = 1 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-',TBS.[Invoice#]) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                        END
+                                        WHEN TBS.[CountInvoice] = 2 THEN 
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                        WHEN TBS.[CountInvoice] = 3 THEN
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,LEFT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,TRIM(
+                                                                                                                    SUBSTRING(TBS.[Invoice#]
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                ,CHARINDEX(',',TBS.[Invoice#]
+                                                                                                                                            ,CHARINDEX(',',TBS.[Invoice#])+1
+                                                                                                                                        ) - CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                            )
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                                                        +
+                                                                        CASE
+                                                                            WHEN CONCAT(TBS.[Entry#],'-'
+                                                                                                            ,RIGHT(TBS.[Invoice#]
+                                                                                                                    ,CHARINDEX(',',TBS.[Invoice#])-1
+                                                                                                                )
+                                                                                        ) = TBK.[KeySearch] THEN ROUND(COALESCE(TBK.[TotalHTS],0),2)
+                                                                            ELSE 0
+                                                                        END 
+                                    END
+                                ,0)
+                            )
                             
---     -- FROM #TB_Summary AS TBS
---     FROM #TB_CI_New AS TBS
---     LEFT JOIN
---     (
---          SELECT
---              [Entry#]       = TBK.[Entry#]
---             ,[EntryDate]    = TBK.[EntryDate]
---             ,[Invoice#]     = TBK.[Invoice#]
---             ,[KeySearch]    = TBK.[KeySearch]
---             -- ,[CountryCode]  = TBK.[CountryCode]
---             ,[TotalQty]     = SUM(TBK.Kelly_TotalQty)
---             ,[TotalFOB]     = SUM(TBK.Kelly_TotalFOB)
---             ,[TotalDuty]    = SUM(TBK.Kelly_TotalDuty)
---             ,[Total301]     = SUM(TBK.Kelly_301China$)
---             ,[TotalFenta]   = SUM(TBK.Kelly_Fenta$)
---             ,[TotalRecip]   = SUM(TBK.Kelly_Recip$)
---             ,[TotalHTS]     = SUM(TBK.Kelly_HTS$)
---         FROM #TB_Kelly_New AS TBK
---         GROUP BY
---              TBK.[Entry#]
---             ,TBK.[EntryDate]
---             ,TBK.[Invoice#]
---             ,TBK.[KeySearch]
---             -- ,TBK.[CountryCode]
---     ) AS TBK ON TBK.[Entry#] = TBS.[Entry#] AND TBK.[EntryDate] = TBS.[EntryDate] --AND TBK.[CountryCode] = TBS.[CountryCode]
---     -- WHERE tbs.[Entry#] = 'BHE04228579'
---     GROUP BY
---     TBS.[Entry#]
---     ,TBS.[EntryDate]
---     ,TBS.[Invoice#]
---     -- ,TBS.[CountryCode]
--- ) AS TBK ON TBS.[Entry#] = TBK.[Entry#] AND TBS.[EntryDate] = TBK.[EntryDate] AND TBS.[Invoice#] = TBK.[Invoice#] --AND TBK.[CountryCode] = TBS.[CountryCode]
+    -- FROM #TB_Summary AS TBS
+    FROM #TB_CI_New AS TBS
+    LEFT JOIN
+    (
+         SELECT
+             [Entry#]       = TBK.[Entry#]
+            ,[EntryDate]    = TBK.[EntryDate]
+            ,[Invoice#]     = TBK.[Invoice#]
+            ,[KeySearch]    = TBK.[KeySearch]
+            ,[CountryCode]  = TBK.[CountryCode]
+            ,[TotalQty]     = SUM(TBK.Kelly_TotalQty)
+            ,[TotalFOB]     = SUM(TBK.Kelly_TotalFOB)
+            ,[TotalDuty]    = SUM(TBK.Kelly_TotalDuty)
+            ,[Total301]     = SUM(TBK.Kelly_301China$)
+            ,[TotalFenta]   = SUM(TBK.Kelly_Fenta$)
+            ,[TotalRecip]   = SUM(TBK.Kelly_Recip$)
+            ,[TotalHTS]     = SUM(TBK.Kelly_HTS$)
+        FROM #TB_Kelly_New AS TBK
+        GROUP BY
+             TBK.[Entry#]
+            ,TBK.[EntryDate]
+            ,TBK.[Invoice#]
+            ,TBK.[KeySearch]
+            ,TBK.[CountryCode]
+    ) AS TBK ON TBK.[Entry#] = TBS.[Entry#] AND TBK.[EntryDate] = TBS.[EntryDate] AND TBK.[CountryCode] = TBS.[CountryCode]
+    -- WHERE tbs.[Entry#] = 'BHE04228579'
+    GROUP BY
+    TBS.[Entry#]
+    ,TBS.[EntryDate]
+    ,TBS.[Invoice#]
+    ,TBS.[CountryCode]
+) AS TBK ON TBS.[Entry#] = TBK.[Entry#] AND TBS.[EntryDate] = TBK.[EntryDate] AND TBS.[Invoice#] = TBK.[Invoice#] AND TBK.[CountryCode] = TBS.[CountryCode]
 -- SELECT * FROM AppsLCA.dbo.TB_Transfer_Waybill_Void
-
 
 UPDATE TBS SET
     Kelly_TotalQty = (Kelly_TotalQty / 2) - 34
@@ -757,6 +762,10 @@ UPDATE TBS SET
 FROM #TB_CI_New AS TBS
 WHERE Waybill = 'MASTER20240131-2'
 
+SELECT
+*
+FROM #TB_CI_New
+RETURN
 
 -- select * from #TB_CI_New
 -- where Entry# = 'BHE04206898'
@@ -800,7 +809,8 @@ ORDER BY
      COALESCE(TBC.[YearEntry], TBA.[YearEntry])
     ,COALESCE(TBC.[MonthEntry], TBA.[MonthEntry])
 
-
+SELECT *
+FROM #TB_Summary
 
 return
 
