@@ -232,10 +232,6 @@ if (isset($_POST['enviarListado'])) { ?>
         };
 
         function setReport1() {
-            attributeRows = {};
-            attributeRowsReady = false;
-            mismatchRows = {};
-            orderTypeByRow = {};
 
             pivot.setReport({
                 dataSource: {
@@ -325,23 +321,14 @@ if (isset($_POST['enviarListado'])) { ?>
         var highlightRows = {};
         var orderTypeByRow = {};
         var mismatchRows = {};
-        var attributeRows = {};
-        var attributeRowsReady = false;
-
         function customizeCellFunction(cellBuilder, cellData) {
             if (typeof cellData.rowIndex !== "number" || cellData.rowIndex === 0) return;
             if (!cellData.hierarchy || cellData.type !== "value") return;
 
             var hierarchyName = cellData.hierarchy.uniqueName;
-            var rowKey = cellData.rowIndex;
-
-            // Aplicar sombreado azul si la fila tiene Attribute con datos
-            if (attributeRows[rowKey]) {
-                cellBuilder.style['background-color'] = '#C0E6F5';
-            }
-
             if (hierarchyName !== "OrderTypePPM" && hierarchyName !== "OrderTypeTechnique") return;
 
+            var rowKey = cellData.rowIndex;
             var cellText = "";
             if (cellData.member && cellData.member.caption != null) {
                 cellText = String(cellData.member.caption);
@@ -382,26 +369,6 @@ if (isset($_POST['enviarListado'])) { ?>
                     title: 'Data error, please contac LCA IT (lca.it@league91.com)',
                     type: 'error'
                 })
-        });
-
-        // Leer datos reales con getData para identificar qué filas tienen Attribute con datos,
-        // luego hacer refresh para que customizeCell aplique el color con la info correcta.
-        pivot.on('reportcomplete', function() {
-            if (!attributeRowsReady) {
-                attributeRowsReady = true;
-                pivot.getData({}, function(dataObj) {
-                    attributeRows = {};
-                    if (dataObj && dataObj.data) {
-                        dataObj.data.forEach(function(row, idx) {
-                            var attrVal = row["Attribute"];
-                            if (attrVal != null && String(attrVal).trim() !== "" && String(attrVal).trim().toLowerCase() !== "null") {
-                                attributeRows[idx + 1] = true; // rowIndex en customizeCell es 1-based
-                            }
-                        });
-                    }
-                    pivot.refresh();
-                });
-            }
         });
 
 
