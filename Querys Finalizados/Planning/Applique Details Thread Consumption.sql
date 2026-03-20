@@ -53,8 +53,9 @@ SET NOCOUNT ON;
 			WHERE [StatusID] < 90
 		) AS FSN
 		INNER JOIN      LCA.dbo.ManufactureOrders           AS MO   WITH(NOLOCK) ON MO.[StatusID]       = FSN.[StatusID] 
-		LEFT JOIN       LCA.dbo.OrderItems                  AS OI   WITH(NOLOCK) ON OI.OrderItemID      = MO.FirstOrderItemID
+		INNER JOIN       LCA.dbo.OrderItems                  AS OI   WITH(NOLOCK) ON OI.OrderItemID      = MO.FirstOrderItemID
 		INNER JOIN      LCA.dbo.Orders                      AS OD   WITH(NOLOCK) ON OD.OrderID          = OI.OrderID              AND OD.PONumber IS NOT NULL
+		
 
 
 		--- BORDADO DE PRENDAS ---
@@ -166,26 +167,26 @@ SET NOCOUNT ON;
 		--- SABER SI EL PROCESO DE BORDADO DE GORRAS YA SE FINALIZÓ --- 
 
 		UPDATE MO SET
-			[EmbHWFinish]       =   IIF(WT_01.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_02.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_03.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_04.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_05.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_06.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_07.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_08.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_09.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_10.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_11.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_12.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_13.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_14.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_15.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_16.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_17.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_18.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_19.TaskName  IS NOT NULL, 1, 0) +
-									IIF(WT_20.TaskName  IS NOT NULL, 1, 0) 
+			[EmbHWFinish]       =   IIF(WT_01.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_02.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_03.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_04.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_05.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_06.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_07.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_08.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_09.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_10.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_11.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_12.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_13.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_14.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_15.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_16.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_17.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_18.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_19.FinishDate  IS NOT NULL, 1, 0) +
+									IIF(WT_20.FinishDate  IS NOT NULL, 1, 0) 
 		FROM #TB_MO_FILTER       AS MO
 		LEFT JOIN LCA.dbo.WorkTasks     AS WT_01    WITH(NOLOCK) ON MO.WorkFlowID = WT_01.WorkFlowID    AND WT_01.TaskName  = 'Start  Embroidery HW 1'
 		LEFT JOIN LCA.dbo.WorkTasks     AS WT_02    WITH(NOLOCK) ON MO.WorkFlowID = WT_02.WorkFlowID    AND WT_02.TaskName  = 'Start  Embroidery HW 2'
@@ -500,12 +501,16 @@ SET NOCOUNT ON;
 					,IIF(AppliqueMaterial IS NOT NULL, ROW_NUMBER() OVER(PARTITION BY ItemDetailID,[Location],AppliqueColor ORDER BY ItemDetailID), 0) AS CountApp
 				FROM #L2_Applique AS APP 
 				WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
+				-- AND ItemDetailID in (5167504,5394906)
 			) AS TB
 			GROUP BY 
 				ItemDetailID
 				,[Location]
 				,AppliqueColor
-		) AS CAP ON DC.ItemDetailID = CAP.ItemDetailID AND DC.[Location] = CAP.[Location] AND CAP.AppliqueColor LIKE DC.ColorShort + '%'
+		) AS CAP ON DC.ItemDetailID = CAP.ItemDetailID AND DC.[Location] = CAP.[Location] AND (
+			CAP.AppliqueColor LIKE DC.ColorShort + '%'
+			OR DC.ColorShort LIKE CAP.AppliqueColor + '%'
+		)
 
 		--- CUARTO UPDATE: A PARTIR DE UNA SERIE DE FÓRMULAS, SE OBTIENE LA CANTIDAD DE YARDAS POR HILO, EL CALCULO CAMBIA DEPENDIENDO DE SI LA ORDEN TIENE APPLIQUE O NO ---
 
@@ -634,6 +639,7 @@ SET NOCOUNT ON;
 
 		SELECT 
 			 ROW_NUMBER() OVER(ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]) AS R
+			,IIF(DI.Comment LIKE '%tackdown%',1,0) AS TackDown
 			,DI.MO
 			,DI.ProductionStatus
 			,DI.WorkOrder
@@ -677,9 +683,8 @@ SET NOCOUNT ON;
 		-- 	DI.EmbAPP = 1 
 		-- AND 
 			DI.ProcessFinish = 0
+			-- or DI.ItemDetailID = 5167504
 		ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]
-
-	
 	/************************************************* Obteniendo info del Digitizing (Design, Sequence, Comment por Sequence) *************************************************/
 
 	--- SELECT FINAL ---
@@ -717,8 +722,8 @@ SET NOCOUNT ON;
 		,COALESCE(AppliqueMaterial,'-') AS AppliqueMaterial
 		,COALESCE(AppliqueColor,'-') AS AppliqueColor
 		-- ,AppliquePerColor
-		,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,AppliquePerUnit,0) AS AppliquePerUnit
-		,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalAppliquePerQty,0) AS TotalAppliquePerQty
+		,IIF(TackDown = 1 AND ThreadID IS NOT NULL,AppliquePerUnit,0) AS AppliquePerUnit
+		,IIF(TackDown = 1 AND ThreadID IS NOT NULL,TotalAppliquePerQty,0) AS TotalAppliquePerQty
 	FROM
 	(
 		SELECT 
@@ -743,6 +748,7 @@ SET NOCOUNT ON;
 			,LogoStyle
 			,LogoStyleName
 			,ROW_NUMBER() OVER(PARTITION BY MO,[Location],ThreadColor order by MO,SequenceNo,[Location],ThreadColor) AS FirstThread
+			,TackDown
 			,ThreadID
 			,ThreadColor
 			,StitchCount
@@ -760,7 +766,7 @@ SET NOCOUNT ON;
 			,COALESCE(TotalAppliquePerQty,0) TotalAppliquePerQty
 		FROM #TB_RESPONSE
 	) AS F
-	-- WHERE WorkOrder = 'ORD-5110939'
+	-- WHERE WorkOrder = 'ORD-5167504'
 	ORDER BY R--, FirstThread
 
 	return

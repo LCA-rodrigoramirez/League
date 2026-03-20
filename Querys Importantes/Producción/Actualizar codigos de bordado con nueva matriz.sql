@@ -398,13 +398,23 @@ FROM #TB_Final
 	 OD.OrderID
 	,OD.PONumber
 	,OD.Comments26
-	,SH.WayBill
 INTO #TB_OrdersExport
-FROM (SELECT ShipmentID,WayBill FROM [192.168.1.53].LCA.dbo.Shipments AS SH WITH(NOLOCK) WHERE WayBill LIKE '%20260224%') AS SH
-INNER JOIN [192.168.1.53].LCA.dbo.PackedBoxes							AS PB	WITH(NOLOCK) ON SH.ShipmentID		= PB.ShipmentID
-INNER JOIN [192.168.1.53].LCA.dbo.Orders								AS OD	WITH(NOLOCK) ON PB.OrderID			= OD.OrderID
-INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON OD.OrderID			= MO.OrderID AND MO.StatusID <= 90
+FROM (SELECT StatusID FROM [192.168.1.53].LCA.dbo.StatusNames sn with (nolock) WHERE StatusID in (40,51,53,55,78,90)) AS SN
+INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON SN.StatusID			= MO.StatusID 
+INNER JOIN [192.168.1.53].LCA.dbo.Orders							AS OD	WITH(NOLOCK) ON MO.OrderID			= OD.OrderID
 INNER JOIN [192.168.1.53].AppsLCA.dbo.TB_MO_PartNumber_IM_MOProcess	AS MOP	WITH(NOLOCK) ON MO.ManufactureID	= MOP.ManufactureID AND (EmbAPP = 1)
+ 
+--  SELECT DISTINCT
+-- 	 OD.OrderID
+-- 	,OD.PONumber
+-- 	,OD.Comments26
+-- 	,SH.WayBill
+-- INTO #TB_OrdersExport
+-- FROM (SELECT ShipmentID,WayBill FROM [192.168.1.53].LCA.dbo.Shipments AS SH WITH(NOLOCK) WHERE WayBill LIKE '%20260224%') AS SH
+-- INNER JOIN [192.168.1.53].LCA.dbo.PackedBoxes							AS PB	WITH(NOLOCK) ON SH.ShipmentID		= PB.ShipmentID
+-- INNER JOIN [192.168.1.53].LCA.dbo.Orders								AS OD	WITH(NOLOCK) ON PB.OrderID			= OD.OrderID
+-- INNER JOIN [192.168.1.53].LCA.dbo.ManufactureOrders					AS MO	WITH(NOLOCK) ON OD.OrderID			= MO.OrderID AND MO.StatusID <= 90
+-- INNER JOIN [192.168.1.53].AppsLCA.dbo.TB_MO_PartNumber_IM_MOProcess	AS MOP	WITH(NOLOCK) ON MO.ManufactureID	= MOP.ManufactureID AND (EmbAPP = 1)
 --WHERE PONumber = 'ORD-5616598'
 -- SELECT DISTINCT
 -- 	 OD.OrderID
@@ -427,12 +437,13 @@ SELECT
 	,CE.Codes
 	,CE.StitchCount
 	,CE.LogoStyle
--- UPDATE OD SET
--- 	Comments26 = CE.Codes
+UPDATE OD SET
+	Comments26 = CE.Codes
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE OE.Comments26 <> CE.Codes
+WHERE ItemDetailID in (5646199)
+return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
 

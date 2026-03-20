@@ -1,6 +1,6 @@
 USE [LCA]
 GO
-/****** Object:  StoredProcedure [dbo].[InsertBillingDetails_Each]    Script Date: 10/12/2025 03:09:50 p. m. ******/
+/****** Object:  StoredProcedure [dbo].[InsertBillingDetails_Each]    Script Date: 20/03/2026 01:01:53 p. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -151,7 +151,7 @@ END
 --Declare @VFecha  date = '2024-07-01'
 ----Declare @VFecha2 date = '2024-05-31'
 
---Declare @VWaybill varchar(200) = 'AIR-APP-20251124'-- 'AIR-BUND-20240820' --'AIR-BUND-20240621-NO CAFTA'  
+-- Declare @VWaybill varchar(200) = 'APP-20260320'-- 'AIR-BUND-20240820' --'AIR-BUND-20240621-NO CAFTA'  
 --Declare @VBatch varchar(200) = '27712211240' 
 
 
@@ -381,7 +381,7 @@ create table #T_VW_BoxTransactions (
 	  Index IX_002 NonClustered (AttachedMO,Attached_ID, Size)
 )
 insert into #T_VW_BoxTransactions
-select * from [LCA].[dboReaders].[VW_BoxTransactions] where Attached_ID in (select distinct ManufactureID from #TBoxes1)
+select * from [LCA].[dboReaders].[VW_BoxTransactions] with (nolock) where Attached_ID in (select distinct ManufactureID from #TBoxes1)
 
 --select * from  #T_VW_BoxTransactions
 
@@ -957,7 +957,9 @@ Select
 ---Eliminar valor caracter que vienen en el campo Printcount 2024 09 27 Boris Hernandez, Edwin Figueroa
 update #ABC11_Pre set PrintCount = iif( try_cast(PrintCount as int) is null, 0, PrintCount )
 
---select * from #ABC11_Pre where BoxNumber = '01025177'
+--select * from #ABC11_Pre where BoxNumber = '01096152'
+--select * from #TBoxes3 where GarmentSize = 'L'
+--order by BoxNumber
 --return
 
 insert into #TBoxes2
@@ -984,7 +986,7 @@ select distinct ABC11.*,
 				then isnull(SalePri_Full.CostEmb,0)
 			when charindex('FG',ABC11.SeasonName)=0 and charindex('To Embroi', DDV2.DropDownValue)>0
 				then OrdPR.TotalPrintValue
-			when charindex('FG',ABC11.SeasonName)=0 and charindex('Blanks', DDV2.DropDownValue)>0
+			when charindex('FG',ABC11.SeasonName)=0 and charindex('Blanks', DDV2.DropDownValue)>0 AND ABC11.StyleNumber <> '31144'
 				then 0
 				else isnull(SalePri_Full.CostEmb,0)
 			end as Total_SP_Subli
@@ -1516,7 +1518,8 @@ select distinct boxnumber ,
 			   StyleColor ,
 			   GarmentSize,
 			   CA_HTSCode ,
-			   SalePrice,
+			   ----------- AGREGADO POR RR 2026-01-30, se suma para evitar duplicados en el Insert de Report -------------
+			   SUM(SalePrice) AS SalePrice,
 			   BlankStyleCostMaterials1,
 			   SeasonName
 	from [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll]   with (nolock)
@@ -1526,7 +1529,7 @@ select distinct boxnumber ,
 				StyleColor ,
 				GarmentSize,
 				CA_HTSCode ,
-			    SalePrice,
+			    --SalePrice,
 				BlankStyleCostMaterials1,
 				SeasonName
 
@@ -1758,8 +1761,8 @@ create table  #Report (
 	,Cuenta int null
 	,Receiving_Cost_Ponderado decimal(12,2) null
 	,Total_Receiving_Cost_Ponderado decimal(18,4) null
+	,IDCheckPrices int not null
 )
-
 insert into #Tboxes2
 select * from #TBoxes4
 
@@ -1793,11 +1796,14 @@ Select distinct	 ABC2.ShipDate,
 	 ABC2.QTY, ABC2.GarmentSize as Size,
 	 isnull(ABC2.OrigFabricVendorName, ABC2.Vendor_2) as Supplier, ABC2.HTSDescription, 
 	
-	case when substring(ABC2.Waybill,1,2)='SM'	then isnull(ABC3.BasePrice,ABC4.UnitPrice)
-		 --when charindex('bund',ABC2.Waybill)=0	then OrdPR.BasePrice
-		 when charindex('bund',ABC2.Waybill)=0	then COALESCE(OrdPR.BasePrice,ABC3.BasePrice,ABC4.UnitPrice)
-		 when charindex('bund',ABC2.Waybill)>0	then ORDPR_2.BasePrice
-		 end as BasePrice,
+	-- case when substring(ABC2.Waybill,1,2)='SM'	then isnull(ABC3.BasePrice,ABC4.UnitPrice)
+	-- 	 --when charindex('bund',ABC2.Waybill)=0	then OrdPR.BasePrice
+	-- 	 when charindex('bund',ABC2.Waybill)=0 and ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice
+	-- 	 when charindex('bund',ABC2.Waybill)=0	then COALESCE(ABC3.BasePrice,ABC4.UnitPrice,OrdPR.BasePrice)
+	-- 	 when charindex('bund',ABC2.Waybill)>0	then ORDPR_2.BasePrice
+	-- 	 end as BasePrice,
+	
+	SCPD.TotalBlank as BasePrice,
 	
 	case  when substring(ABC2.Waybill,1,2)='SM' then 0 
 		  when charindex('FG',ABC2.SeasonName)>0 then  0.10 else 0 end as Handling,
@@ -1854,18 +1860,15 @@ Select distinct	 ABC2.ShipDate,
 	--			   end 
 	--	 as Total_Base_Cost,
 	
-	case when substring(ABC2.Waybill,1,2)='SM'	then isnull(ABC3.BasePrice,ABC4.UnitPrice)
-		 --when charindex('bund',ABC2.Waybill)=0	then OrdPR.BasePrice
-		 when charindex('bund',ABC2.Waybill)=0	then COALESCE(OrdPR.BasePrice,ABC3.BasePrice,ABC4.UnitPrice)
-		 when charindex('bund',ABC2.Waybill)>0	then ORDPR_2.BasePrice
-		 end as BaseCost,
+	-- case when substring(ABC2.Waybill,1,2)='SM'	then isnull(ABC3.BasePrice,ABC4.UnitPrice)
+	-- 	 --when charindex('bund',ABC2.Waybill)=0	then OrdPR.BasePrice
+	-- 	 when charindex('bund',ABC2.Waybill)=0 and ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice
+	-- 	 when charindex('bund',ABC2.Waybill)=0	then COALESCE(ABC3.BasePrice,ABC4.UnitPrice,OrdPR.BasePrice)
+	-- 	 when charindex('bund',ABC2.Waybill)>0	then ORDPR_2.BasePrice
+	-- 	 end as BaseCost,
+	SCPD.TotalBlank as BaseCost,
 
-	ABC2.QTY * case when substring(ABC2.Waybill,1,2)='SM'	then isnull(ABC3.BasePrice,ABC4.UnitPrice)
-					--when charindex('bund',ABC2.Waybill)=0	then OrdPR.BasePrice
-					when charindex('bund',ABC2.Waybill)=0	then COALESCE(OrdPR.BasePrice,ABC3.BasePrice,ABC4.UnitPrice)
-					when charindex('bund',ABC2.Waybill)>0	then ORDPR_2.BasePrice
-				end
-	as Total_Base_Cost,
+	ABC2.QTY *  SCPD.TotalBlank as Total_Base_Cost,
 
 	case when charindex('FG',ABC2.SeasonName)>0 then isnull(TBCost.CostoPonderado,TBCost_2.CostoPonderado)
 		 else 0
@@ -1882,74 +1885,129 @@ Select distinct	 ABC2.ShipDate,
 
 	isnull(ABC2.PrintCount,'') as PrintCount,  
 	
-	case when ABC2.PrintCount is null or ABC2.PrintCount='' then 0 
-		--else  COALESCE(ABC3.TotalPrintValue,OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
-			else   CASE WHEN ABC3.TotalPrintValue >0 then iif(isnull(VerProc.WF_Print,0)>0, 0.95 * VerProc.WF_Print,0)
-						else COALESCE(OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
-				   END
-				   + case	when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
-	 				 else 0 end
-		end as Screen_Print, 
+	-- case when ABC2.PrintCount is null or ABC2.PrintCount='' then 0 
+	-- 	--else  COALESCE(ABC3.TotalPrintValue,OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
+	-- 		else   CASE WHEN ABC3.TotalPrintValue >0 then iif(isnull(VerProc.WF_Print,0)>0, 0.95 * VerProc.WF_Print,0)
+	-- 					else COALESCE(OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
+	-- 			   END
+	-- 			   + case	when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	--  				 else 0 end
+	-- 	end as Screen_Print, 
+	SCPD.Price_ScreenPrint as Screen_Print, 
 
-	ABC2.QTY * (CASE when ABC2.PrintCount is null or ABC2.PrintCount='' then 0 
-				--else  COALESCE(ABC3.TotalPrintValue,OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
-				ELSE  case when ABC3.TotalPrintValue >0 then iif(isnull(VerProc.WF_Print,0)>0, 0.95 * VerProc.WF_Print,0)
-						else COALESCE(OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
-					  END
-				+	case	when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
-					else 0 end
-				end) as Total_Screen_Print,
+	-- ABC2.QTY * (CASE when ABC2.PrintCount is null or ABC2.PrintCount='' then 0 
+	-- 			--else  COALESCE(ABC3.TotalPrintValue,OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
+	-- 			ELSE  case when ABC3.TotalPrintValue >0 then iif(isnull(VerProc.WF_Print,0)>0, 0.95 * VerProc.WF_Print,0)
+	-- 					else COALESCE(OrdPR.TotalPrintValue,OrdPR_2.[Total Print Value]) 
+	-- 				  END
+	-- 			+	case	when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	-- 				else 0 end
+	-- 			end) as Total_Screen_Print,
+	ABC2.QTY * (SCPD.Price_ScreenPrint) as Total_Screen_Print,
 	
 	--case when charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total else 0  
-	case
-		when CHARINDEX('BND',ABC2.Waybill)>0 and charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total--- QUITAR CUANDO LA REVISION DE PRECIOS DETECTE BIEN LOS WAYBILS BUNDLES AGREGADO POR RODRIGO RAMIREZ 20251121
-		when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
-		when VerProc.Total >0 or VerProc.Techni_qty$>0  then VerProc.Total + VerProc.Techni_qty$ else 0 end
-		 + (case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
-				when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
-				 when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0.16
-		   else 0 end)
+	-- case
+	-- 	when CHARINDEX('BND',ABC2.Waybill)>0 and charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total--- QUITAR CUANDO LA REVISION DE PRECIOS DETECTE BIEN LOS WAYBILS BUNDLES AGREGADO POR RODRIGO RAMIREZ 20251121
+	-- 	when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
+
+	-- 	-------- AGREGADO POR RR Y DP 2026-01-30  PARA LAS ORDENES SUB APPLICATION y DHT---------
+	-- 	when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty=0 then VerProc.Total * VerProc.Techni_qty
+	-- 	when ABC2.TypeOrd in ('Transfer', 'Only DHT') AND ABC2.ProductDivision = 'Apparel' then (VerProc.Total * VerProc.Techni_qty) + 0.16
+
+	-- 	when VerProc.Total >0 or VerProc.Techni_qty$>0  then VerProc.Total + VerProc.Techni_qty$ else 0 end
+	-- 	 + (case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- 			when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
+
+	-- 			-------- AGREGADO POR RR 2026-02-05  PARA LAS ORDENES SUB APPLICATION EMB---------
+	-- 			when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty=0 then 0
+	-- 			 when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	-- 	   else 0 end)
+
+	-- 	   ---- AGREGADO POR NUEVOS PRECIOS DE GORRAS ---- AGREGADO POR RODRIGO RAMIREZ 20260113
+	-- 	+ (case when ABC2.ProductDivision LIKE '%Headwear%' and (VerProc.Total >0 or VerProc.Techni_qty$>0) THEN 0.48
+	-- 		else 0
+	-- 		end
+	-- 	)
+	-- as Embroidery,
+	  SCPD.Price_EmbroideryApp
+	+ SCPD.Price_EmbroideryHW
+	+ SCPD.Price_Relabel
+	+ SCPD.Price_HDP
+	+ SCPD.Price_SpecialPK
 	as Embroidery,
 
 	--ABC2.QTY * case when charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total else 0  end as Total_Embroidery,
-	ABC2.QTY * case 
-					when CHARINDEX('BND',ABC2.Waybill)>0 and charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total --- QUITAR CUANDO LA REVISION DE PRECIOS DETECTE BIEN LOS WAYBILS BUNDLES AGREGADO POR RODRIGO RAMIREZ 20251121
-					when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
-					when VerProc.Total >0 or VerProc.Techni_qty$>0 then VerProc.Total + VerProc.Techni_qty$ else 0 end
-		 + (case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
-				when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
-				 when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0.16
-		   else 0 end)
+	-- ABC2.QTY * case 
+	-- 				when CHARINDEX('BND',ABC2.Waybill)>0 and charindex('To Embro',ABC2.TypeOrd)>0 then ABC2.Embr_Total --- QUITAR CUANDO LA REVISION DE PRECIOS DETECTE BIEN LOS WAYBILS BUNDLES AGREGADO POR RODRIGO RAMIREZ 20251121
+	-- 				when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
+	-- 				-------- AGREGADO POR RR Y DP 2026-01-30  PARA LAS ORDENES SUB APPLICATION ---------
+	-- 				when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty=0 then VerProc.Total * VerProc.Techni_qty
+	-- 				when ABC2.TypeOrd in ('Transfer', 'Only DHT') AND ABC2.ProductDivision = 'Apparel' then (VerProc.Total * VerProc.Techni_qty) + 0.16
+
+	-- 				when VerProc.Total >0 or VerProc.Techni_qty$>0 then VerProc.Total + VerProc.Techni_qty$ else 0 end
+	-- 	 + (case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- 			when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then 0
+
+	-- 			-------- AGREGADO POR RR 2026-02-05  PARA LAS ORDENES SUB APPLICATION EMB---------
+	-- 			when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty=0 then 0
+	-- 			 when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	-- 	   else 0 end)
+	-- 	---- AGREGADO POR NUEVOS PRECIOS DE GORRAS ---- AGREGADO POR RODRIGO RAMIREZ 20260113
+	-- 	+ (case when ABC2.ProductDivision LIKE '%Headwear%' and (VerProc.Total >0 or VerProc.Techni_qty$>0) THEN 0.48
+	-- 		else 0
+	-- 		end
+	-- 	)
+	-- as Total_Embroidery,
+	ABC2.QTY *  (
+					  SCPD.Price_EmbroideryApp
+					+ SCPD.Price_EmbroideryHW
+					+ SCPD.Price_Relabel
+					+ SCPD.Price_HDP
+					+ SCPD.Price_SpecialPK
+				)
 	as Total_Embroidery,
 
-	case when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then VerProc.TotalPrintValue 
-		 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'EMB' then ABC2.Total_Sp_Subli - 0.16 else 0  end 
-	--+ case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
-	--			when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0
-	--			when ABC2.Total_Sp_Subli > 0 and VerProc.Subl_qty > 0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
-	--  else 0 end
+	-- case when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then VerProc.TotalPrintValue 
+	-- 	 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'EMB' then ABC2.Total_Sp_Subli - 0.16
+	-- 	 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'BLANK' then ABC2.Total_Sp_Subli else 0  end 
+	-- --+ case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- --			when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- --			when ABC2.Total_Sp_Subli > 0 and VerProc.Subl_qty > 0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	-- --  else 0 end
+	-- as Sublimation,
+	  SCPD.Price_Sublimation
+	+ SCPD.Price_SubApplication
 	as Sublimation,
 	
 	--ABC2.QTY * case when charindex('To Subli',ABC2.TypeOrd)>0 then ABC2.Total_Sp_Subli else 0  end 
-	ABC2.QTY * 	case when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then VerProc.TotalPrintValue 
-					 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'EMB' then ABC2.Total_Sp_Subli - 0.16 else 0  end 
-					--+ case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
-					--		when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0
-					--		when ABC2.Total_Sp_Subli >0 and VerProc.Subl_qty > 0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
-					--  else 0 end
+	-- ABC2.QTY * 	case when charindex('To Subli',ABC2.TypeOrd)>0 AND VerProc.Subl_qty>0 then VerProc.TotalPrintValue 
+	-- 				 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'EMB' then ABC2.Total_Sp_Subli - 0.16
+	-- 				 when ABC2.StyleNumber = '31144' AND ABC2.SeasonName = 'BLANK' then ABC2.Total_Sp_Subli else 0  end 
+	-- 				--+ case when VerProc.WF_Print >0 and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- 				--		when (VerProc.Total >0 or VerProc.Techni_qty$>0) and charindex('FG',ABC2.SeasonName)=0 then 0
+	-- 				--		when ABC2.Total_Sp_Subli >0 and VerProc.Subl_qty > 0 and charindex('FG',ABC2.SeasonName)=0 then 0.16
+	-- 				--  else 0 end
+	-- as Total_Sublimation,
+	ABC2.QTY * 	(
+					  SCPD.Price_Sublimation
+				    + SCPD.Price_SubApplication
+				)
 	as Total_Sublimation,
 
-	case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice)
-		 when charindex('bund',ABC2.Waybill)=0 and ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice
-		 when charindex('bund',ABC2.Waybill)=0									then ABC3.Price
-		 when charindex('bund',ABC2.Waybill)>0									then ABC4.UnitPrice
-	 end as Price,
+	-- case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice)
+	-- 	 when charindex('bund',ABC2.Waybill)=0 and ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice
+	-- 	 when charindex('bund',ABC2.Waybill)=0									then ABC3.Price
+	-- 	 when charindex('bund',ABC2.Waybill)>0									then ABC4.UnitPrice
+	--  end as Price,
 
-	case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty
-		 when charindex('bund',ABC2.Waybill)=0 and  ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00)	then ABC4.UnitPrice * ABC2.Qty
-		 when charindex('bund',ABC2.Waybill)=0										then ABC3.Price * ABC2.Qty 
-		 when charindex('bund',ABC2.Waybill)>0										then ABC4.UnitPrice * ABC2.Qty
-	end as [Total_$]
+	(SCPD.TotalBlank + SCPD.TotalDecoration) as Price,
+
+	-- case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty
+	-- 	 when charindex('bund',ABC2.Waybill)=0 and  ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00)	then ABC4.UnitPrice * ABC2.Qty
+	-- 	 when charindex('bund',ABC2.Waybill)=0										then ABC3.Price * ABC2.Qty 
+	-- 	 when charindex('bund',ABC2.Waybill)>0										then ABC4.UnitPrice * ABC2.Qty
+	-- end as [Total_$]
+	(SCPD.TotalBlank + SCPD.TotalDecoration) * ABC2.Qty as [Total_$]
 
 	,ABC2.OrderID
 	,TB_sum.MO
@@ -2083,23 +2141,16 @@ Select distinct	 ABC2.ShipDate,
     ,'each' as UDM
     
 	, case when  abc4_3.metodo=1
-			then (case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty
-						when ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice * ABC2.Qty
-						else ABC3.Price * ABC2.Qty end
-					) *0.8
-			when charindex('bund',ABC2.Waybill)>0 then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty *0.8
+	
+			then ((SCPD.TotalBlank + SCPD.TotalDecoration)  * ABC2.Qty 
+					) * 0.8
 			else (ABC5_1.BasePrice * ABC2.Qty) +  (isnull(abc4_1.BlankStyleCostMaterials1,0)*ABC2.Qty)
 			end as ComponentValue
 
     , case when  abc4_3.metodo=1
-			then (case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty
-						when ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice * ABC2.Qty
-						else ABC3.Price * ABC2.Qty end
+			then ((SCPD.TotalBlank + SCPD.TotalDecoration)  * ABC2.Qty
 					) * 0.2
-			when charindex('bund',ABC2.Waybill)>0 then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty *0.2
-			else (case when substring(ABC2.Waybill,1,2)='SM' then isnull(ABC3.BasePrice,ABC4.UnitPrice) * ABC2.Qty
-						when ABC4.UnitPrice <> COALESCE(ABC3.Price,0.00) then ABC4.UnitPrice * ABC2.Qty
-						else ABC3.Price * ABC2.Qty end
+			else ((SCPD.TotalBlank + SCPD.TotalDecoration)  * ABC2.Qty 
 					) - 
 					((ABC5_1.BasePrice * ABC2.Qty) +  (isnull(abc4_1.BlankStyleCostMaterials1,0)*ABC2.Qty))
 			end 
@@ -2107,25 +2158,35 @@ Select distinct	 ABC2.ShipDate,
 	
     ,isnull(ABC4_2.GrossWeightKGSAll,0) as GrossWeightKGSAll
     ,isnull(ABC4_2.NetWeightKGSAll,0) as  NetWeightKGSAll
-	,(select distinct shp.ContainerNumber
+	--,(select distinct shp.ContainerNumber
+	--	from lca.dbo.ShippingContainers  Cont with (nolock)
+	--		left outer join  lca.dbo.Shipments shp with (nolock)
+	--			on cont.ContainerNumber = shp.ContainerNumber
+	--			where shp.WayBill = REPLACE(REPLACE(REPLACE(RTRIM(isnull(ABC4.Waybill , ABC2.Waybill)),CHAR(9), ''),CHAR(10),''),CHAR(13),'')
+	--			AND shp.[StatusID] < 95) as Container
+	,(
+		select distinct Cont.ContainerNumber
 		from lca.dbo.ShippingContainers  Cont with (nolock)
 			left outer join  lca.dbo.Shipments shp with (nolock)
-				on cont.ContainerNumber = shp.ContainerNumber
+				on cont.ShippingContainerID = shp.ShippingContainerID
 				where shp.WayBill = REPLACE(REPLACE(REPLACE(RTRIM(isnull(ABC4.Waybill , ABC2.Waybill)),CHAR(9), ''),CHAR(10),''),CHAR(13),'')
-				AND shp.[StatusID] < 95) as Container
+				AND shp.[StatusID] < 95
+	)
 	,0 as TempGrossWG
 	,0 as TempoNetWeight
 	,0 as TempQty
 	,Cuenta
 	,0 as Receiving_Cost_Ponderado 
 	,0 as Total_Receiving_Cost_Ponderado 
+	,ISNULL(SCPD.ID,0) AS IDCheckPrices
+	--select *
 from  
 	(
 		Select distinct XYZ2.*, XYZ3.OrigFabricVendorName
 			from #TBoxes2 XYZ2	
 			left join #OrigFab XYZ3
 				on XYZ2.MO = XYZ3.EO
-
+				--WHERE PONumber IN ('ORD-5503504','ORD-5405304','ORD-5503508')
 			--left join [LCA].[dbo].[VW_Check_Sales_Prices_in_Invoices_SeekMO_2]  VWS1 with (nolock)
 			--	on XYZ2.Boxnumber = VWS1.BoxNumber
 			--left join #OrigFab XYZ3
@@ -2133,11 +2194,40 @@ from
 	) ABC2
 	--select * from #TBoxes2 --where BoxNumber='00709896'
 
-	left join  [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll]   ABC4 with (nolock)
+	--left join  [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll]   ABC4 with (nolock)
+	--	ON ABC2.BoxNumber = ABC4.BoxNumber
+	--	and ABC2.StyleNumber = ABC4.StyleNumber
+	--	and abc2.Stylecolor = ABC4.StyleColor
+	--	and abc2.GarmentSize = ABC4.GarmentSize  
+	----------- AGREGADO POR RR 2026-01-30, La relación de arriba no funciona si una caja contiene múltiples Items, al ser gorras no funciona incluso la relación por talla -----------
+	left join  
+		(
+			SELECT
+				Waybill
+				,BoxNumber
+				,StyleNumber
+				,StyleColor
+				,PONumber
+				,SeasonName
+				,UnitPrice
+				,ShipmentID
+				,Batch
+				,SUM(Quantity) AS Quantity
+			FROM [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll]   ABC4 with (nolock)
+			GROUP BY
+				Waybill
+				,BoxNumber
+				,StyleNumber
+				,StyleColor
+				,PONumber
+				,SeasonName
+				,UnitPrice
+				,ShipmentID
+				,Batch
+		) AS ABC4
 		ON ABC2.BoxNumber = ABC4.BoxNumber
 		and ABC2.StyleNumber = ABC4.StyleNumber
 		and abc2.Stylecolor = ABC4.StyleColor
-		--and abc2.GarmentSize = ABC4.GarmentSize  
 		--select * from #TBoxes2 where boxnumber ='00673224'
 		
 		/* left join Appslca.dbo.[ImportExport_AnexoFacturacion_CheckPrices] VerProc with (nolock)
@@ -2147,18 +2237,26 @@ from
 		CAMBIO REALIZADO POR RODRIGO RAMIREZ, DEBIDO A QUE EL STYLE DE LA TABLA NO ES EL BLANK STYLE, CUANDO SE ARREGLE
 		EL SOURCE STYLE ID DE LA TABLA Appslca.dbo.[ImportExport_AnexoFacturacion_CheckPrices] SE CAMBIARÁ EL JOIN DE ABAJO
 		2025-11-17*/
+		--left join (
+		--	SELECT 
+		--		VerProc.*
+		--		,ISNULL(BST.StyleNumber,VerProc.stylenumber) AS BlankStyle
+		--	FROM Appslca.dbo.[ImportExport_AnexoFacturacion_CheckPrices] VerProc with (nolock)
+		--	LEFT JOIN LCA.dbo.Styles AS ST WITH(NOLOCK) ON VerProc.StyleID = ST.StyleID
+		--	LEFT JOIN LCA.dbo.Styles AS BST WITH(NOLOCK) ON ST.BlankStyleID = BST.StyleID
+		--) AS VerProc
+		--on ABC2.OrderID = VerProc.OrderId and  abc4.StyleNumber = VerProc.BlankStyle and abc4.StyleColor = VerProc.StyleColor
+		--and ABC4.WayBill = VerProc.waybill And ABC4.SeasonName = VerProc.SeasonName --- Se agrega relación por waybill debido a que hay órdenes que no se van en una exportación completa
+		--									--- AGREGADO POR Rodrigo Ramírez 20251031
 
-	left join (
-			SELECT 
-				VerProc.*
-				,ISNULL(BST.StyleNumber,VerProc.stylenumber) AS BlankStyle
-			FROM Appslca.dbo.[ImportExport_AnexoFacturacion_CheckPrices] VerProc with (nolock)
-			LEFT JOIN LCA.dbo.Styles AS ST WITH(NOLOCK) ON VerProc.StyleID = ST.StyleID
-			LEFT JOIN LCA.dbo.Styles AS BST WITH(NOLOCK) ON ST.BlankStyleID = BST.StyleID
-		) AS VerProc
-		on ABC2.OrderID = VerProc.OrderId and  abc4.StyleNumber = VerProc.BlankStyle and abc4.StyleColor = VerProc.StyleColor
-		and ABC4.WayBill = VerProc.waybill And ABC4.SeasonName = VerProc.SeasonName --- Se agrega relación por waybill debido a que hay órdenes que no se van en una exportación completa
-											--- AGREGADO POR Rodrigo Ramírez 20251031
+	LEFT JOIN [AppsLCA].[dbo].[TB_ShipmentCheckPrices] AS SCP WITH(NOLOCK) 
+		ON ABC2.Waybill = SCP.waybill 
+		AND [status] = 1
+
+	LEFT JOIN [AppsLCA].[dbo].[TB_ShipmentCheckPricesDetail] AS SCPD WITH(NOLOCK)
+		ON SCP.id = SCPD.shipmentCheckPrices_id
+		--AND ABC2.OrderID = SCPD.OrderID
+		AND ABC2.ManufactureID = SCPD.ManufactureID
 
 	left join #abc4_1 abc4_1
         ON ABC2.BoxNumber = ABC4_1.BoxNumber
@@ -2230,6 +2328,7 @@ from
 					abc2.GarmentSize = ORDPR_2.GarmentSize and
 					abc2.Stylecolor	 = ORDPR_2.StyleColorName
 
+
 --select * from #TBoxes2
 update #Report set Qty =0  where BasePrice=0 and substring(waybill,1,2)='SM'
 
@@ -2271,7 +2370,7 @@ from #Report BD
 
 	--SELECT SUM(Qty), SUM(Total$) FROM #Report
 
-	--select * from #Report where BoxNumber = '01025177'
+	--select SUM(Qty), SUM(Total$) from #Report-- WHERE PONumber IN ('ORD-5503504','ORD-5405304','ORD-5503508')
 	--return
 	
 
@@ -2387,7 +2486,8 @@ insert into  appslca.dbo.ImportExport_AnexoFacturacion
 	 ,Waybill_Freight
 	 ,Receiving_Cost_Ponderado
 	 ,Total_Receiving_Cost_Ponderado
-	 
+	 ,IDCheckPrices
+
 	)
 select
   	   [ShipDate]
@@ -2482,6 +2582,7 @@ select
 	 ,'0' as Waybill_Freight
 	 ,Receiving_Cost_Ponderado
 	 ,Total_Receiving_Cost_Ponderado
+	 ,IDCheckPrices
 from #Report
 
 EXEC [AppsLCA].[dbo].[SP_tranfer_register_export] @VWaybill = @VWaybill
