@@ -9,16 +9,7 @@ AS
 BEGIN
     SET NOCOUNT ON;    
     -- DECLARE @data AS NVARCHAR(MAX)
-    -- SET @data	= '{
-    --                     "selectedOptions":[
-    --                         {
-    --                             "Waybill"  : "APP-20260309"
-    --                         },
-    --                         {
-    --                             "Waybill"  : "MST-20260309"
-    --                         }
-    --                     ]
-    --                 }'
+    -- SET @data	= '{"selectedOptions":[{"Waybill":"AIR-APP-20260415"},{"Waybill":"AIR-HW-20260415"},{"Waybill":"AIR-SMS-20260415"}]}'
     DECLARE @Component AS NVARCHAR(200)
     DECLARE @Error AS BIT
     DECLARE @message AS NVARCHAR(200)
@@ -50,11 +41,12 @@ BEGIN
             ,[StyleNumber]              = SBA.[StyleNumber]
             ,[CA_HTSDescription]        = SBA.[CA_HTSDescription]
             ,[US_HTSDescription]        = SBA.[US_HTSDescription]
-            ,[US_HTSCode]               = SBA.[US_HTSCode]
+            ,[US_HTSCode]               = SUBSTRING(SBA.[US_HTSCode],1,6)
             ,[Preferential_Treatment]   = 'GN29 "(b)(i)" CAFTA'
             ,[Other_Criteria]           = 'N/A'
             ,[Productor]                = 'YES'
             ,[TariffCategory]           = SBA.[Cafta]
+            -- ,SUM(SBA.Quantity)
             ,[ShipDate]                 = CAST(SBA.[ShipDate] AS DATE)
             ,[DateFrom_Day]             = DATEPART(DAY,CAST(SBA.[ShipDate] AS DATE))
             ,[DateFrom_Month]           = DATEPART(MONTH,CAST(SBA.[ShipDate] AS DATE))
@@ -64,9 +56,10 @@ BEGIN
             ,[DateTo_Year]              = DATEPART(YEAR,DATEFROMPARTS(YEAR(GETDATE()), 12, 31))
         INTO #TB_Data_COO
         FROM #TB_DATA_JSON_WAYBILL AS JSW
-        INNER JOIN [dbo].[ImportExport_ShipmentBoxAll]  AS SBA  WITH(NOLOCK) ON JSW.[Waybill] = SBA.[WayBill]
-        INNER JOIN [LCA].[dbo].[ShippingContainers]     AS SC   WITH(NOLOCK) ON SBA.[ShippingContainerID] = SC.[ShippingContainerID]
-        WHERE CHARINDEX('FG',SBA.[SeasonName]) = 0
+        INNER JOIN [192.168.1.93].[AppsLCA].[dbo].[CI_import_export_CommercialInvoice] AS SBA WITH(NOLOCK) ON JSW.[Waybill] = SBA.[WayBill]
+        INNER JOIN (SELECT DISTINCT Waybill, ShippingContainerID FROM [dbo].[ImportExport_ShipmentBoxAll]  AS SBA  WITH(NOLOCK)) AS SBS ON SBA.[Waybill] = SBS.[WayBill]
+        INNER JOIN [LCA].[dbo].[ShippingContainers]     AS SC   WITH(NOLOCK) ON SBS.[ShippingContainerID] = SC.[ShippingContainerID]
+        WHERE Cafta = 'Y'
         GROUP BY
             SBA.[WayBill]
             ,SC.[Invoice8]
@@ -98,7 +91,8 @@ BEGIN
             ,[Productor]             
             ,[TariffCategory]        
             ,[StyleForDescription]      = STRING_AGG([StyleNumber],',') WITHIN GROUP(ORDER BY [StyleNumber])
-            ,[CO_Description]           = CAST(NULL AS VARCHAR(200))
+            ,[CA_Description]           = CAST(NULL AS VARCHAR(200))
+            ,[US_Description]           = CAST(NULL AS VARCHAR(200))
             ,[DateFrom_Day]  
             ,[DateFrom_Month]
             ,[DateFrom_Year] 
@@ -126,12 +120,14 @@ BEGIN
             ,[DateTo_Year]
 
         UPDATE TB SET
-            [CO_Description] = CONCAT(CA_HTSDescription, ' / ', US_HTSDescription , ' No: ' ,StyleForDescription)
+             [CA_Description] = CONCAT(CA_HTSDescription, ' / ')
+            ,[US_Description] = CONCAT(US_HTSDescription , ' No: ' ,StyleForDescription)
         FROM #TB_COO AS TB
 
         SET @resultDetails = (
                                 SELECT
-                                     [CO_Description]
+                                     [CA_Description]
+                                    ,[US_Description]
                                     ,[US_HTSCode]
                                     ,[Preferential_Treatment]
                                     ,[Other_Criteria]

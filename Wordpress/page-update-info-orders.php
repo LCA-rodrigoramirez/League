@@ -232,10 +232,6 @@ if (isset($_POST['enviarListado'])) { ?>
         };
 
         function setReport1() {
-            attributeRows = {};
-            attributeRowsReady = false;
-            mismatchRows = {};
-            orderTypeByRow = {};
 
             pivot.setReport({
                 dataSource: {
@@ -325,9 +321,8 @@ if (isset($_POST['enviarListado'])) { ?>
         var highlightRows = {};
         var orderTypeByRow = {};
         var mismatchRows = {};
-        var attributeRows = {};
-        var attributeRowsReady = false;
-
+        var appTypeHighlightRows = {};
+        var needsAppTypeRefresh = false;
         function customizeCellFunction(cellBuilder, cellData) {
             if (typeof cellData.rowIndex !== "number" || cellData.rowIndex === 0) return;
             if (!cellData.hierarchy || cellData.type !== "value") return;
@@ -335,9 +330,30 @@ if (isset($_POST['enviarListado'])) { ?>
             var hierarchyName = cellData.hierarchy.uniqueName;
             var rowKey = cellData.rowIndex;
 
-            // Aplicar sombreado azul si la fila tiene Attribute con datos
-            if (attributeRows[rowKey]) {
-                cellBuilder.style['background-color'] = '#C0E6F5';
+            // --- ApplicationType: detectar SP o CL y guardar la fila ---
+            if (hierarchyName === "ApplicationType") {
+                var appText = "";
+                if (cellData.member && cellData.member.caption != null) {
+                    appText = String(cellData.member.caption);
+                } else if (cellData.label != null) {
+                    appText = String(cellData.label);
+                } else if (cellData.value != null) {
+                    appText = String(cellData.value);
+                }
+                var upper = appText.trim().toUpperCase();
+                if (upper.indexOf("SP") !== -1 || upper.indexOf("CL") !== -1) {
+                    if (!appTypeHighlightRows[rowKey]) {
+                        appTypeHighlightRows[rowKey] = true;
+                        needsAppTypeRefresh = true; // necesitamos re-renderizar columnas anteriores
+                    }
+                    cellBuilder.style['background-color'] = '#4FC3F7';
+                }
+                return;
+            }
+
+            // --- Aplicar azul a todas las demás columnas de la fila si corresponde ---
+            if (appTypeHighlightRows[rowKey]) {
+                cellBuilder.style['background-color'] = '#4FC3F7';
             }
 
             if (hierarchyName !== "OrderTypePPM" && hierarchyName !== "OrderTypeTechnique") return;
@@ -376,31 +392,19 @@ if (isset($_POST['enviarListado'])) { ?>
 
 
         //Funcion que manda un error cuando no se conecta a la base de datos
+        //y dispara un refresh único para pintar columnas anteriores a ApplicationType
         pivot.on('reportcomplete', () => {
-            if (pivot.getAllHierarchies().length == 0)
+            if (pivot.getAllHierarchies().length == 0) {
                 pivot.alert({
                     title: 'Data error, please contac LCA IT (lca.it@league91.com)',
                     type: 'error'
-                })
-        });
-
-        // Leer datos reales con getData para identificar qué filas tienen Attribute con datos,
-        // luego hacer refresh para que customizeCell aplique el color con la info correcta.
-        pivot.on('reportcomplete', function() {
-            if (!attributeRowsReady) {
-                attributeRowsReady = true;
-                pivot.getData({}, function(dataObj) {
-                    attributeRows = {};
-                    if (dataObj && dataObj.data) {
-                        dataObj.data.forEach(function(row, idx) {
-                            var attrVal = row["Attribute"];
-                            if (attrVal != null && String(attrVal).trim() !== "" && String(attrVal).trim().toLowerCase() !== "null") {
-                                attributeRows[idx + 1] = true; // rowIndex en customizeCell es 1-based
-                            }
-                        });
-                    }
-                    pivot.refresh();
                 });
+                return;
+            }
+
+            if (needsAppTypeRefresh) {
+                needsAppTypeRefresh = false; // resetear ANTES del refresh para no loop infinito
+                pivot.refresh();
             }
         });
 

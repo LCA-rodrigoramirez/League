@@ -16,20 +16,20 @@ Declare @Executing_Date datetime = null
 Declare @Finished_Date datetime=null
 Declare @TransferVal INT = 0
  
-SET @WayBill = 'APP-20241112'
+SET @WayBill = 'SELAB-20240611-NO CAFTA'
 -- declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status_Drawback]
 -- 		where status='Pending'
-declare WayBill_status cursor for SELECT DISTINCT WAYBILL FROM [192.168.1.93].[AppsLCA].[dbo].[CI_Import_Export_DeclarationExport_DrawBack]
-WHERE RO IN (select * from #doble_im_ro)
- ORDER BY WAYBILL
+-- declare WayBill_status cursor for SELECT DISTINCT WAYBILL FROM [192.168.1.93].[AppsLCA].[dbo].[CI_Import_Export_DeclarationExport_DrawBack]
+-- WHERE RO IN (select * from #doble_im_ro)
+--  ORDER BY WAYBILL
 
 -- open WayBill_status
 -- Fetch next from WayBill_status into  @WayBill, @Status, @Pending_Date, @Executing_date, @Finished_Date
-open WayBill_status
-Fetch next from WayBill_status into  @WayBill
+-- open WayBill_status
+-- Fetch next from WayBill_status into  @WayBill
 
-while @@Fetch_status=0
-	begin
+-- while @@Fetch_status=0
+-- 	begin
 
 -- --  delete from appslca.dbo.Import_Export_CommercialInvoice_TEST where WayBill =@WayBill
 -- delete from appslca.dbo.Import_Export_CommercialInvoice where WayBill =@WayBill
@@ -1496,11 +1496,11 @@ END
 	
 
 -- 	Fetch next from WayBill_status into  @WayBill, @Status, @Pending_Date, @Executing_date, @Finished_Date
-	Fetch next from WayBill_status into  @WayBill
+	-- Fetch next from WayBill_status into  @WayBill
 
 
-	end
-close WayBill_status
-deallocate WayBill_status
+-- 	end
+-- close WayBill_status
+-- deallocate WayBill_status
 
 END
