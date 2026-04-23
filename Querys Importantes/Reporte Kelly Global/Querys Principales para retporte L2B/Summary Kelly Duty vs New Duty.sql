@@ -755,7 +755,8 @@ FROM #TB_CI_New AS TBS
 WHERE Waybill = 'MASTER20240131-2'
 
 
--- select * from #TB_CI_New
+select * from #TB_CI_New
+return
 -- where Entry# = 'BHE04206898'
 
 SELECT

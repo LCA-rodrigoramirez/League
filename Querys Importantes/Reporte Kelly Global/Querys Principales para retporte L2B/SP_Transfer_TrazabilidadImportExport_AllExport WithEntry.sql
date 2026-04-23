@@ -1038,6 +1038,7 @@ INNER JOIN (
 		,[Fenta_%]              = COALESCE(TT.[Fenta]         ,TT2.[Fenta]         )
 		,[Recip_%]              = COALESCE(TT.[Recip]         ,TT2.[Recip]         )
 		,[HTS_%]                = COALESCE(TT.[HTS]           ,TT2.[HTS]           )
+		,[Tariff122_%]          = COALESCE(TT.[Tariff122]     ,TT2.[Tariff122]     )
 		
 	FROM #TB_Transfer_Trazabilidad AS A
 	LEFT JOIN [AppsLCA].[dbo].[TB_Transfer_TariffCOO] AS TT WITH(NOLOCK) ON TT.[Type] = A.[ProductDivision]
@@ -1055,6 +1056,7 @@ INNER JOIN (
 				    ,[Fenta]           = S.[Fenta]
 				    ,[Recip]           = S.[Recip]
 				    ,[HTS]             = S.[HTS]
+				    ,[Tariff122]       = S.[Tariff122]
 				    ,[Total]           = S.[Total]
 				FROM [AppsLCA].[dbo].[TB_Transfer_TariffCOO] AS S WITH(NOLOCK)
 				INNER JOIN (

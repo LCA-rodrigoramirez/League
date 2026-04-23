@@ -6,7 +6,7 @@ SELECT
     r.session_id,
     s.login_name,
     s.host_name,
-    c.client_net_address, -- Dirección IP del cliente
+    c.client_net_address, -- Direcciï¿½n IP del cliente
     r.status,
     r.start_time,
     r.command,
@@ -27,11 +27,11 @@ INNER JOIN sys.dm_exec_sessions AS s ON r.session_id = s.session_id
 INNER JOIN sys.dm_exec_connections AS c ON r.session_id = c.session_id -- Unir con conexiones para obtener la IP
 CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS st
 OUTER APPLY sys.dm_exec_query_plan(r.plan_handle) AS qp
-WHERE r.session_id != @@SPID -- Excluir la sesión actual
+WHERE r.session_id != @@SPID -- Excluir la sesiï¿½n actual
 ORDER BY r.session_id;
 
 
-
+-- KILL 69
 --SELECT "Tbl1005"."Fecha" "Col1010","Tbl1005"."MO" "Col1011" FROM "lca"."dboReaders"."vw_PivotSerigrafia" "Tbl1005" WITH (NOLOCK) ORDER BY "Col1011" ASC
 
 

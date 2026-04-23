@@ -31,12 +31,13 @@ DROP TABLE IF EXISTS #TB_VAL_CI_PIV
     -- FROM [AppsLCA].[dbo].[TB_Transfer_Export_Duty] AS E WITH(NOLOCK)
     FROM [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] AS E WITH(NOLOCK)
     WHERE E.[Waybill] IN(
-        'AIR-SMS-20260213'
+        'AIR-APP-20260422-1'
         
         -- ,
         -- 'AIR-HW-20250821'
         -- ,
         -- 'APP-20251107'
+        
         )
 
 
@@ -374,7 +375,7 @@ SELECT *
     --  GROUP BY [Waybill]
      
      SELECT * FROM #TB_VAL_CI_PIV 
-	 WHERE Dif_9802 <> 0 OR QTY_Validation <> 0
+	 WHERE Dif_9802 <> 0 OR Dif$_9802 <> 0
      
 --  SELECT * FROM #TB_VAL_CI_DATA
  
