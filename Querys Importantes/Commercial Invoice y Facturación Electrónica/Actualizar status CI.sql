@@ -3,7 +3,7 @@ SELECT * FROM AppsLCA.dbo.ImportExport_CommercialInvoice_Status_Drawback WITH(NO
 
  
 
---update AppsLCA.dbo.ImportExport_CommercialInvoice_Status set Status = 'Pending' WHERE waybill = 'AIR-APP-20260330'
+--update AppsLCA.dbo.ImportExport_CommercialInvoice_Status set Status = 'Pending' WHERE waybill = 'APP-20260424'
 --update AppsLCA.dbo.ImportExport_CommercialInvoice_Status_Drawback set Status = 'Pending' WHERE waybill = 'AIR-APP-20250319'
 
 INSERT INTO AppsLCA.dbo.ImportExport_CommercialInvoice_Status

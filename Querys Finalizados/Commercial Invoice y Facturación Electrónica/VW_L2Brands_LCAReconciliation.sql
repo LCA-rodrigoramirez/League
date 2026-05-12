@@ -50,6 +50,7 @@ WITH CTE_SH AS (
                         SH.[WayBill]
                         ,SH.[BookingNumber] AS [DM]
                     FROM [LCA].[dbo].[Shipments] AS SH WITH(NOLOCK)
+					WHERE SH.StatusID < 95
                 ) AS SH ON A.[Waybill] = SH.[WayBill]
 	WHERE CAST(A.ShipDate AS DATE) >= CAST(DATEADD(DAY, 1, EOMONTH(GETDATE(), -4)) AS DATE)
 )

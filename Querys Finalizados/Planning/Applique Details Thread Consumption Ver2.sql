@@ -711,6 +711,7 @@ SET NOCOUNT ON;
 				,Qty
 				,TRIM(REPLACE(REPLACE(REPLACE(ProductDivision, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS ProductDivision
 				,[Req Ship]
+				,DATEPART(WEEK, CAST([Req Ship] AS DATE)) AS [Week Req Ship]
 				,TRIM(REPLACE(REPLACE(REPLACE([Status/Date], CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS [Status/Date]
 				,SKUID
 				,EmbType
@@ -801,7 +802,7 @@ SET NOCOUNT ON;
 		 [Error]	 	= @Error
 		,[Component] 	= @Component
 		,[Message]		= @message
-		,[Result]		= @result
+		,[Result]		= JSON_QUERY(@result)
 	FOR JSON PATH, INCLUDE_NULL_VALUES
 	
 	return

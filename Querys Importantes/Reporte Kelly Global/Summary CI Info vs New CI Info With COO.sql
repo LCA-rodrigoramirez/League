@@ -15,33 +15,34 @@ CREATE TABLE #TB_WAYBILL_MATERIALS (
     ,[Entry #]         VARCHAR(MAX)
     ,[Entry Date]      DATE
     ,[InvoiceKelly]    VARCHAR(MAX)
+    ,[CountryOfOrigin] VARCHAR(MAX)
     ,[CountInvoice]    VARCHAR(MAX)
     ,[Qty]             DECIMAL(10,2)
     ,[Total]           DECIMAL(10,2)
 )
 
-INSERT INTO #TB_WAYBILL_MATERIALS (Shipdate, Waybill, InvoiceLCA, [Entry #], [Entry Date], InvoiceKelly, CountInvoice, Qty, Total)
+INSERT INTO #TB_WAYBILL_MATERIALS (Shipdate, Waybill, InvoiceLCA, [Entry #], [Entry Date], InvoiceKelly, CountryOfOrigin, CountInvoice, Qty, Total)
 VALUES
-     ('2024-12-20', 'SALE-HANTAG20241220'            , 'NO CAFTA', 'BHE04258691', '2025-01-02', '5', 1,55000      , 5500  )
-    ,('2025-03-07', 'SALE-HANTAG20250307'            , 'NO CAFTA', 'BHE04269979', '2025-03-17', '7', 1,3000       , 510   )
-    ,('2025-03-07', 'SALE-Polybag Adhesive20250307'  , 'NO CAFTA', 'BHE04269979', '2025-03-17', '6', 1,13000      , 780   )
-    ,('2025-04-24', 'SALE-SUPPLIES20250424'          , 'CAFTA'   , 'BHE04278798', '2025-04-28', '5', 1,100800     , 3024  )
-    ,('2025-09-12', 'SALE-HANTAG20251009-1'          , 'CAFTA'   , 'BHE04302473', '2025-09-19', '8', 1,20000      , 600   )
-    ,('2025-09-12', 'SALE-HANTAG20251009'            , 'NO CAFTA', 'BHE04302473', '2025-09-19', '9', 1,20000      , 2060  )
-    ,('2024-11-12', 'SALE-HANTAG20241112'            , 'NO CAFTA', 'BHE04253395', '2024-11-21', '4', 1,115000     , 5200  )
-    ,('2024-09-24', 'SALE-HANTAG20241112'            , 'CAFTA'   , 'BHE04245672', '2024-10-04', '3', 1,252        , 640.76)
-    ,('2024-09-27', 'AIR-APP-20240927'               , 'CAFTA'   , 'BHE04245540', '2024-09-30', '1,2,5', 3,200        , 332   )
-    ,('2024-08-30', 'SALE-FABRIC20240830'            , 'CAFTA'   , 'BHE04240772', '2024-09-08', '4', 1,254        , 703.14)
-    ,('2024-08-22', 'SALE-FABRIC20240821'            , 'NO CAFTA', 'BHE04239188', '2024-08-29', '4', 1,313.40     , 595.60)
-    ,('2024-03-19', 'HAG TAG'                        , 'NO CAFTA', 'BHE04213019', '2024-03-27', '6', 1,5500       , 564.83)
-    ,('2024-08-16', 'APP-20240816'                   , 'CAFTA'   , 'BHE04237778', '2024-08-22', '1,2', 2,2104.00    , 4378.21)
-    ,('2024-08-23', 'APP-20240823'                   , 'CAFTA'   , 'BHE04239170', '2024-08-29', '1,2', 2,94         , 66.74)
-    ,('2024-07-19', 'APP-20240719'                   , 'CAFTA'   , 'BHE04232605', '2024-07-31', '1,2', 2,30         , 505.69)
-    ,('2024-06-28', 'APP-20240628'                   , 'CAFTA'   , 'BHE04228967', '2024-07-09', '1,2', 2,12         , 29.79)
-    ,('2024-06-28', 'APP-20240628'                   , 'CAFTA'   , 'BHE04228967', '2024-07-09', '1,2', 2,15000.00   , 832.05)
-    ,('2024-06-07', 'LCA-20240607-CAFTA'             , 'CAFTA'   , 'BHE04224974', '2024-06-14', '1', 1,5000.00    , 471.50)
-    ,('2024-06-07', 'LCA-20240530-CAFTA'             , 'CAFTA'   , 'BHE04223836', '2024-06-10', '1', 1,35         , 589.97)
-    ,('2025-11-21','SALE-TRIMS20252111'              , 'CAFTA'   , 'BHE04313207', '2025-12-04', '2', 1,216000     , 43200)
+     ('2024-12-20', 'SALE-HANTAG20241220'            , 'NO CAFTA', 'BHE04258691', '2025-01-02', '5', 'Guatemala', 1,55000      , 5500  )
+    ,('2025-03-07', 'SALE-HANTAG20250307'            , 'NO CAFTA', 'BHE04269979', '2025-03-17', '7', 'United States', 1,3000       , 510   )
+    ,('2025-03-07', 'SALE-Polybag Adhesive20250307'  , 'NO CAFTA', 'BHE04269979', '2025-03-17', '6', 'Honduras', 1,13000      , 780   )
+    ,('2025-04-24', 'SALE-SUPPLIES20250424'          , 'CAFTA'   , 'BHE04278798', '2025-04-28', '5', 'Guatemala', 1,100800     , 3024  )
+    ,('2025-09-12', 'SALE-HANTAG20251009-1'          , 'CAFTA'   , 'BHE04302473', '2025-09-19', '8', 'El Salvador', 1,20000      , 600   )
+    ,('2025-09-12', 'SALE-HANTAG20251009'            , 'NO CAFTA', 'BHE04302473', '2025-09-19', '9', 'Guatemala', 1,20000      , 2060  )
+    ,('2024-11-12', 'SALE-HANTAG20241112'            , 'NO CAFTA', 'BHE04253395', '2024-11-21', '4', 'Guatemala', 1,115000     , 5200  )
+    ,('2024-09-24', 'SALE-FABRIC20240924'            , 'CAFTA'   , 'BHE04245672', '2024-10-04', '3', 'Guatemala', 1,252        , 640.76)
+    ,('2024-09-27', 'AIR-APP-20240927'               , 'CAFTA'   , 'BHE04245540', '2024-09-30', '1,2,5', 'El Salvador', 3,200        , 332   )
+    ,('2024-08-30', 'SALE-FABRIC20240830'            , 'CAFTA'   , 'BHE04240772', '2024-09-08', '4', 'Guatemala', 1,254        , 703.14)
+    ,('2024-08-22', 'SALE-FABRIC20240821'            , 'NO CAFTA', 'BHE04239188', '2024-08-29', '4', 'Guatemala', 1,313.40     , 595.60)
+    ,('2024-03-19', 'HAG TAG'                        , 'NO CAFTA', 'BHE04213019', '2024-03-27', '6', 'Guatemala', 1,5500       , 564.83)
+    ,('2024-08-16', 'APP-20240816'                   , 'CAFTA'   , 'BHE04237778', '2024-08-22', '1,2', 'El Salvador', 2,2104.00    , 4378.21)
+    ,('2024-08-23', 'APP-20240823'                   , 'CAFTA'   , 'BHE04239170', '2024-08-29', '1,2', 'El Salvador', 2,94         , 66.74)
+    ,('2024-07-19', 'APP-20240719'                   , 'CAFTA'   , 'BHE04232605', '2024-07-31', '1,2', 'El Salvador', 2,30         , 505.69)
+    ,('2024-06-28', 'APP-20240628'                   , 'CAFTA'   , 'BHE04228967', '2024-07-09', '1,2', 'Guatemala', 2,12         , 29.79)
+    ,('2024-06-28', 'APP-20240628'                   , 'CAFTA'   , 'BHE04228967', '2024-07-09', '1,2', 'Guatemala', 2,15000.00   , 832.05)
+    ,('2024-06-07', 'LCA-20240607-CAFTA'             , 'CAFTA'   , 'BHE04224974', '2024-06-14', '1', 'El Salvador', 1,5000.00    , 471.50)
+    ,('2024-06-07', 'LCA-20240530-CAFTA'             , 'CAFTA'   , 'BHE04223836', '2024-06-10', '1', 'El Salvador', 1,35         , 589.97)
+    ,('2025-11-21','SALE-TRIMS20252111'              , 'CAFTA'   , 'BHE04313207', '2025-12-04', '2', 'El Salvador', 1,216000     , 43200)
 
 
 SELECT *
@@ -55,6 +56,7 @@ FROM(
         ,[EntryDate]        = [Entry Date]
         ,[Invoice#]         = [Invoice #]
         ,[CountryCode]      = LEFT(MANUFID,2)
+        ,[CountryCode2]     = Origin
         ,[Kelly_TotalQty]   = CAST(SUM(QtyTotal) AS DECIMAL(18,2))
         ,[Kelly_TotalFOB]   = CAST(SUM(IIF(Flag = 1, [Value], 0.00)) AS DECIMAL(18,2))
         ,[Kelly_TotalDuty]  = CAST(SUM(Duty) AS DECIMAL(18,2))
@@ -102,7 +104,7 @@ FROM(
         ,[Entry Date]
         ,[Invoice #]
         ,LEFT(MANUFID,2)
-        -- ,[Origin]
+        ,[Origin]
 ) AS TB
 
 SELECT *
@@ -123,7 +125,7 @@ FROM (
                                 WHEN LEN(InvoiceKelly) - LEN(REPLACE(InvoiceKelly, ',', '')) = 0 THEN 1
                               END
         ,[CountryOfOrigin]  = ISNULL(CI.[CountryOfOrigin],'El Salvador')
-        ,[CountryCode]      = CI.[CountryCode]
+        ,[CountryCode]      = ISNULL(CI.[CountryCode], 'SV')
         ,[CI_TotalQty]      = SUM(CI.[Quantity])
         ,[CI_TotalFOB]      = SUM(CI.[CI_Total])    
         ,[CI_TotalPrice]    = SUM(CI.[TotalPrice])
@@ -151,7 +153,7 @@ FROM (
          END
         ,CI.[TypeData]
         ,ISNULL(CI.[CountryOfOrigin],'El Salvador')
-        ,CI.[CountryCode]
+        ,ISNULL(CI.[CountryCode], 'SV')
 ) AS TB
 
 SELECT
@@ -164,7 +166,7 @@ SELECT
     ,[TariffCategory]
     ,[CountInvoice]
     ,[CountryOfOrigin]
-    -- ,[CountryCode]
+    ,[CountryCode]
     ,[New_TotalQty]     = CAST(SUM([New_TotalQty]) AS DECIMAL(18,2))
     ,[New_TotalFOB]     = CAST(SUM([New_TotalFOB]) AS DECIMAL(18,2))
     ,[New_TotalDuty]    = CAST(SUM([New_TotalDuty]) AS DECIMAL(18,2))
@@ -186,7 +188,7 @@ FROM
         ,[TariffCategory]   = [TariffCategory]
         ,[CountInvoice]     = [CountInvoice]
         ,[CountryOfOrigin]  = [FAMOCountryOfOrigin] 
-        -- ,[CountryCode]      = [CountryCode] 
+        ,[CountryCode]      = [CountryCode] 
         ,[New_TotalQty]     = CAST(SUM([QtyExport]) AS DECIMAL(18,2))
         ,[New_TotalFOB]     = CAST(SUM([KellyReport]) AS DECIMAL(18,2))
         ,[New_TotalDuty]    = CAST(SUM([T_Total_$]) AS DECIMAL(18,2))
@@ -196,6 +198,7 @@ FROM
         ,[New_HTS$]         = CAST(SUM([TValue_HTS_$]) AS DECIMAL(18,2))
         --select *
     FROM [dbo].[TB_Transfer_Validation_allExport] AS AE WITH(NOLOCK)
+    LEFT JOIN [LCA].[dbo].[CountryOfOrigin] AS COO WITH(NOLOCK) ON AE.[FAMOCountryOfOrigin] = COO.[CountryName] AND COO.[StatusID] = 30
     WHERE [ExportDate] <= '2025-11-10'
     -- WHERE [Entry #] LIKE '%BHE04312779%'
     -- WHERE [Entry #] NOT LIKE '%BHE04309999%' AND TypeData = 'Export'
@@ -211,7 +214,7 @@ FROM
         ,[TariffCategory]
         ,[CountInvoice]
         ,[FAMOCountryOfOrigin] 
-        -- ,[CountryCode]
+        ,[CountryCode]
 
     UNION ALL
 
@@ -224,8 +227,8 @@ FROM
         ,[Waybill]          = [Waybill]
         ,[TariffCategory]   = [InvoiceLCA]
         ,[CountInvoice]     = [CountInvoice]
-        ,[CountryOfOrigin]  = 'El Salvador'
-        -- ,[CountryCode]      = 'SV'
+        ,[CountryOfOrigin]  = [CountryOfOrigin]
+        ,[CountryCode]      = [CountryCode]
         ,[New_TotalQty]     = CAST(SUM([Qty]) AS DECIMAL(18,2))
         ,[New_TotalFOB]     = CAST(SUM([Total]) AS DECIMAL(18,2))
         ,[New_TotalDuty]    = 0.0000
@@ -233,7 +236,8 @@ FROM
         ,[New_Recip$]       = 0.0000
         ,[New_Fenta$]       = 0.0000
         ,[New_HTS$]         = 0.0000
-    FROM #TB_WAYBILL_MATERIALS
+    FROM #TB_WAYBILL_MATERIALS as AE
+    LEFT JOIN [LCA].[dbo].[CountryOfOrigin] AS COO WITH(NOLOCK) ON AE.[CountryOfOrigin] = COO.[CountryName] AND COO.[StatusID] = 30
     WHERE [Entry Date] <= '2025-11-10'
     GROUP BY
     YEAR([Entry Date])
@@ -244,6 +248,8 @@ FROM
     ,[Waybill]
     ,[InvoiceLCA]
     ,[CountInvoice]
+    ,[CountryOfOrigin]
+    ,[CountryCode]
 ) AS TB
 GROUP BY
     [YearEntry]
@@ -255,7 +261,7 @@ GROUP BY
     ,[TariffCategory]
     ,[CountInvoice]
     ,[CountryOfOrigin]
-    -- ,[CountryCode]
+    ,[CountryCode]
 
 UPDATE TBS SET
      [Kelly_TotalDuty] = ROUND(TBK.[TotalDutyKelly],2)
@@ -698,6 +704,7 @@ LEFT JOIN
             ,[Invoice#]     = TBK.[Invoice#]
             ,[KeySearch]    = TBK.[KeySearch]
             ,[CountryCode]  = TBK.[CountryCode]
+            ,[CountryCode2]  = TBK.[CountryCode2]
             ,[TotalQty]     = SUM(TBK.Kelly_TotalQty)
             ,[TotalFOB]     = SUM(TBK.Kelly_TotalFOB)
             ,[TotalDuty]    = SUM(TBK.Kelly_TotalDuty)
@@ -712,7 +719,8 @@ LEFT JOIN
             ,TBK.[Invoice#]
             ,TBK.[KeySearch]
             ,TBK.[CountryCode]
-    ) AS TBK ON TBK.[Entry#] = TBS.[Entry#] AND TBK.[EntryDate] = TBS.[EntryDate] AND TBK.[CountryCode] = TBS.[CountryCode]
+            ,TBK.[CountryCode2]
+    ) AS TBK ON TBK.[Entry#] = TBS.[Entry#] AND TBK.[EntryDate] = TBS.[EntryDate] AND (TBK.[CountryCode] = TBS.[CountryCode] OR TBK.[CountryCode2] = TBS.[CountryCode])
     -- WHERE tbs.[Entry#] = 'BHE04228579'
     GROUP BY
     TBS.[Entry#]
@@ -762,10 +770,45 @@ UPDATE TBS SET
 FROM #TB_CI_New AS TBS
 WHERE Waybill = 'MASTER20240131-2'
 
-SELECT
-*
-FROM #TB_CI_New
-RETURN
+
+-------------------------- cuadre para Entrys con diferencia por país de origen -----------------------------
+
+UPDATE TBS SET
+    Kelly_TotalQty = 588
+    ,Kelly_TotalFOB = 2980
+    ,Kelly_TotalDuty = 224.89
+    ,Kelly_HTS$ = 224.89
+FROM #TB_CI_New AS TBS
+WHERE Waybill = 'AIR-BUND-20241220'
+AND Invoice# = 4
+AND CountryCode = 'BD'
+
+UPDATE TBS SET
+    Kelly_TotalQty = 792
+    ,Kelly_TotalFOB = 4418
+    ,Kelly_TotalDuty = 743.23
+    ,Kelly_HTS$ = 743.23
+FROM #TB_CI_New AS TBS
+WHERE Waybill = 'AIR-APP-20241220'
+AND Invoice# = '3'
+AND CountryCode = 'SV'
+
+-------------------------- cuadre para Entrys con diferencia por país de origen -----------------------------
+
+
+-- SELECT * FROM #TB_CI_New WHERE Entry# = 'BHE04257511'
+-- SELECT * FROM #TB_Kelly_New WHERE Entry# = 'BHE04257511'
+-- SELECT * FROM AppsLCA.dbo.TB_Transfer_TablaKelly WHERE [Entry #] = 'BHE04257511'
+
+-- SELECT * FROM #TB_CI_New WHERE Waybill = 'AIR-APP-20241220'
+-- SELECT * FROM #TB_CI_New WHERE Entry# = 'BHE04258543'
+-- SELECT * FROM #TB_Kelly_New WHERE Entry# = 'BHE04258543'
+-- SELECT * FROM AppsLCA.dbo.TB_Transfer_TablaKelly WHERE [Entry #] = 'BHE04264681'
+
+-- SELECT*
+-- from #TB_Kelly_New
+-- where EntryDate <= '2025-11-10'
+-- RETURN
 
 -- select * from #TB_CI_New
 -- where Entry# = 'BHE04206898'
@@ -773,44 +816,153 @@ RETURN
 SELECT
      [YearEntry]                = COALESCE(TBC.[YearEntry], TBA.[YearEntry])
     ,[MonthEntry]               = COALESCE(TBC.[MonthEntry], TBA.[MonthEntry])
-    -- ,[OriginalTariffCategory]   = TBC.[TypeData]
+    ,[OriginalTariffCategory]   = TBC.[TypeData]
     ,[NewTariffCategory]        = TBA.[TariffCategory]
     ,[Entry#]                   = COALESCE(TBC.[Entry#], TBA.[Entry#])
     ,[EntryDate]                = COALESCE(TBC.[EntryDate], TBA.[EntryDate])
     ,[WayBill]                  = COALESCE(TBC.[WayBill], TBA.[Waybill])
     ,[OriginalCOO]              = TBC.[CountryOfOrigin]
     ,[NewCOO]                   = TBA.[CountryOfOrigin]
-    -- ,[Kelly_TotalQty]           = TBC.[Kelly_TotalQty]
-    -- ,[Kelly_TotalFOB]           = TBC.[Kelly_TotalFOB]
-    -- ,[Kelly_TotalDuty]          = TBC.[Kelly_TotalDuty]
-    -- ,[Kelly_301China$]          = TBC.[Kelly_301China$]
-    -- ,[Kelly_Fenta$]             = TBC.[Kelly_Fenta$]
-    -- ,[Kelly_Recip$]             = TBC.[Kelly_Recip$]
-    -- ,[Kelly_HTS$]               = TBC.[Kelly_HTS$]
+    ,[Kelly_TotalQty]           = TBC.[Kelly_TotalQty]
+    ,[Kelly_TotalFOB]           = TBC.[Kelly_TotalFOB]
+    ,[Kelly_TotalDuty]          = TBC.[Kelly_TotalDuty]
+    ,[Kelly_301China$]          = TBC.[Kelly_301China$]
+    ,[Kelly_Fenta$]             = TBC.[Kelly_Fenta$]
+    ,[Kelly_Recip$]             = TBC.[Kelly_Recip$]
+    ,[Kelly_HTS$]               = TBC.[Kelly_HTS$]
     ,[New_TotalQty]             = TBA.[New_TotalQty]
     ,[New_TotalFOB]             = TBA.[New_TotalFOB]
-    -- ,[New_TotalDuty]            = TBA.[New_TotalDuty]
-    -- ,[New_301China$]            = TBA.[New_301China$]        
-    -- ,[New_Fenta$]               = TBA.[New_Fenta$]    
-    -- ,[New_Recip$]               = TBA.[New_Recip$]    
-    -- ,[New_HTS$]                 = TBA.[New_HTS$]
-    -- ,[NewDrawBack]              = ISNULL(TBA.[New_TotalDuty],0) - ISNULL(TBC.[Kelly_TotalDuty],0.00)
-    -- ,[DrawBack301China]         = ISNULL(TBA.[New_301China$],0) - ISNULL(TBC.[Kelly_301China$],0.00)
-    -- ,[DrawBackFenta]            = ISNULL(TBA.[New_Fenta$],0) - ISNULL(TBC.[Kelly_Fenta$],0.00)
-    -- ,[DrawBackRecip]            = ISNULL(TBA.[New_Recip$],0) - ISNULL(TBC.[Kelly_Recip$],0.00)
-    -- ,[DrawBackHTS]              = ISNULL(TBA.[New_HTS$],0) - ISNULL(TBC.[Kelly_HTS$],0.00)
+    ,[New_TotalDuty]            = TBA.[New_TotalDuty]
+    ,[New_301China$]            = TBA.[New_301China$]        
+    ,[New_Fenta$]               = TBA.[New_Fenta$]    
+    ,[New_Recip$]               = TBA.[New_Recip$]    
+    ,[New_HTS$]                 = TBA.[New_HTS$]
+    ,[NewDrawBack]              = ISNULL(TBA.[New_TotalDuty],0) - ISNULL(TBC.[Kelly_TotalDuty],0.00)
+    ,[DrawBack301China]         = ISNULL(TBA.[New_301China$],0) - ISNULL(TBC.[Kelly_301China$],0.00)
+    ,[DrawBackFenta]            = ISNULL(TBA.[New_Fenta$],0) - ISNULL(TBC.[Kelly_Fenta$],0.00)
+    ,[DrawBackRecip]            = ISNULL(TBA.[New_Recip$],0) - ISNULL(TBC.[Kelly_Recip$],0.00)
+    ,[DrawBackHTS]              = ISNULL(TBA.[New_HTS$],0) - ISNULL(TBC.[Kelly_HTS$],0.00)
     ,[CI_TotalQty]              = TBC.[CI_TotalQty]
     ,[CI_TotalFOB]              = TBC.[CI_TotalFOB]
     ,[CI_TotalPrice]            = TBC.[CI_TotalPrice]
 INTO #TB_Summary
 FROM #TB_CI_New AS TBC
-FULL JOIN #TB_AllExport_New AS TBA ON TBA.[Entry#] = TBC.[Entry#] AND TBA.[EntryDate] = TBC.[EntryDate] AND TBA.Waybill = TBC.Waybill AND TBC.CountryOfOrigin = TBA.CountryOfOrigin --AND TBC.TypeData = TBA.TariffCategory
+FULL JOIN #TB_AllExport_New AS TBA ON TBA.[Entry#] = TBC.[Entry#] AND TBA.[EntryDate] = TBC.[EntryDate] AND TBA.Waybill = TBC.Waybill AND TBC.CountryOfOrigin = TBA.CountryOfOrigin AND TBC.TypeData = TBA.TariffCategory
 ORDER BY 
      COALESCE(TBC.[YearEntry], TBA.[YearEntry])
     ,COALESCE(TBC.[MonthEntry], TBA.[MonthEntry])
 
-SELECT *
-FROM #TB_Summary
+DROP TABLE IF EXISTS #TB_Entrys
+
+CREATE TABLE #TB_Entrys
+(
+    [Entry #]  VARCHAR(100) NOT NULL
+)
+
+INSERT INTO #TB_Entrys
+VALUES
+ ('BHE04255242')
+,('BHE04256315')
+,('BHE04256372')
+,('BHE04256935')
+,('BHE04257149')
+,('BHE04257511')
+,('BHE04257560')
+,('BHE04258543')
+,('BHE04258568')
+,('BHE04258709')
+,('BHE04258691')
+,('BHE04260739')
+,('BHE04260978')
+,('BHE04261034')
+,('BHE04261075')
+,('BHE04261679')
+,('BHE04261968')
+,('BHE04262784')
+,('BHE04262958')
+,('BHE04262990')
+,('BHE04263527')
+,('BHE04263675')
+,('BHE04263840')
+,('BHE04263865')
+,('BHE04264152')
+,('BHE04264244')
+,('BHE04264681')
+,('BHE04265159')
+,('BHE04265357')
+,('BHE04265407')
+,('BHE04265456')
+,('BHE04265555')
+,('BHE04265795')
+,('BHE04266645')
+,('BHE04266751')
+,('BHE04266769')
+,('BHE04266785')
+,('BHE04267361')
+,('BHE04267643')
+,('BHE04268526')
+,('BHE04268658')
+,('BHE04271934')
+,('BHE04279671')
+,('BHE04298994')
+,('BHE04304081')
+
+SELECT
+    TS.*
+FROM #TB_Entrys AS TE
+INNER JOIN #TB_Summary AS TS ON TE.[Entry #] = TS.[Entry#]
+
+SELECT
+*
+FROM AppsLCA.dbo.TB_Transfer_SummaryNewCIKelly
+WHERE [Entry#] IN
+(
+ 'BHE04255242'
+,'BHE04256315'
+,'BHE04256372'
+,'BHE04256935'
+,'BHE04257149'
+,'BHE04257511'
+,'BHE04257560'
+,'BHE04258543'
+,'BHE04258568'
+,'BHE04258709'
+,'BHE04258691'
+,'BHE04260739'
+,'BHE04260978'
+,'BHE04261034'
+,'BHE04261075'
+,'BHE04261679'
+,'BHE04261968'
+,'BHE04262784'
+,'BHE04262958'
+,'BHE04262990'
+,'BHE04263527'
+,'BHE04263675'
+,'BHE04263840'
+,'BHE04263865'
+,'BHE04264152'
+,'BHE04264244'
+,'BHE04264681'
+,'BHE04265159'
+,'BHE04265357'
+,'BHE04265407'
+,'BHE04265456'
+,'BHE04265555'
+,'BHE04265795'
+,'BHE04266645'
+,'BHE04266751'
+,'BHE04266769'
+,'BHE04266785'
+,'BHE04267361'
+,'BHE04267643'
+,'BHE04268526'
+,'BHE04268658'
+,'BHE04271934'
+,'BHE04279671'
+,'BHE04298994'
+,'BHE04304081'
+)
 
 return
 

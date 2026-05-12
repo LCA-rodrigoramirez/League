@@ -53,293 +53,6 @@ BEGIN
 --             "TypeShip":"Container",
 --             "ShipDate":"2026-03-02",
 --             "Total":191182.93
---          },
---          {
---             "DM":"3-1105",
---             "Container_Tracking":"810-42710345",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-03",
---             "Total":48995.45
---          },
---          {
---             "DM":"3-1720",
---             "Container_Tracking":"SMLU797518 7",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-03",
---             "Total":160204.34
---          },
---          {
---             "DM":"3-1121",
---             "Container_Tracking":"810-42710356",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-04",
---             "Total":51430.74
---          },
---          {
---             "DM":"3-1726",
---             "Container_Tracking":"SMLU852430 0",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-04",
---             "Total":183665.61
---          },
---          {
---             "DM":"3-1751",
---             "Container_Tracking":"KOSU451094 7",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-05",
---             "Total":168268.64
---          },
---          {
---             "DM":"3-1197",
---             "Container_Tracking":"810-42710360",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-06",
---             "Total":109823.54
---          },
---          {
---             "DM":"3-1771",
---             "Container_Tracking":"KOSU493869 0",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-06",
---             "Total":156679.29
---          },
---          {
---             "DM":"3-547",
---             "Container_Tracking":"399374642338",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-06",
---             "Total":135
---          },
---          {
---             "DM":"3-1211",
---             "Container_Tracking":"810-42710371",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-09",
---             "Total":52095.47
---          },
---          {
---             "DM":"3-1824",
---             "Container_Tracking":"KOSU498740 0",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-09",
---             "Total":170095.7
---          },
---          {
---             "DM":"3-1236",
---             "Container_Tracking":"810-42710382",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-10",
---             "Total":46465.3
---          },
---          {
---             "DM":"3-1267",
---             "Container_Tracking":"810-42710393",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-11",
---             "Total":37943.03
---          },
---          {
---             "DM":"3-1907",
---             "Container_Tracking":"KOSU497302 6",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-11",
---             "Total":157147.03
---          },
---          {
---             "DM":"3-1281",
---             "Container_Tracking":"810-42710404",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-12",
---             "Total":38675.6
---          },
---          {
---             "DM":"3-1931",
---             "Container_Tracking":"SMLU463161 3",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-12",
---             "Total":161720.34
---          },
---          {
---             "DM":"3-1313",
---             "Container_Tracking":"399591916326",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-13",
---             "Total":330
---          },
---          {
---             "DM":"3-1319",
---             "Container_Tracking":"810-42710415",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-13",
---             "Total":56135.92
---          },
---          {
---             "DM":"3-1965",
---             "Container_Tracking":"KOSU451453-6",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-16",
---             "Total":296034.06
---          },
---          {
---             "DM":"3-2005",
---             "Container_Tracking":"KOSU499255 6",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-16",
---             "Total":152740.21
---          },
---          {
---             "DM":"3-1375",
---             "Container_Tracking":"810-42710426",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-17",
---             "Total":43102.58
---          },
---          {
---             "DM":"3-2028",
---             "Container_Tracking":"SMLU846153 6",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-17",
---             "Total":178656.03
---          },
---          {
---             "DM":"3-1407",
---             "Container_Tracking":"810-42710430",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-18",
---             "Total":30453.25
---          },
---          {
---             "DM":"3-2081",
---             "Container_Tracking":"SMLU770325 5",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-18",
---             "Total":152555.16
---          },
---          {
---             "DM":"3-2095",
---             "Container_Tracking":"SMLU466521 2",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-19",
---             "Total":267975.46
---          },
---          {
---             "DM":"3-1443",
---             "Container_Tracking":"399799067774",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-20",
---             "Total":135
---          },
---          {
---             "DM":"3-1462",
---             "Container_Tracking":"810-42710441",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-20",
---             "Total":73348.14
---          },
---          {
---             "DM":"3-2141",
---             "Container_Tracking":"SMLU850888 6",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-20",
---             "Total":170888.76
---          },
---          {
---             "DM":"3-1488",
---             "Container_Tracking":"810-42710474",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-23",
---             "Total":34760.73
---          },
---          {
---             "DM":"3-2158",
---             "Container_Tracking":"SMLU846067 4",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-23",
---             "Total":194653.13
---          },
---          {
---             "DM":"3-2200",
---             "Container_Tracking":"KOSU496693 7",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-23",
---             "Total":146276.72
---          },
---          {
---             "DM":"3-1507",
---             "Container_Tracking":"810-42710485",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-24",
---             "Total":101033.79
---          },
---          {
---             "DM":"3-1532",
---             "Container_Tracking":"810-42710496",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-25",
---             "Total":96124.08
---          },
---          {
---             "DM":"3-1538",
---             "Container_Tracking":"810-42710522",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-25",
---             "Total":58020.64
---          },
---          {
---             "DM":"3-2284",
---             "Container_Tracking":"SMLU846085 9",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-25",
---             "Total":175275.52
---          },
---          {
---             "DM":"3-1568",
---             "Container_Tracking":"810-42710500",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-26",
---             "Total":60579.76
---          },
---          {
---             "DM":"3-1594",
---             "Container_Tracking":"380014210580",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-27",
---             "Total":405
---          },
---          {
---             "DM":"3-1599",
---             "Container_Tracking":"810-42710511",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-27",
---             "Total":94018.39
---          },
---          {
---             "DM":"3-1611",
---             "Container_Tracking":"810-42710533",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-27",
---             "Total":39984.98
---          },
---          {
---             "DM":"3-1620",
---             "Container_Tracking":"810-42710544",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-30",
---             "Total":77968.27
---          },
---          {
---             "DM":"3-1629",
---             "Container_Tracking":"810-42710555",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-30",
---             "Total":37302.52
---          },
---          {
---             "DM":"3-2403",
---             "Container_Tracking":"KOSU452105 2",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-30",
---             "Total":171222.74
 --          }
 --       ]
 --    }'
@@ -408,19 +121,20 @@ BEGIN
                     SELECT
                         af.[Container]
                         ,af.[Waybill]
-                        ,af.[ShipDate]
+                        -- ,af.[ShipDate]
+                        ,MAX(fe.[fecEmi])
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(10))
                         ,SUM(af.[Total$])
                     FROM  [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] af WITH(NOLOCK)
-                    WHERE af.[ShipDate] >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)
-                      AND af.[ShipDate] <  DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)
+                    INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS] AS FE WITH(NOLOCK) ON AF.[Waybill] = FE.[factura] AND FE.[invalidado] = 0
+                    WHERE fe.[fecEmi] >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)
+                      AND fe.[fecEmi] <  DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)
                       AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
                     GROUP BY
                         af.[Container]
                         ,af.[Waybill]
-                        ,af.[ShipDate]
                 END
 
                 IF @process = 'statement.dates'
@@ -441,18 +155,19 @@ BEGIN
                     SELECT
                         af.[Container]
                         ,af.[Waybill]
-                        ,af.[ShipDate]
+                        -- ,af.[ShipDate]
+                        ,MAX(fe.[fecEmi])
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(10))
                         ,SUM(af.[Total$])
                     FROM  [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] af WITH(NOLOCK)
-                    WHERE af.[ShipDate] BETWEEN @DateFrom AND @DateTo
+                    INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS] AS FE WITH(NOLOCK) ON AF.[Waybill] = FE.[factura] AND FE.[invalidado] = 0
+                    WHERE FE.[fecEmi] BETWEEN @DateFrom AND @DateTo
                       AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
                     GROUP BY
                         af.[Container]
                         ,af.[Waybill]
-                        ,af.[ShipDate]
                 END
 
             -------------------------------------------------------------------------------------------------------------------------------------------------------
