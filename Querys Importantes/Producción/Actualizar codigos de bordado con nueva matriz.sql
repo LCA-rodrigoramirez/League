@@ -437,12 +437,12 @@ SELECT
 	,CE.Codes
 	,CE.StitchCount
 	,CE.LogoStyle
-UPDATE OD SET
-	Comments26 = CE.Codes
+-- UPDATE OD SET
+-- 	Comments26 = CE.Codes
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (5646199)
+WHERE ItemDetailID in (5666099)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'

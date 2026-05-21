@@ -1,0 +1,73 @@
+body{
+    font-family: sans-serif;
+    width: 97%;
+}
+h1{
+    text-align: center;
+}
+
+.border
+{
+
+  padding-top: 10px;
+  padding-bottom: 15px;
+  margin-left: 15px;
+  margin-right: 15px;
+  width: 100%;
+
+}
+
+.btn.btn-success{
+    margin-left: 70%;
+    position: relative;
+}
+
+.btn.btn-info{
+    margin-top: 5%;
+}
+
+#container{
+    width: 100%;
+}
+
+#buttonConfirmar{
+    margin-left: 90%;
+    position: relative;
+}
+
+.border-info{
+    border: 1px solid #15bdc9;
+    width: 100%;
+}
+
+.row{
+    padding:0px 10px;
+
+}
+
+.col{
+    margin-left: 2.5%;
+}
+    
+
+#parrafo{
+    margin-left: 70%;
+}
+
+hr
+{
+  margin: 1rem 0;
+  color: inherit;
+  background-color: currentColor;
+  height: 1px;
+  border: 0;
+  opacity: 0.25;
+}
+
+#tabla{
+    width: 100%;
+}
+
+.table{
+    width: 80%;
+}

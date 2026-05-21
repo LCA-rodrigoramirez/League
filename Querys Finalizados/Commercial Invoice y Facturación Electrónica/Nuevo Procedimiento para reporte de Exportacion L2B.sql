@@ -39,23 +39,9 @@ BEGIN
 
 --     SET @process = 'download.reports'
 --     SET @data = '{
---       "selectedOptions":[
---          {
---             "DM":"3-1078",
---             "Container_Tracking":"810-42710334",
---             "TypeShip":"Air",
---             "ShipDate":"2026-03-02",
---             "Total":37299.89
---          },
---          {
---             "DM":"3-1656",
---             "Container_Tracking":"KOSU451549 2",
---             "TypeShip":"Container",
---             "ShipDate":"2026-03-02",
---             "Total":191182.93
---          }
---       ]
+--       "selectedOptions":[{"DM":"3-2192","Container_Tracking":"810-42710850","TypeShip":"Air","ShipDate":"2026-05-04","Total":83013.61}]
 --    }'
+
 
     BEGIN TRY
 
@@ -66,6 +52,8 @@ BEGIN
             DROP TABLE IF EXISTS #TB_PackingList
             DROP TABLE IF EXISTS #TB_DATA_SHIPMENTS
             DROP TABLE IF EXISTS #TB_ALL_SHIPMENTS
+            DROP TABLE IF EXISTS #TB_Date_FILTER
+            DROP TABLE IF EXISTS #TB_PL_RAW
             DROP TABLE IF EXISTS #TB_PACKING_LIST
             DROP TABLE IF EXISTS #TB_INVOICE
             DROP TABLE IF EXISTS #TB_PIVOT_SOURCE
@@ -370,6 +358,45 @@ BEGIN
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.3. Obteniendo Packing List desde la vista, cruzando por Waybill con #TB_ALL_SHIPMENTS → #TB_PACKING_LIST
             -------------------------------------------------------------------------------------------------------------------------------------------------------
+                -- Paso 1: Waybills a usar (tabla pequeña con índice)
+                SELECT DISTINCT ShipDate
+                INTO #TB_Date_FILTER
+                FROM #TB_ALL_SHIPMENTS
+
+                CREATE CLUSTERED INDEX IX_WB_FILTER ON #TB_Date_FILTER ([ShipDate])
+
+                -- Paso 2: Extraer SOLO las filas necesarias de la vista, sin JOIN todavía
+                SELECT
+                     [Waybill]
+                    -- ,[Barcode]
+                    ,[Skid]
+                    ,[ItemCode]
+                    ,[Style]
+                    ,[Color]
+                    ,[ColorGreatPlain]
+                    ,[Size]
+                    ,[Qty]
+                    ,[XX]
+                    ,[OrderNo]
+                    ,[L2Order]
+                    ,[Box]
+                    ,[Fact]
+                    ,[Gender]
+                    ,[Location]
+                    ,[Note]
+                    ,[TrackingNumber]
+                    ,[BoxNo]
+                    ,[ColorPolyPM]
+                    ,[Price]
+                    ,[TotalPrices]
+                    ,[InvoiceDate]
+                INTO #TB_PL_RAW
+                FROM [LCA].[dboReaders].[VW_ImpExp_ShippingPackingSlip] WITH(NOLOCK)
+                WHERE [InvoiceDate] IN (SELECT [ShipDate] FROM #TB_Date_FILTER)
+
+                CREATE CLUSTERED INDEX IX_PL_RAW ON #TB_PL_RAW ([Waybill])
+
+                -- Paso 3: JOIN entre la vista ya materializada y #TB_ALL_SHIPMENTS
                 SELECT
                      [DM]                 = DS.[DM]
                     ,[Container_Tracking] = DS.[Container_Tracking]
@@ -377,7 +404,7 @@ BEGIN
                     ,[ShipDate]           = DS.[ShipDate]
                     ,[SheetName]          = DS.[SheetName]
                     ,[Waybill]            = PL.[Waybill]
-                    ,[Barcode]            = PL.[Barcode]
+                    -- ,[Barcode]            = PL.[Barcode]
                     ,[Skid]               = PL.[Skid]
                     ,[ItemCode]           = PL.[ItemCode]
                     ,[Style]              = PL.[Style]
@@ -400,8 +427,8 @@ BEGIN
                     ,[TotalPrices]        = PL.[TotalPrices]
                     ,[InvoiceDate]        = PL.[InvoiceDate]
                 INTO #TB_PACKING_LIST
-                FROM [LCA].[dboReaders].[VW_ImpExp_ShippingPackingSlip] AS PL WITH(NOLOCK)
-                INNER JOIN #TB_ALL_SHIPMENTS                            AS DS ON PL.[Waybill] = DS.[Waybill]
+                FROM #TB_PL_RAW                AS PL
+                INNER JOIN #TB_ALL_SHIPMENTS   AS DS ON PL.[Waybill] = DS.[Waybill]
 
                 CREATE CLUSTERED INDEX IX_PACKING_SHEET ON #TB_PACKING_LIST ([SheetName], [ShipDate], [TypeShip], [Waybill])
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -446,7 +473,7 @@ BEGIN
                                  [ShipDate]
                                 ,[SheetName]
                                 ,[Waybill]
-                                ,[Barcode]
+                                -- ,[Barcode]
                                 ,[Skid]
                                 ,[ItemCode]
                                 ,[Style]
