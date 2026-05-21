@@ -215,9 +215,19 @@ WHERE
         ,Ltrans.[Area]
                     
                     
-                    SELECT * FROM #TB_TRANSACTIONS_EMPLOYEES AS A
+                    SELECT DISTINCT 
+                        codEmp
+                        ,NombreEmpl
+                        ,Modulo
+                        ,SoF
+                        ,Fecha
+                        ,Hora
+                        ,CompanyName
+                        ,Turno
+                        ,Area
+                    FROM #TB_TRANSACTIONS_EMPLOYEES AS A
                     WHERE CompanyName LIKE 'Inspect%' AND Fecha = '20260520'
-                    ORDER BY A.[R]
+                    -- ORDER BY A.[R]
                     
 -- ;WITH UltimoScan AS (
 --     SELECT
