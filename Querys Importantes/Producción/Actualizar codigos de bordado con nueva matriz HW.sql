@@ -322,15 +322,15 @@ GROUP BY
 		,SKUAtt.SKUAttribute
 
 
-SELECT 
-    OE.Codes
-    ,OD.Comments26
-    ,OE.ItemDetailID
--- UPDATE OD SET
---     Comments26 = OE.Codes
+-- SELECT 
+--     OE.Codes
+--     ,OD.Comments26
+--     ,OE.ItemDetailID
+UPDATE OD SET
+    Comments26 = OE.Codes
 FROM #TB_Final AS OE
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID IN (5605886)
+WHERE ItemDetailID IN (5938617)
 
 -- SELECT*
 -- FROM #APPLIQUE
