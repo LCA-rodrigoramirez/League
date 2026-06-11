@@ -18,6 +18,15 @@ BEGIN
 
 SET NOCOUNT ON;
 
+	/*************************************************************************** VARIABLES SECTION ***************************************************************************/
+
+		DECLARE @Component AS NVARCHAR(200)
+		DECLARE @Error AS BIT
+		DECLARE @message AS NVARCHAR(200)
+		DECLARE @result AS NVARCHAR(MAX)
+
+	/*************************************************************************** VARIABLES SECTION ***************************************************************************/	
+
 	/*************************************************************************** DROP TABLES SECTION ***************************************************************************/
 
 		DROP TABLE IF EXISTS #TB_MO_FILTER
@@ -28,7 +37,9 @@ SET NOCOUNT ON;
 		DROP TABLE IF EXISTS #L2_DigitizingInfo
 		DROP TABLE IF EXISTS #TB_MO_DIGITIZING
 		DROP TABLE IF EXISTS #TB_RESPONSE
+		DROP TABLE IF EXISTS #TB_PAIR_FIX
 		DROP TABLE IF EXISTS #L2_TotalThreadPerWO
+		DROP TABLE IF EXISTS #TB_InventoryThread
 
 	/*************************************************************************** DROP TABLES SECTION ***************************************************************************/
 
@@ -255,9 +266,9 @@ SET NOCOUNT ON;
 		INTO #L2_Applique
 		FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Applique AS APP WITH(NOLOCK)
 
-        --- ACTUALIZAR ORDENES DE BORDADO QUE NO TIENEN WORKFLOW CORRECTO ---
+		--- ACTUALIZAR ORDENES DE BORDADO QUE NO TIENEN WORKFLOW CORRECTO ---
 		UPDATE MO SET
-		 	 MO.EmbAPP = IIF(MO.ProductDivision = 'Apparel',1,0)
+			MO.EmbAPP = IIF(MO.ProductDivision = 'Apparel',1,0)
 			,MO.EmbHW  = IIF(MO.ProductDivision = 'Headwear',1,0)
 		FROM #TB_MO AS MO
 		INNER JOIN
@@ -287,13 +298,13 @@ SET NOCOUNT ON;
 	/********************************* FILTER MO STATUS < 90 Y UPDATES PARA EXTRAER ORDENES DE BORDADO Y SABER SI YA FINALIZARON EL PROCESO O NO *******************************/
 	
 	/******************************************* Obteniendo info de los hilos y appliques por ItemDetailID, Location y Color de Hilo *******************************************/
-        --- INSERT PARA INFO DE DIGITIZING ---
-        
-        SELECT
-            *
-        INTO #L2_DigitizingInfo
-        FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Digitizing AS D WITH(NOLOCK)
-        WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
+		--- INSERT PARA INFO DE DIGITIZING ---
+		
+		SELECT
+			*
+		INTO #L2_DigitizingInfo
+		FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Digitizing AS D WITH(NOLOCK)
+		WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
 
 		--- INFORMACION DE HILOS EN TABLA AppsLCA.legacycaps.VW_view_LCA_DesignColors EN EL SERVER 93, SE ACTUALIZA CADA 6 HORAS ---
 
@@ -457,8 +468,8 @@ SET NOCOUNT ON;
 				ItemDetailID
 				,[Location]
 		) AS CA ON DC.ItemDetailID = CA.ItemDetailID AND DC.[Location] = CA.[Location]
-        INNER JOIN
-        (
+		INNER JOIN
+		(
 			SELECT
 				ItemDetailID
 				,EmbType
@@ -468,7 +479,7 @@ SET NOCOUNT ON;
 				,StitichCount
 				,Proportion
 				,CAST(ROUND(StitichCount * Proportion,0) AS INT) AS NewStitchPerThread
-            FROM #L2_TotalThreadPerWO
+			FROM #L2_TotalThreadPerWO
 			GROUP BY
 				ItemDetailID
 				,EmbType
@@ -477,13 +488,14 @@ SET NOCOUNT ON;
 				,ThreadColor
 				,StitichCount
 				,Proportion
-        ) AS TT ON DC.ItemDetailID = TT.ItemDetailID AND DC.[Location] = TT.[Location] AND DC.ColorSpoolID = TT.ThreadID
+		) AS TT ON DC.ItemDetailID = TT.ItemDetailID AND DC.[Location] = TT.[Location] AND DC.ColorSpoolID = TT.ThreadID
 
 
 		--- TERCER UPDATE: SE OBTIENE LA CANTIDAD DE APPLIQUE POR CADA COLOR DE HILO DESDE TABLA [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Applique ---
 
 		UPDATE DC SET
 		DC.CountAppliquePerThread		 = CAP.CountApp
+		--select *
 		FROM #L2_ThreadInfo AS DC
 		INNER JOIN
 		(
@@ -501,7 +513,7 @@ SET NOCOUNT ON;
 					,IIF(AppliqueMaterial IS NOT NULL, ROW_NUMBER() OVER(PARTITION BY ItemDetailID,[Location],AppliqueColor ORDER BY ItemDetailID), 0) AS CountApp
 				FROM #L2_Applique AS APP 
 				WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
-				-- AND ItemDetailID in (5167504,5394906)
+				-- AND ItemDetailID in (5244848,5244847)
 			) AS TB
 			GROUP BY 
 				ItemDetailID
@@ -546,6 +558,29 @@ SET NOCOUNT ON;
 			) AS TB2
 		) AS TY ON DC.ItemDetailID = TY.ItemDetailID AND DC.[Location] = TY.[Location] AND DC.[ColorSpoolID] = TY.ColorSpoolID
 
+
+		------------------------------------------------------------------ INVENTARIO DE HILOS EN LCA --------------------------------------------------------------------------
+
+			SELECT
+				SUM(RC.[QuantityOnHand]) AS Qty
+				,RM.[PartNumber]
+				-- ,C.[ColorName]
+				,IIF(C.[ColorName] = 'White',C.[ColorName],SUBSTRING(RM.[PartNumber],CHARINDEX('-',RM.[PartNumber]) + 1, LEN(RM.[PartNumber]))) AS ColorName
+			INTO #TB_InventoryThread
+			FROM [LCA].[dbo].[RawContainers]				AS RC WITH(NOLOCK)
+			INNER JOIN [LCA].[dbo].[RawMaterials] 			AS RM WITH(NOLOCK)	ON RC.[RawMaterialID] = RM.[RawMaterialID] 
+																				AND RC.[StockWarehouseID] IN (50,55)
+																				AND RC.[StatusID] < 90 
+																				AND RC.[ContainerCode] <> '<Default>' 
+																				AND RC.[QuantityOnHand] > 0
+			INNER JOIN [LCA].[dbo].[Colors]					AS C  WITH(NOLOCK) ON RM.[ColorID] = C.[ColorID]
+			INNER JOIN [LCA].[dbo].[ComponentLibrary]		AS CL WITH(NOLOCK) ON RM.[ComponentID] = CL.[ComponentID]
+			INNER JOIN [LCA].[dbo].[ComponentCategories]	AS CC WITH(NOLOCK) ON CL.[ComponentCategoryID] = CC.[ComponentCategoryID] AND CC.[CategoryName] = 'Thread'
+			GROUP BY
+				RM.[PartNumber]
+				,IIF(C.[ColorName] = 'White',C.[ColorName],SUBSTRING(RM.[PartNumber],CHARINDEX('-',RM.[PartNumber]) + 1, LEN(RM.[PartNumber])))
+
+		------------------------------------------------------------------ INVENTARIO DE HILOS EN LCA --------------------------------------------------------------------------
 
 		------------------- INSERT FINAL EN #TB_MO_CONSUMPTION CON LA INFO DE LAS MO, EL CONSUMO DE HILO POR QTY Y LA CANTIDAD DE APPLIQUE POR COLOR DE HILO -------------------
 		
@@ -596,8 +631,6 @@ SET NOCOUNT ON;
 		-- WHERE MO.EmbAPP = 1 AND ProcessFinish = 0
 		ORDER BY MO.ItemDetailID,MO.MO,TI.[Location]
 
-		-- SELECT * FROM #TB_MO_CONSUMPTION where ItemDetailID = 5161130
-		
 
 	/******************************************* Obteniendo info de los hilos y appliques por ItemDetailID, Location y Color de Hilo *******************************************/
 
@@ -638,11 +671,12 @@ SET NOCOUNT ON;
 		--- CONSULTA FINAL E INSERT EN #TB_RESPONSE PARA MOSTRAR AL USUARIO
 
 		SELECT 
-			 ROW_NUMBER() OVER(ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]) AS R
-			,IIF(DI.Comment LIKE '%tackdown%',1,0) AS TackDown
+			ROW_NUMBER() OVER(ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]) AS R
+			,IIF(DI.Comment LIKE '%tackdown%' OR DI.Comment LIKE '%TACK DOWN%' OR DI.Comment LIKE '%tac down%' OR DI.Comment LIKE '%TAKCDOWN%' OR DI.Comment LIKE '%TACK DWON%',1,0) AS TackDown
 			,DI.MO
 			,DI.ProductionStatus
 			,DI.WorkOrder
+			,DI.ItemDetailID
 			,DI.[CustomerName]
 			,DI.CustomerOrder
 			,DI.Style
@@ -686,6 +720,85 @@ SET NOCOUNT ON;
 			-- or DI.ItemDetailID = 5167504
 		ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]
 	/************************************************* Obteniendo info del Digitizing (Design, Sequence, Comment por Sequence) *************************************************/
+		
+		-- Materializar los pares con AppliquePerUnit < CountApp para no repetir la consulta al linked server
+		SELECT DISTINCT
+			TMC.ItemDetailID
+			,TMC.[Location]
+			,APP_AGG.AppliqueMaterial
+		INTO #TB_PAIR_FIX
+		FROM
+		(
+			SELECT
+				TMC.ItemDetailID
+				,TMC.[Location]
+				,LogoStyle
+				,SUM(IIF(TackDown = 1 AND ThreadID IS NOT NULL, AppliquePerUnit, 0)) AS AppliquePerUnit
+			FROM #TB_RESPONSE AS TMC
+			WHERE LogoStyleName <> '-' --AND (PEAC.[TYPE] <> 'PATCH' OR PEAC.[TYPE] IS NULL)
+			GROUP BY TMC.ItemDetailID, TMC.[Location], LogoStyle
+		) AS TMC
+		LEFT JOIN
+		(
+			SELECT
+				ItemDetailID
+				,[Location]
+				,MAX(CountApp) AS CountApp
+			FROM
+			(
+				SELECT
+					ItemDetailID
+					,[Location]
+					,IIF(AppliqueMaterial IS NOT NULL, ROW_NUMBER() OVER(PARTITION BY ItemDetailID, [Location] ORDER BY ItemDetailID), 0) AS CountApp
+				FROM #L2_Applique
+				WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
+			) AS TB
+			GROUP BY ItemDetailID, [Location]
+		) AS CA ON TMC.ItemDetailID = CA.ItemDetailID AND TMC.[Location] = CA.[Location]
+		LEFT JOIN
+		(
+			SELECT
+				ItemDetailID
+				,[Location]
+				,STRING_AGG(RTRIM(AppliqueMaterial), ',') AS AppliqueMaterial
+			FROM #L2_Applique
+			WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO) AND AppliqueMaterial IS NOT NULL
+			GROUP BY ItemDetailID, [Location]
+		) AS APP_AGG ON TMC.ItemDetailID = APP_AGG.ItemDetailID AND TMC.[Location] = APP_AGG.[Location]
+		GROUP BY TMC.ItemDetailID, TMC.[Location], TMC.LogoStyle, APP_AGG.AppliqueMaterial
+		HAVING SUM(TMC.AppliquePerUnit) < SUM(CA.CountApp)
+
+		-- Corregir filas donde AppliquePerUnit < CountApp: asignar 1 donde TackDown=1 o AppliquePerUnit=0
+		UPDATE R
+		SET R.AppliquePerUnit = 1
+			,R.AppliqueMaterial = COALESCE(DIFF.AppliqueMaterial, R.AppliqueMaterial)
+		FROM #TB_RESPONSE AS R
+		INNER JOIN #TB_PAIR_FIX AS DIFF ON R.ItemDetailID = DIFF.ItemDetailID AND R.[Location] = DIFF.[Location]
+		WHERE R.TackDown = 1 OR R.AppliquePerUnit = 0
+
+		-- Segundo UPDATE: pares que siguen con AppliquePerUnit < CountApp porque TackDown=0 en todos;
+		-- marcar TackDown=1 en la primera SequenceNo de cada color sin ningún TackDown activo
+		UPDATE R
+		SET R.TackDown = 1
+		FROM #TB_RESPONSE AS R
+		INNER JOIN
+		(
+			-- Primera SequenceNo por ItemDetailID, Location, ThreadColor donde ninguna fila del grupo tiene TackDown=1
+			SELECT
+				ItemDetailID
+				,[Location]
+				,ThreadColor
+				,MIN(SequenceNo) AS FirstSeq
+			FROM #TB_RESPONSE
+			WHERE ThreadColor <> '-' AND ThreadID <> '-'
+			GROUP BY ItemDetailID, [Location], ThreadColor
+			HAVING MAX(TackDown) = 0
+		) AS FIRST_SEQ
+			ON  R.ItemDetailID = FIRST_SEQ.ItemDetailID
+			AND R.[Location]   = FIRST_SEQ.[Location]
+			AND R.ThreadColor  = FIRST_SEQ.ThreadColor
+			AND R.SequenceNo   = FIRST_SEQ.FirstSeq
+		INNER JOIN #TB_PAIR_FIX AS DIFF ON R.ItemDetailID = DIFF.ItemDetailID AND R.[Location] = DIFF.[Location]
 
 	--- SELECT FINAL ---
 	SELECT
