@@ -215,7 +215,8 @@ INNER JOIN
 										WHEN StitchCount >= 30001 AND StitchCount <= 35000 THEN 'GCV'
 										WHEN StitchCount >= 35001 AND StitchCount <= 40000 THEN 'HCV'
 										WHEN StitchCount >= 40001 AND StitchCount <= 45000 THEN 'ICV'
-										WHEN StitchCount >= 45001 AND StitchCount <= 50000 THEN 'JCV'
+										-- WHEN StitchCount >= 45001 AND StitchCount <= 50000 THEN 'JCV'
+										WHEN StitchCount >= 45001 THEN 'JCV'
 									END
 								WHEN LAM.AppliqueMaterial = 'Felt' THEN
 									CASE
@@ -442,7 +443,7 @@ SELECT
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (5808833)
+WHERE ItemDetailID in (5637770)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'

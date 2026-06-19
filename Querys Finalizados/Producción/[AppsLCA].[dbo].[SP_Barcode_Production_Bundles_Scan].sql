@@ -57,7 +57,7 @@ BEGIN
 		SET @ID_PPAD = (CAST(SUBSTRING(@PPAD,5,len(@PPAD)) AS INT) - 10000)
 
 		DECLARE @Datos              VARCHAR(200)    --Variable que tiene los datos que iran en el archivo TXT
-		DECLARE @DatosEnviarAPI		VARCHAR(MAX) 
+		DECLARE @DatosEnviarAPI		NVARCHAR(MAX) 
 		DECLARE @flagJson		AS BIT
 		DECLARE @responsePPM	AS NVARCHAR(MAX)
 		DECLARE @jsonResponse	AS NVARCHAR(MAX)
@@ -387,7 +387,7 @@ BEGIN
 												END
 
 
-												--SET @Datos              = 'OPR,'+@PPAD+','+@Fecha+','+@Hora+','+@Scanner+',WIPT,'+@PPBU
+												-- SET @Datos              = 'OPR,'+@PPAD+','+@Fecha+','+@Hora+','+@Scanner+',WIPT,'+@PPBU
 												SET @DatosEnviarAPI= @Datos
 										
 												--SELECT @DatosEnviarAPI

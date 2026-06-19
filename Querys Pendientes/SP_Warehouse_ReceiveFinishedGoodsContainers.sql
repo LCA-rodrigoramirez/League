@@ -1195,15 +1195,68 @@ BEGIN
             DROP TABLE IF EXISTS #TB_MO_Containers
             DROP TABLE IF EXISTS #TB_PODetails_Containers
             DROP TABLE IF EXISTS #TB_MOCanPack
+            DROP TABLE IF EXISTS #TB_MOs
 
             SELECT
                  [PO] = j.[PO]
             INTO #TempPOsContainers
             FROM OPENJSON(@data, '$.selectedOptions')
             WITH (PO NVARCHAR(200) '$.PO') AS j;
+
+
+            CREATE TABLE #TB_MOs (
+                 [PO]                   VARCHAR(200)
+                ,[PONumber]             VARCHAR(200)
+                ,[ManufactureNumber]    VARCHAR(200)
+                ,[ManufactureID]        INT
+            )
+
+            INSERT INTO #TB_MOs
+            SELECT
+                TPO.[PO]
+                ,OD.[PONumber]
+                ,MO.[ManufactureNumber]
+                ,MO.[ManufactureID]
+            FROM #TempPOsContainers                         AS TPO
+            INNER JOIN (SELECT DISTINCT [PONumber],[PurchaseID] FROM [LCA].[dbo].[PurchaseOrders] AS FIL WITH(NOLOCK)) AS FIL_PO ON TPO.[PO]  = FIL_PO.[PONumber]
+            INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PO.[PurchaseID] = FIL_PO.[PurchaseID]
+            INNER JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
+            INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
+            INNER JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID]
+            INNER JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
+            INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON RT.[ManufactureID] = MO.[ManufactureID]
+            INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID]
+            GROUP BY
+                TPO.[PO]
+                ,OD.[PONumber]
+                ,MO.[ManufactureNumber]
+                ,MO.[ManufactureID]
+
+            IF NOT EXISTS (SELECT TOP 1 * FROM #TB_MOs)
+            BEGIN
+                INSERT INTO #TB_MOs
+                SELECT
+                    TPO.[PO]
+                    ,OD.[PONumber]
+                    ,MO.[ManufactureNumber]
+                    ,MO.[ManufactureID]
+                FROM #TempPOsContainers                         AS TPO
+                INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + TPO.[PO] + '%'
+                INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON OD.[OrderID] = MO.[OrderID]
+                INNER JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON RT.[ManufactureID] = MO.[ManufactureID]
+                INNER JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON CT.[RawTransactionID] = RT.[RawTransactionID]
+                INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RC.[RawContainerID] = CT.[RawContainerID]
+                INNER JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
+                INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
+                GROUP BY
+                    TPO.[PO]
+                    ,OD.[PONumber]
+                    ,MO.[ManufactureNumber]
+                    ,MO.[ManufactureID]
+            END
             
             SELECT
-                 [PO]                   = TPO.[PO]
+                 [PO]                   = TMO.[PO]
                 ,[ManufactureNumber]    = MO.[ManufactureNumber]
                 ,[ManufactureID]        = MO.[ManufactureID]
                 ,[RawMaterialID_MO]     = COALESCE(RA.[RawMaterialID], RAH.[RawMaterialID])
@@ -1226,9 +1279,8 @@ BEGIN
                 ,[Error_Final]          = CAST(NULL AS VARCHAR(MAX))
                 ,[Flag_PackBox]         = CAST(NULL AS BIT)
             INTO #TB_MO_Containers
-            FROM #TempPOsContainers                         AS TPO
-            LEFT  JOIN [LCA].[dbo].[Orders]                 AS OD  WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + TPO.[PO] + '%'
-            INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO  WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID]
+            FROM #TB_MOs                                    AS TMO
+            INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO  WITH(NOLOCK) ON MO.[ManufactureID] = TMO.[ManufactureID]
             LEFT  JOIN [LCA].[dbo].[RawAllocations]         AS RA  WITH(NOLOCK) ON MO.[ManufactureID] = RA.[ManufactureID]  --- CAMBIAR A RAWALLOCATION DESPUES DEL DESARROLLO
             LEFT  JOIN [LCA].[dbo].[RawAllocationHistory]   AS RAH WITH(NOLOCK) ON MO.[ManufactureID] = RAH.[ManufactureID]
             INNER JOIN [LCA].[dbo].[RawMaterials]           AS RM  WITH(NOLOCK) ON RA.[RawMaterialID] = RM.[RawMaterialID]
