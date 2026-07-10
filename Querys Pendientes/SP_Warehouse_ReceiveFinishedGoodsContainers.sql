@@ -22,7 +22,7 @@ CREATE OR ALTER PROCEDURE [dbo].[SP_Warehouse_ReceiveFinishedGoodsContainers]
 AS
 BEGIN
     SET NOCOUNT ON;
-    
+
     DECLARE @Component AS NVARCHAR(200)
     DECLARE @Error AS BIT
     DECLARE @message AS NVARCHAR(200)
@@ -35,7 +35,7 @@ BEGIN
     DECLARE @DatosEnviarAPI AS NVARCHAR(MAX)
     DECLARE @jsonResponse AS NVARCHAR(MAX)
 
-    -----------PRUEBA PARA CARGAR ITEMS 
+    -----------PRUEBA PARA CARGAR ITEMS
     -- SET @process = 'items-PO'
     -- SET @data = '{
     --   "selectedOptions":[{"PO":"LCA23494", "Category":"Fabric"}]
@@ -46,7 +46,7 @@ BEGIN
 --     SET @data = '{
 --       "selectedItems":{
 --          "BalanceBoxes":[
-            
+
 --          ],
 --          "Category":"Fabric",
 --          "CodEmpleado":"02889",
@@ -64,132 +64,6 @@ BEGIN
 --                "Received":0,
 --                "RollNum":"7672699",
 --                "YDS":109.17
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":45.25,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665751",
---                "YDS":101.28
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":47.9,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665753",
---                "YDS":109.4
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":47.8,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665748",
---                "YDS":109.09
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":47.35,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665752",
---                "YDS":107.5
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":44.85,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665754",
---                "YDS":100.13
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":46.1,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665749",
---                "YDS":103.16
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":43.7,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7672700",
---                "YDS":101.76
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":48.65,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7665745",
---                "YDS":111.94
---             },
---             {
---                "Bin":"HE-CDN",
---                "DyeLot":"158449",
---                "HTSCode":"6006320000",
---                "IM":"5-2121",
---                "Item":4,
---                "LBS":45.25,
---                "Ordered":4800,
---                "PartNumber":"KI70WH095-408",
---                "PO":"LCA24039",
---                "Received":0,
---                "RollNum":"7672698",
---                "YDS":106.4
 --             }
 --          ],
 --          "Warehouse":"Warehouse"
@@ -219,28 +93,37 @@ BEGIN
 --       "CodEmpleado":"02889",
 --       "Items":[
 --          {
---             "Barcode":"JF012420260001",
---             "Color":"C129 CHAIRLIFT BLACK",
---             "CTN":1,
---             "Description":"WOVEN CAPS",
---             "InventoryID":"5PTKR-C129-ADJ",
---             "PONumber":"LCA22444",
---             "Qty":120,
---             "Size":"ADJ",
---             "Style":"5PTKR-C129-ADJ"
---          }
+--             "CTN#":1,
+--             "Inventory ID":"RVF400-225A-XS",
+--             "FULL ITEM DESCRIPTION":"DIANA MOCK NECK",
+--             "STYLE":"RVF400",
+--             "COLOR":"POPCORN",
+--             "Color Code":225,
+--             "SIZE":"XS",
+--             "QTY":30,
+--             "PO#":"LCA24184",
+--             "BOX BARCODE":null,
+--             "WORK ORDER":null,
+--             "Size":"XS",
+--             "ORDER QTY":25,
+--             "SHIP QTY":30,
+--             "+/-":5,
+--             "%":20
+--         }
 
 --       ],
---       "PO":"LCA22444",
---       "Vendor":"GOTOP TEXTILE",
---       "VendorID":1,
---       "Warehouse":"headwear embroidery"
+--       "PO":"LCA24184",
+--       "Vendor":"NG TEXTILES GUATEMALA S.A.",
+--       "VendorID":3,
+--       "Warehouse":"Warehouse",
+--       "Bin":"CDN",
+--       "Category":"Contracts"
 --    }'
 
 -----------PRUEBA PARA CARGAR CONTAINERS Y SUS RESPECTIVAS MO
     -- SET @process = 'containers-mo'
     -- SET @data = '{
-    --   "selectedOptions":[{"PO":"LCA24167"}]
+    --   "selectedOptions":[{"PO":"LCA24515-3"}]
     -- }'
 
 -----------PRUEBA PARA DESPACHAR CONTENEDORES
@@ -260,7 +143,7 @@ BEGIN
 
 -----------PRUEBA PARA CREAR CAJAS
     -- SET @process = 'create-boxes'
-    -- SET @data = '{"selectedOptions":[{"MO":"24167-2BAR-TSSOG","ManufactureID":959075},{"MO":"24167-5PTKR-C326","ManufactureID":959076}]}'
+    -- SET @data = '{"selectedOptions":[{"MO":"23701-RVF400-632-3","ManufactureID":997254,"UsePONumber":"True"}]}'
 
 -----------PRUEBA PARA CARGAR BINS CAJAS DE MO
     -- SET @process = 'boxes-list'
@@ -287,7 +170,7 @@ BEGIN
 -----------PRUEBA PARA CARGAR MO CON SUS WORKFLOW
     -- SET @process = 'mo-workflow'
     -- SET @data = '{
-    --   "selectedOptions":[{"PO":"POLCATestIT20260603-2"}]
+    --   "selectedOptions":[{"PO":"LCA23624"}]
     -- }'
 
 -----------PRUEBA PARA DESPACHAR CONTENEDORES
@@ -325,6 +208,31 @@ BEGIN
 
         END
 
+        IF @process = 'validate-pin'
+        BEGIN
+
+            DECLARE @CodEmpleadoPin NVARCHAR(50) = JSON_VALUE(@data, '$.CodEmpleado')
+            DECLARE @Pin             NVARCHAR(50) = JSON_VALUE(@data, '$.Pin')
+
+            IF NOT EXISTS (
+                SELECT 1 FROM [AppsLCA].[dbo].[PID_InventoryUsers]
+                WHERE [user] = @CodEmpleadoPin AND [pin] = @Pin
+                  AND receiveContainers = 1 AND [status] = 1
+            )
+            BEGIN
+                SET @Error     = 1
+                SET @Component = '[401]'
+                SET @message   = 'Invalid credentials or insufficient permissions.'
+                GOTO SELECTFINAL
+            END
+
+            SET @Error     = 0
+            SET @Component = '[200]'
+            SET @message   = 'Validated'
+            GOTO SELECTFINAL
+
+        END
+
         IF @process = 'items-po'
         BEGIN
 
@@ -354,6 +262,19 @@ BEGIN
                                     ,[VendorPartCode] = POD.[VendorPartCode]
                                     ,[PartColor]      = POD.[PartColor]
                                     ,[CanPack]        = IIF((POD.[Ordered] - POD.[Received]) > 0,1,0)
+                                    ,[SavedBoxes]     = JSON_QUERY((
+                                                            SELECT
+                                                                 PDM.[Roll ID]  AS [BoxNumber]
+                                                                ,PDM.[IDCaja]
+                                                                ,PDM.[Lbs]
+                                                                ,PDM.[Yds]
+                                                                ,PDM.[Piece #]  AS [RollNum]
+                                                                ,PDM.[Memo #]   AS [DyeLot]
+                                                            FROM [AppsLCA].[dbo].[Table_PODataCSV_Materials] AS PDM WITH(NOLOCK)
+                                                            WHERE PDM.[PO] = TPO.[PO]
+                                                              AND PDM.[ItemNumber] = POD.[Item]
+                                                            FOR JSON PATH
+                                                        ))
                                 FROM #TempPOs AS TPO
                                 INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON TPO.[PO] = POD.[PONumber]
                                 FOR JSON PATH, INCLUDE_NULL_VALUES
@@ -372,10 +293,31 @@ BEGIN
                                     ,[Received]     = POD.[Received]
                                     ,[HTSCode]      = POD.[HTSCode]
                                     ,[CanPack]      = IIF((POD.[Ordered] - POD.[Received]) > 0,1,0)
+                                    ,[SavedBoxes]   = JSON_QUERY((
+                                                          SELECT
+                                                               PDC.[BoxNumber]
+                                                              ,PDC.[IDCaja]
+                                                              ,PDC.[Units]
+                                                              ,PDC.[Bin]
+                                                              ,PDC.[LBS]
+                                                              ,PDC.[Tipo]
+                                                          FROM [AppsLCA].[dbo].[Table_PODataCSV] AS PDC WITH(NOLOCK)
+                                                          WHERE PDC.[PONumber] = TPO.[PO]
+                                                            AND PDC.[ItemNumber] = POD.[Item]
+                                                          FOR JSON PATH
+                                                      ))
                                 FROM #TempPOs AS TPO
                                 INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON TPO.[PO] = POD.[PONumber]
                                 FOR JSON PATH, INCLUDE_NULL_VALUES
                             )
+            END
+
+            IF @result IS NULL
+            BEGIN
+                SET @Error     = 1
+                SET @Component = '[401]'
+                SET @message   = 'No items found for the specified PO and Category.'
+                GOTO SELECTFINAL
             END
 
             SET @Error = 0
@@ -628,7 +570,7 @@ BEGIN
                 ,[IDUsuario]
             )
             SELECT
-                 
+
                  [PO]               = TCB.[PO]
                 ,[Item]             = TCB.[Item]
                 ,[PartNumber]       = TCB.[PartNumber]
@@ -1073,7 +1015,7 @@ BEGIN
                  Qty, [Size], Style, Item, Ordered, Received, HTSCode, Bin, Vendor, BoxWeight, TypeData, MaxBoxID)
                 SELECT
                      @CodEmpleado, @Warehouse
-                    ,j.[Barcode], j.[Color], j.[CTN], j.[Description], j.[InventoryID], j.[PONumber]
+                    ,j.[Barcode], j.[Color], j.[CTN], j.[Description], RTRIM(j.[InventoryID]), j.[PONumber]
                     ,j.[Qty], j.[Size], j.[Style]
                     ,NULL, NULL, NULL, NULL
                     ,@Bin
@@ -1092,7 +1034,9 @@ BEGIN
                 @Warehouse   = @p_Warehouse,
                 @Bin         = @p_Bin;
 
-            
+            DELETE FROM [AppsLCA].[dbo].[Table_PODataCSV] WHERE PONumber IN (SELECT DISTINCT PONumber FROM #TempUploadItems)
+            AND IDUsuario IN (SELECT DISTINCT CodEmpleado FROM #TempUploadItems)
+
             UPDATE TUI SET
                  [Item]     = POD.[Item]
                 ,[Ordered]  = POD.[Ordered]
@@ -1100,10 +1044,20 @@ BEGIN
                 ,[HTSCode]  = POD.[HTSCode]
                 ,[Vendor]   = POD.[Vendor]
             FROM #TempUploadItems AS TUI
-            INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON TUI.[PONumber] = POD.[PONumber] AND TUI.[InventoryID] = POD.[PartNumber]
+            LEFT JOIN 
+                (
+                    SELECT
+                        [InvItemId]
+                        ,[PartNumberLCA] = CONCAT(Style,'-',Color,'-',GarmentSize)
+                    FROM [AppsLCA].[legacycaps].[LCA_L2B_InventoryID]  WITH(NOLOCK)
+                    WHERE Active = 1
+                ) AS L2  ON TUI.[InventoryID] = L2.[InvItemId]
+            INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON TUI.[PONumber] = POD.[PONumber] 
+                                                                                         AND COALESCE(L2.[PartNumberLCA],TUI.[InventoryID]) = POD.[PartNumber]
 
             UPDATE TUI SET
                  [MaxBoxID]      = COALESCE(BC.[IDCaja], 0) + TUI.[CTN]
+                ,[Barcode]       = COALESCE([Barcode],COALESCE(BC.[PO],TUI.[PONumber]) + '/' + RIGHT('00000' + CAST(COALESCE(BC.[IDCaja], 0) + TUI.[CTN] AS VARCHAR(5)), 5))
             FROM #TempUploadItems AS TUI
             LEFT JOIN
             (
@@ -1133,6 +1087,7 @@ BEGIN
                 ) AS MB
             ) AS BC ON TUI.[PONumber] = BC.[PO] AND BC.[R] = 1
 
+
             INSERT INTO [AppsLCA].[dbo].[Table_PODataCSV]
             (
                  [PONumber]
@@ -1151,7 +1106,7 @@ BEGIN
             SELECT
                  [PONumber]
                 ,[Item]
-                ,[Style]
+                ,[InventoryID]
                 ,[Barcode]
                 ,[MaxBoxID]
                 ,[Qty]
@@ -1164,13 +1119,14 @@ BEGIN
             FROM #TempUploadItems
 
             SET @result = (
-                            SELECT 
-                                [Item]             = TUI.[Item]
-                                ,[Part Number]      = TUI.[Style]
+                            SELECT
+                                [PO]               = TUI.[PONumber]
+                                ,[Item]             = TUI.[Item]
+                                ,[Part Number]      = TUI.[InventoryID]
                                 ,[Vendor]           = TUI.[Vendor]
                                 ,[Ordered]          = TUI.[Ordered]
                                 ,[Received]         = TUI.[Received]
-                                ,[HTSCode]          = TUI.[HTSCode]
+                                ,[HTSCode]          = COALESCE(TUI.[HTSCode],'NOT FOUND, Please check PO PartNumber')
                                 ,[Bin]              = TUI.[Bin]
                                 ,[ContainerCode]    = TUI.[Barcode]
                                 ,[QtyBoxes]         = TUI.[Qty]
@@ -1211,50 +1167,46 @@ BEGIN
                 ,[ManufactureID]        INT
             )
 
-            INSERT INTO #TB_MOs
-            SELECT
-                TPO.[PO]
-                ,OD.[PONumber]
-                ,MO.[ManufactureNumber]
-                ,MO.[ManufactureID]
-            FROM #TempPOsContainers                         AS TPO
-            INNER JOIN (SELECT DISTINCT [PONumber],[PurchaseID] FROM [LCA].[dbo].[PurchaseOrders] AS FIL WITH(NOLOCK)) AS FIL_PO ON TPO.[PO]  = FIL_PO.[PONumber]
-            INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PO.[PurchaseID] = FIL_PO.[PurchaseID]
-            INNER JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
-            INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
-            INNER JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID]
-            INNER JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
-            INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON RT.[ManufactureID] = MO.[ManufactureID]
-            INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID]
-            GROUP BY
-                TPO.[PO]
-                ,OD.[PONumber]
-                ,MO.[ManufactureNumber]
-                ,MO.[ManufactureID]
+            -- INSERT INTO #TB_MOs
+            -- SELECT
+            --     TPO.[PO]
+            --     ,OD.[PONumber]
+            --     ,MO.[ManufactureNumber]
+            --     ,MO.[ManufactureID]
+            -- FROM #TempPOsContainers                         AS TPO
+            -- INNER JOIN (SELECT DISTINCT [PONumber],[PurchaseID] FROM [LCA].[dbo].[PurchaseOrders] AS FIL WITH(NOLOCK)) AS FIL_PO ON TPO.[PO]  = FIL_PO.[PONumber]
+            -- INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PO.[PurchaseID] = FIL_PO.[PurchaseID]
+            -- INNER JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
+            -- INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
+            -- INNER JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID]
+            -- INNER JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
+            -- INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON RT.[ManufactureID] = MO.[ManufactureID]
+            -- INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID]
+            -- GROUP BY
+            --     TPO.[PO]
+            --     ,OD.[PONumber]
+            --     ,MO.[ManufactureNumber]
+            --     ,MO.[ManufactureID]
 
-            IF NOT EXISTS (SELECT TOP 1 * FROM #TB_MOs)
-            BEGIN
+            -- IF NOT EXISTS (SELECT TOP 1 * FROM #TB_MOs)
+            -- BEGIN
                 INSERT INTO #TB_MOs
                 SELECT
                     TPO.[PO]
                     ,OD.[PONumber]
                     ,MO.[ManufactureNumber]
                     ,MO.[ManufactureID]
+                    --select *
                 FROM #TempPOsContainers                         AS TPO
-                INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + TPO.[PO] + '%'
-                INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON OD.[OrderID] = MO.[OrderID]
-                INNER JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON RT.[ManufactureID] = MO.[ManufactureID]
-                INNER JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON CT.[RawTransactionID] = RT.[RawTransactionID]
-                INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RC.[RawContainerID] = CT.[RawContainerID]
-                INNER JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
-                INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
+                INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + SUBSTRING(TPO.[PO],1,CHARINDEX('-',TPO.[PO])-1) + '%'
+                INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON OD.[OrderID] = MO.[OrderID] AND MO.[StatusID] < 90 --OR MO.ManufactureNumber = '23701-RVF400-632-3'
                 GROUP BY
                     TPO.[PO]
                     ,OD.[PONumber]
                     ,MO.[ManufactureNumber]
                     ,MO.[ManufactureID]
-            END
-            
+            -- END
+
             SELECT
                  [PO]                   = TMO.[PO]
                 ,[ManufactureNumber]    = MO.[ManufactureNumber]
@@ -1288,8 +1240,9 @@ BEGIN
             INNER JOIN [LCA].[dbo].[OrderItems]             AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
             INNER JOIN [LCA].[dbo].[Styles]                 AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
             INNER JOIN [LCA].[dbo].[StyleColors]            AS STC WITH(NOLOCK) ON OI.[StyleColorID] = STC.[StyleColorID]
-            INNER JOIN [LCA].[dbo].[StyleVariations]        AS STV WITH(NOLOCK) ON ST.[StyleID] = STV.[StyleID]
+            LEFT  JOIN [LCA].[dbo].[StyleVariations]        AS STV WITH(NOLOCK) ON ST.[StyleID] = STV.[StyleID]
                                                                                  AND STC.[StyleColorID] = STV.[StyleColorID]
+                                                                                 AND (RA.[RawMaterialID] = STV.[RawMaterialID] OR RAH.[RawMaterialID] = STV.[RawMaterialID])
             LEFT  JOIN [LCA].[dbo].[RawMaterials]           AS RMS WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID]
 
 
@@ -1335,10 +1288,10 @@ BEGIN
                 WHERE [StatusID] IN (7, 30, 105)
             ) AS SN -- StatusID IN (7, 30, 58, 105, 113)
             INNER JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON SN.[StatusID] = RC.[StatusID]
-                                                                                 AND RC.[ContainerCode] NOT IN ('<Default>')
+                                                                                 AND RC.[ContainerCode] NOT IN ('<Default>') AND RC.[QuantityOnHand] > 0
             LEFT  JOIN [LCA].[dbo].[PurchaseDetails]        AS PD WITH(NOLOCK) ON RC.[PurchaseDetailID] = PD.[PurchaseDetailID]
             INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO WITH(NOLOCK) ON PD.[PurchaseID] = PO.[PurchaseID]
-            INNER JOIN #TempPOsContainers                   AS FPO              ON PO.[PONumber] = FPO.[PO]
+            INNER JOIN #TempPOsContainers                   AS FPO              ON PO.[PONumber] LIKE '%' + FPO.[PO] + '%' OR FPO.[PO] LIKE '%' + PO.[PONumber] + '%'
             LEFT  JOIN [LCA].[dbo].[RawMaterials]           AS RM WITH(NOLOCK)  ON RC.[RawMaterialID] = RM.[RawMaterialID]
             LEFT  JOIN [LCA].[dbo].[ComponentLibrary]       AS CL WITH(NOLOCK)  ON RM.[ComponentID] = CL.[ComponentID]
             LEFT  JOIN [LCA].[dbo].[ComponentCategories]    AS CC WITH(NOLOCK)  ON CL.[ComponentCategoryID] = CC.[ComponentCategoryID]
@@ -1351,12 +1304,12 @@ BEGIN
             LEFT  JOIN [LCA].[dbo].[Addresses]              AS VD WITH(NOLOCK)  ON RS.[VendorID] = VD.[AddressID]
 
 
-
             UPDATE TMC SET
                  [Containers]       = (
                                             SELECT
                                                  [Code]   = POD.[Code]
                                                 ,[OnHand] = CAST(POD.[On Hand] AS INT)
+                                                ,[PartNumber] = POD.[PartNumber]
                                             FROM #TB_PODetails_Containers AS POD
                                             WHERE (TMC.[RawMaterialID_MO] = POD.[RawMaterialID] OR TMC.[RawMaterialID_Styles] = POD.[RawMaterialID])
                                               AND POD.[PONumber] = TMC.[PO]
@@ -1384,15 +1337,15 @@ BEGIN
                 ,[IsValid_PNST] = IIF(RawMaterialID_Styles <> RawMaterialID_MO AND RawMaterialID_Styles <> RawMaterialID_RC AND RawMaterialID_MO = RawMaterialID_RC,0,1)
                 ,[Error_RC]     = IIF(RawMaterialID_RC IS NULL,'No containers have been found for this MO. Please check the Part Number in the Materials tab of the MO |','')
                 ,[Error_MO]     = IIF(
-                                        RawMaterialID_MO <> RawMaterialID_RC 
+                                        RawMaterialID_MO <> RawMaterialID_RC
                                     AND RawMaterialID_RC = RawMaterialID_Styles
                                     ,'The Part Number of the MO does not match the Part Number of Containers/Styles, please check PartNumber in the Materials tab of the MO |'
                                     ,'')
                 ,[Error_ST]     = IIF(
-                                        RawMaterialID_Styles <> RawMaterialID_MO 
-                                    AND RawMaterialID_Styles <> RawMaterialID_RC 
+                                        RawMaterialID_Styles <> RawMaterialID_MO
+                                    AND RawMaterialID_Styles <> RawMaterialID_RC
                                     AND RawMaterialID_MO = RawMaterialID_RC
-                                    ,'The style part number does not match the part number of MI/Containers; please verify the part number in Style: ' + StyleNumber + ' Color: ' + StyleColorName +' variations'
+                                    ,'The style part number does not match the part number of MO/Containers; please verify the part number in Style: ' + StyleNumber + ' Color: ' + StyleColorName +' variations'
                                     ,'')
             FROM #TB_MO_Containers AS TMC
 
@@ -1409,11 +1362,13 @@ BEGIN
                 ,[QtyPacked]        = CAST(NULL AS INT)
                 ,[CanPack]          = CAST(NULL AS BIT)
                 ,[BoxCreated]       = CAST(NULL AS BIT)
+                ,[SumOnHand]        = CAST(NULL AS INT)
             INTO #TB_MOCanPack
             FROM #TB_MO_Containers AS TMC
             INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO WITH(NOLOCK) ON TMC.[ManufactureID] = MO.[ManufactureID]
-            INNER JOIN [LCA].[dbo].[RawTransactions]    AS RT WITH(NOLOCK) ON MO.[ManufactureID] = RT.[ManufactureID]
-            INNER JOIN [LCA].[dbo].[ContainerTransfers] AS CT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
+            LEFT  JOIN [LCA].[dbo].[RawTransactions]    AS RT WITH(NOLOCK) ON MO.[ManufactureID] = RT.[ManufactureID] AND TMC.[RawMaterialID_MO] = RT.[RawMaterialID]
+            LEFT  JOIN [LCA].[dbo].[ContainerTransfers] AS CT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
+            LEFT  JOIN [LCA].[dbo].[RawContainers]      AS RC WITH(NOLOCK) ON RT.[RawMaterialID] = RC.[RawMaterialID] AND CT.[RawContainerID] = RC.[RawContainerID]
             GROUP BY
                  TMC.[ManufactureNumber]
                 ,TMC.[ManufactureID]
@@ -1421,7 +1376,7 @@ BEGIN
 
             UPDATE MCP SET
                 [QtyPacked] = PI.[QtyPacked]
-            FROM #TB_MOCanPack AS MCP 
+            FROM #TB_MOCanPack AS MCP
             INNER JOIN
             (
                 SELECT
@@ -1432,6 +1387,14 @@ BEGIN
                 FROM #TB_MO_Containers AS TMC
                 INNER JOIN [LCA].[dbo].[PackedItems]        AS PI WITH(NOLOCK) ON TMC.[ManufactureID] = PI.[ManufactureID]
                 INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO WITH(NOLOCK) ON TMC.[ManufactureID] = MO.[ManufactureID]
+                INNER JOIN [LCA].[dbo].[FinishedGoods]      AS FG WITH(NOLOCK) ON PI.[FinishedGoodsID] = FG.[FinishedGoodsID]
+                                                                               AND FG.[GarmentSize] = case when (len(TMC.[PartNumber_MO]) - len(replace(TMC.[PartNumber_MO], '-', ''))) / len('-')=2
+									then substring(TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO])+1)+1,5)
+								when (len(TMC.[PartNumber_MO]) - len(replace(TMC.[PartNumber_MO], '-', ''))) / len('-')=3
+									then  substring( substring(TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO])+1)+1,6) , charindex('-', substring(TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO],charindex('-',TMC.[PartNumber_MO])+1)+1,5) )+1,5  )
+								else ''
+								end
+
                 GROUP BY
                     TMC.[ManufactureNumber]
                     ,TMC.[ManufactureID]
@@ -1447,40 +1410,95 @@ BEGIN
                 [CanPack] = IIF([QtyWithDraw] - [Make] = 0 AND [BoxCreated] <> 1,1,0)
             FROM #TB_MOCanPack AS MCP
 
-            UPDATE TMC SET
-                 [Flag_PackBox] = MCP.[CanPack]
-                ,[Flag_Final]   = IIF(MCP.[QtyWithDraw] - MCP.[Make] = 0,0,1)
-                ,[Error_Final]  = IIF(MCP.[QtyWithDraw] - MCP.[Make] = 0,'No more containers can be withdrawn','')
-            FROM #TB_MO_Containers      AS TMC
-            INNER JOIN #TB_MOCanPack    AS MCP ON TMC.[ManufactureID] = MCP.[ManufactureID]
-
-            UPDATE TM SET
-                 [Boxes] = (
-                                SELECT
-                                     [BoxNumber] = PB.[BoxNumber]
-                                    ,[QtyPacked] = SUM(PI.[Quantity])
-                                FROM #TB_MO_Containers AS TMC
-                                INNER JOIN [LCA].[dbo].[PackedItems] AS PI WITH(NOLOCK) ON TMC.[ManufactureID] = PI.[ManufactureID]
-                                INNER JOIN [LCA].[dbo].[PackedBoxes] AS PB WITH(NOLOCK) ON PI.[PackedBoxID] = PB.[PackedBoxID]
-                                WHERE PI.[ManufactureID] = TM.[ManufactureID]
-                                GROUP BY PB.[BoxNumber]
-                                FOR JSON PATH, INCLUDE_NULL_VALUES
-                            )
-            FROM #TB_MO_Containers AS TM
+            UPDATE MCP SET
+                [SumOnHand] = POD.[SumOnHand]
+            FROM #TB_MOCanPack AS MCP
+            INNER JOIN (
+                SELECT
+                     TMC.[ManufactureID]
+                    ,[SumOnHand] = SUM(CAST(POD.[On Hand] AS INT))
+                FROM #TB_MO_Containers AS TMC
+                INNER JOIN #TB_PODetails_Containers AS POD ON (TMC.[RawMaterialID_MO] = POD.[RawMaterialID] OR TMC.[RawMaterialID_Styles] = POD.[RawMaterialID])
+                    AND POD.[PONumber] = TMC.[PO]
+                GROUP BY TMC.[ManufactureID]
+            ) AS POD ON MCP.[ManufactureID] = POD.[ManufactureID]
 
             SET @result = (
                 SELECT
-                     [PO]               = [PO]
-                    ,[MO]               = [ManufactureNumber]
-                    ,[ManufactureID]    = [ManufactureID]
-                    ,[Containers]       = [Containers]
-                    ,[Boxes]            = [Boxes]
-                    ,[CanWithdraw]      = [Flag_Final]
-                    ,[ErrorWithdraw]    = [Error_Final]
-                    ,[CanPack]          = [Flag_PackBox]
+                     [PO]            = TMC.[PO]
+                    ,[MO]            = TMC.[ManufactureNumber]
+                    ,[ManufactureID] = TMC.[ManufactureID]
+                    ,[Style]         = TMC.[StyleNumber]
+                    ,[Color]         = TMC.[StyleColorName]
+                    ,[Make]          = TMP.[Make]
+                    ,[CanPack]       = TMP.[CanPack]
+                    ,[Containers]    = ISNULL(
+                                        (
+                                            SELECT
+                                                 [Code]          = POD.[Code]
+                                                ,[OnHand]        = CAST(POD.[On Hand] AS INT)
+                                                ,[PartNumber]    = POD.[PartNumber]
+                                                ,[CanWithdraw]   = IIF((T.[Flag_Final] = 0) OR (MCP.[QtyWithDraw] - MCP.[Make] = 0) OR (MCP.[Make] < MCP.[QtyWithDraw]) OR (MCP.[Make] < MCP.[SumOnHand]), 0, 1)
+                                                ,[ErrorWithdraw] = CASE
+                                                                        WHEN (MCP.[Make] < MCP.[QtyWithDraw] OR MCP.[Make] < MCP.[SumOnHand]) THEN 'Make MO doesn''t match the units dispatched or available to dispatch'
+                                                                        WHEN (MCP.[QtyWithDraw] - MCP.[Make] = 0) THEN 'No more containers can be withdrawn'
+                                                                        WHEN T.[Error_Final] IS NOT NULL THEN T.[Error_Final]
+                                                                        ELSE ''
+                                                                   END
+                                            FROM #TB_MO_Containers AS T
+                                            INNER JOIN #TB_PODetails_Containers AS POD ON T.[ManufactureID] = TMC.[ManufactureID]
+                                                AND (T.[RawMaterialID_MO] = POD.[RawMaterialID] OR T.[RawMaterialID_Styles] = POD.[RawMaterialID])
+                                                AND POD.[PONumber] = T.[PO]
+                                            LEFT JOIN #TB_MOCanPack AS MCP ON T.[ManufactureID] = MCP.[ManufactureID]
+                                            ORDER BY POD.[Code]
+                                            FOR JSON PATH
+                                        ),
+                                        (
+                                            SELECT TOP 1
+                                                 [Code]          = ''
+                                                ,[OnHand]        = 0
+                                                ,[PartNumber]    = T2.[PartNumber_MO]
+                                                ,[CanWithdraw]   = IIF((T2.[Flag_Final] = 0) OR (MCP2.[QtyWithDraw] - MCP2.[Make] = 0) OR (MCP2.[Make] < MCP2.[QtyWithDraw]) OR (MCP2.[Make] < MCP2.[SumOnHand]), 0, 1)
+                                                ,[ErrorWithdraw] = CASE
+                                                                        WHEN (MCP2.[Make] < MCP2.[QtyWithDraw] OR MCP2.[Make] < MCP2.[SumOnHand]) THEN 'Make MO doesn''t match the units dispatched or available to dispatch'
+                                                                        WHEN (MCP2.[QtyWithDraw] - MCP2.[Make] = 0) THEN 'No more containers can be withdrawn'
+                                                                        WHEN T2.[Error_Final] IS NOT NULL THEN T2.[Error_Final]
+                                                                        ELSE ''
+                                                                   END
+                                            FROM #TB_MO_Containers AS T2
+                                            LEFT JOIN #TB_MOCanPack AS MCP2 ON T2.[ManufactureID] = MCP2.[ManufactureID]
+                                            WHERE T2.[ManufactureID] = TMC.[ManufactureID]
+                                            FOR JSON PATH
+                                        )
+                                    )
+                    ,[Boxes]         = (
+                                            SELECT
+                                                 [BoxNumber]    = PB.[BoxNumber]
+                                                ,[QtyPacked]    = SUM(PI.[Quantity])
+                                                ,[CanPack]      = MAX(CAST(MCP2.[CanPack] AS INT))
+                                            FROM [LCA].[dbo].[PackedItems]    AS PI   WITH(NOLOCK)
+                                            INNER JOIN [LCA].[dbo].[PackedBoxes]    AS PB   WITH(NOLOCK) ON PI.[PackedBoxID] = PB.[PackedBoxID]
+                                            INNER JOIN #TB_MOCanPack                AS MCP2             ON MCP2.[ManufactureID] = TMC.[ManufactureID]
+                                            WHERE PI.[ManufactureID] = TMC.[ManufactureID]
+                                            AND PB.[GoodsBinID] IS NULL
+                                            GROUP BY PB.[BoxNumber]
+                                            FOR JSON PATH, INCLUDE_NULL_VALUES
+                                        )
                 FROM #TB_MO_Containers AS TMC
-                ORDER BY [ManufactureID]
+                INNER JOIN #TB_MOCanPack AS TMP ON TMC.ManufactureID = TMP.ManufactureID
+                GROUP BY
+                     TMC.[PO]
+                    ,TMC.[ManufactureNumber]
+                    ,TMC.[ManufactureID]
+                    ,TMC.[StyleColorName]
+                    ,TMC.[StyleNumber]
+                    ,TMP.[Make]
+                    ,TMP.[CanPack]
+                ORDER BY TMC.[ManufactureID]
                 FOR JSON PATH, INCLUDE_NULL_VALUES
+
+                -- select * from #TB_MO_Containers where ManufactureNumber = '2310930008-305'
+                -- select * from #TB_PODetails_Containers where RawMaterialID = 30175 AND PONumber = 'LCA23109'
             )
 
             SET @Error = 0
@@ -1527,7 +1545,7 @@ BEGIN
 
             SET @Datos              = CONCAT('MFG,',@BarcodeMO,',',@FechaHoy,',',@HoraHoy,',003,','TAKQ,',@Container,',,',@ContainerQty)
             SET @DatosEnviarAPI= @Datos
-    
+
             -- SELECT @DatosEnviarAPI
             --DECLARE @flagJson AS BIT
             --DECLARE @responsePPM AS NVARCHAR(MAX)
@@ -1535,8 +1553,8 @@ BEGIN
             --DECLARE @FinalComponent AS NVARCHAR(MAX)
 
             --- Ejecutar el procedimiento almacenado y capturar el resultado JSON en una variable de salida
-            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
-            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
+            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
+            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
                 @VarTransaction = @DatosEnviarAPI, --'BOX,PPMB1606768,20250214,1325890,1,TBUQ,PPBX11441940,PPFG1196505,1',
                 @jsonResponse = @jsonResponse OUTPUT
 
@@ -1577,38 +1595,54 @@ BEGIN
             DROP TABLE IF EXISTS #TB_DataFinal
 
             SELECT
-                 [MO]            = j.[MO]
-                ,[ManufactureID] = j.[ManufactureID]
+                 [MO]               = j.[MO]
+                ,[ManufactureID]    = j.[ManufactureID]
+                ,[UsePONumber]      = j.[UsePONumber]
             INTO #TempCreateBoxes
             FROM OPENJSON(@data, '$.selectedOptions')
             WITH (
                  MO            NVARCHAR(200)   '$.MO'
                 ,ManufactureID INT             '$.ManufactureID'
+                ,UsePONumber   BIT             '$.UsePONumber'
             ) AS j;
 
             SELECT
                  [MO]               = TMB.[MO]
                 ,[ManufactureID]    = TMB.[ManufactureID]
+                ,[UsePONumber]      = TMB.[UsePONumber]
                 ,[Make]             = MO.[QuantityOrdered]
+                ,[Size]             = FG.[GarmentSize]
+                ,[MakeSize]         = MD.[QuantityOrdered]
                 ,[QtyPacked]        = SUM(ISNULL(PI.[Quantity],0))
                 ,[CanPack]          = CAST(NULL AS BIT)
             INTO #TB_BoxesCreated
+            --SELECT TMB.MO, TMB.ManufactureID, MO.QuantityOrdered, PI.Quantity, FG.GarmentSize, MD.*
             FROM #TempCreateBoxes AS TMB
             INNER JOIN [LCA].[dbo].[PackedItems]        AS PI WITH(NOLOCK) ON TMB.[ManufactureID] = PI.[ManufactureID]
             INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO WITH(NOLOCK) ON TMB.[ManufactureID] = MO.[ManufactureID]
+            INNER JOIN [LCA].[dbo].[FinishedGoods]      AS FG WITH(NOLOCK) ON PI.[FinishedGoodsID] = FG.[FinishedGoodsID]
+            INNER JOIN [LCA].[dbo].[ManufactureDetails] AS MD WITH(NOLOCK) ON MO.[ManufactureID] = MD.[ManufactureID] AND FG.[FinishedGoodsID] = MD.[FinishedGoodsID]
             GROUP BY
                  TMB.[MO]
                 ,TMB.[ManufactureID]
+                ,TMB.[UsePONumber]
                 ,MO.[QuantityOrdered]
+                ,FG.[GarmentSize]
+                ,MD.[QuantityOrdered]
 
             UPDATE TBC SET
-                [CanPack] = IIF([QtyPacked] - [Make] = 0,1,0)
+                [CanPack] = IIF([QtyPacked] - [MakeSize] = 0,0,1)
             FROM #TB_BoxesCreated AS TBC
 
-            SELECT
+            SELECT DISTINCT
                  [MO]               = TMB.[MO]
                 ,[ManufactureID]    = TMB.[ManufactureID]
-                ,[BoxNumber]        = CONCAT('BOX4S',RC.[RawContainerID]+1000000)
+                -- ,[BoxNumber]        = CONCAT('BOX4S',RC.[RawContainerID]+1000000)
+                -- ,[BoxNumber]        = concat('BOX',replace(ContainerCode,'PPRC','4S'))
+                ,[BoxNumber]        = CASE
+                                            WHEN TMB.[UsePONumber] = 1 THEN concat('BOX',replace(ContainerCode,'PPRC','4S'))
+                                            ELSE CONCAT('BOX4S',RC.[RawContainerID]+1000000)
+                                      END
                 ,[BoxType]          = 'Caja de 12'
                 ,[BoxWeight]        = 1.04
                 ,[SKUNumber]        = FG.[SKUNumber]
@@ -1629,20 +1663,29 @@ BEGIN
             INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO   WITH(NOLOCK) ON TMB.[ManufactureID] = MO.[ManufactureID]
             INNER JOIN [LCA].[dbo].[RawTransactions]    AS RT   WITH(NOLOCK) ON MO.[ManufactureID] = RT.[ManufactureID]
             INNER JOIN [LCA].[dbo].[ContainerTransfers] AS CT   WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
-            INNER JOIN [LCA].[dbo].[RawContainers]      AS RC   WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID]
+            INNER JOIN [LCA].[dbo].[RawContainers]      AS RC   WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID] AND RC.[RawMaterialID] = RT.[RawMaterialID]
             INNER JOIN [LCA].[dbo].[RawMaterials]       AS RMC  WITH(NOLOCK) ON RC.[RawMaterialID] = RMC.[RawMaterialID]
             INNER JOIN [LCA].[dbo].[OrderItems]         AS OI   WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
-            INNER JOIN [LCA].[dbo].[OrderDetails]       AS ODT  WITH(NOLOCK) ON ODT.[OrderItemID] = OI.[OrderItemID]
+            INNER JOIN [LCA].[dbo].[OrderDetails]       AS ODT  WITH(NOLOCK) ON ODT.[OrderItemID] = OI.[OrderItemID] AND ODT.GarmentSize = case when (len(RMC.PartNumber) - len(replace(RMC.PartNumber, '-', ''))) / len('-')=2
+									then substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,5)
+								when (len(RMC.PartNumber) - len(replace(RMC.PartNumber, '-', ''))) / len('-')=3
+									then  substring( substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,6) , charindex('-', substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,5) )+1,5  )
+								else ''
+								end
             INNER JOIN [LCA].[dbo].[Styles]             AS ST   WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
             INNER JOIN [LCA].[dbo].[StyleColors]        AS STC  WITH(NOLOCK) ON OI.[StyleColorID] = STC.[StyleColorID]
-            LEFT  JOIN [LCA].[dbo].[StyleVariations]    AS STV  WITH(NOLOCK) ON RMC.[RawMaterialID] = STV.[RawMaterialID] AND STV.[StyleID] = OI.[StyleID] AND STV.[StyleColorID] = OI.[StyleColorID]
-            LEFT  JOIN [LCA].[dbo].[RawMaterials]       AS RMS  WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID]
+            LEFT  JOIN [LCA].[dbo].[StyleVariations]    AS STV  WITH(NOLOCK) ON RMC.[RawMaterialID] = STV.[RawMaterialID] AND STV.[StyleID] = OI.[StyleID] AND STV.[StyleColorID] = OI.[StyleColorID] AND STV.[RawMaterialID] = RC.[RawMaterialID]
+            LEFT  JOIN [LCA].[dbo].[RawMaterials]       AS RMS  WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID] AND RMS.[RawMaterialID] = RC.[RawMaterialID]
             LEFT  JOIN [LCA].[dbo].[FinishedGoods]      AS FG   WITH(NOLOCK) ON ODT.[FinishedGoodsID] = FG.[FinishedGoodsID]
             GROUP BY
                  TMB.[ManufactureID]
                 ,TMB.[MO]
                 ,RC.[ContainerCode]
                 ,RC.[RawContainerID]
+                ,CASE
+                                            WHEN TMB.[UsePONumber] = 1 THEN concat('BOX',replace(ContainerCode,'PPRC','4S'))
+                                            ELSE CONCAT('BOX4S',RC.[RawContainerID]+1000000)
+                                      END
                 ,FG.[SKUNumber]
                 ,ST.[StyleNumber]
                 ,STC.[StyleColorName]
@@ -1650,19 +1693,19 @@ BEGIN
                 ,MO.[QuantityOrdered]
                 ,RMC.[PartNumber]
                 ,RMS.[PartNumber]
-                
-            
+
+
             UPDATE TDF SET
                  [CanPack]      = IIF(TBC.[CanPack] = 0 OR [SKUNumber] IS NULL,0,1)
                 ,[ErrorPack]    = CASE
-                                    WHEN TBC.[CanPack] = 0 THEN 'There are no more goods to pack for the MO: ' + TDF.[MO] 
-                                    WHEN [SKUNumber] IS NULL AND [PartNumber_RC] <> [PartNumber_ST] THEN 'SKU Number cannot be empty, Part Number of MO Materials and Part Number of 
+                                    WHEN TBC.[CanPack] = 0 THEN 'There are no more goods to pack for the MO: ' + TDF.[MO]
+                                    WHEN [SKUNumber] IS NULL AND [PartNumber_RC] <> [PartNumber_ST] THEN 'SKU Number cannot be empty, Part Number of MO Materials and Part Number of
                                     Style: ' + TDF.[Style] + ' and Color: ' + TDF.[Color] + ' are not the same'
                                     WHEN [SKUNumber] IS NULL AND [PartNumber_RC] = [PartNumber_ST] THEN 'SKUNumber cannot be empty, please check SKU for
                                     Style: ' + TDF.[Style] + ', Color: ' + TDF.[Color] + ' and Size: ' + TDF.[Size]
                                   END
             FROM #TB_DataFinal AS TDF
-            LEFT JOIN #TB_BoxesCreated AS TBC ON TDF.[ManufactureID] = TBC.[ManufactureID]
+            LEFT JOIN #TB_BoxesCreated AS TBC ON TDF.[ManufactureID] = TBC.[ManufactureID] AND TDF.[Size] = TBC.[Size]
 
             SET @result = (
                 SELECT
@@ -1717,6 +1760,7 @@ BEGIN
                                 INNER JOIN [LCA].[dbo].[PackedBoxes] AS PB WITH(NOLOCK) ON PI.[PackedBoxID] = PB.[PackedBoxID]
                                 LEFT  JOIN [LCA].[dbo].[GoodsBins]   AS GB WITH(NOLOCK) ON PB.[GoodsBinID] = GB.[GoodsBinID]
                                 WHERE PI.[ManufactureID] = TB.[ManufactureID]
+                                AND GB.[Bin] IS NULL
                                 GROUP BY
                                      PB.[BoxNumber]
                                     ,GB.[Bin]
@@ -1733,7 +1777,7 @@ BEGIN
                 ORDER BY [ManufactureID]
                 FOR JSON PATH, INCLUDE_NULL_VALUES
             )
-            
+
             SET @Error = 0
             SET @Component = '[200]'
             SET @message = 'Datos generados correctamente'
@@ -1759,7 +1803,7 @@ BEGIN
                  MO            NVARCHAR(200)   '$.MO'
                 ,ManufactureID INT             '$.ManufactureID'
             ) AS j;
-    
+
             SELECT DISTINCT
                  [WarehouseID]      = WH.[WarehouseID]
                 ,[WarehouseName]    = REPLACE(REPLACE(WH.[WarehouseName],CHAR(10),''),CHAR(13),'')
@@ -1767,7 +1811,7 @@ BEGIN
             FROM #TempWarehouseMO                           AS TWM
             INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO WITH(NOLOCK) ON TWM.[ManufactureID] = MO.[ManufactureID]
             INNER JOIN [LCA].[dbo].[Warehouses]         AS WH WITH(NOLOCK) ON MO.[WarehouseID] = WH.[WarehouseID]
-            
+
 
             SELECT
                  [R]                = ROW_NUMBER() OVER(ORDER BY FIL.[WarehouseName], GB.[Bin])
@@ -1782,10 +1826,10 @@ BEGIN
             INNER JOIN [LCA].[dbo].[GoodsBins]  AS GB WITH(NOLOCK) ON WH.[WarehouseID] = GB.[WarehouseID]
                                                                     AND GB.[StatusID] = 30
             -- WHERE WH.WarehouseID = 53
-            
-            
-            UPDATE S SET 
-                [Rack] = CASE 
+
+
+            UPDATE S SET
+                [Rack] = CASE
                             ----DLI BLOCK N
                             WHEN S.WarehouseID=60 AND LEFT(S.Bin,2) IN (
                                                     'NA'
@@ -1797,7 +1841,7 @@ BEGIN
                                                 )
                             THEN LEFT(S.Bin,2)
                             WHEN S.WarehouseID=60 THEN 'Floor'
-                            
+
                             ----Stock Warehose
                             WHEN S.WarehouseID=35 AND LEFT(S.Bin,2) IN (
                                                      'AF','AB'
@@ -1816,7 +1860,7 @@ BEGIN
                                                 )
                             THEN LEFT(S.Bin,1)
                             WHEN S.WarehouseID=35 THEN 'Floor'
-                            
+
                             ----Headwear DLI
                             WHEN S.WarehouseID=53 AND LEFT(S.Bin ,3) = 'REC' THEN 'Floor'
                             WHEN S.WarehouseID=53 AND LEFT(S.Bin,1) IN (
@@ -1845,7 +1889,7 @@ BEGIN
             SET @message = 'Datos generados correctamente'
 
             GOTO SELECTFINAL
-            
+
 
         END
 
@@ -1884,15 +1928,15 @@ BEGIN
 
             SET @Datos              = CONCAT('BIN,',@BarcodeBin,',',@FechaHoyBin,',',@HoraHoyBin,',1,','MVBX,',@BoxNumber)
             SET @DatosEnviarAPI= @Datos
-    
+
             --DECLARE @flagJson AS BIT
             --DECLARE @responsePPM AS NVARCHAR(MAX)
             --DECLARE @jsonResponse AS NVARCHAR(MAX)
             --DECLARE @FinalComponent AS NVARCHAR(MAX)
 
             --- Ejecutar el procedimiento almacenado y capturar el resultado JSON en una variable de salida
-            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
-            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
+            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
+            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
                 @VarTransaction = @DatosEnviarAPI, --'BOX,PPMB1606768,20250214,1325890,1,TBUQ,PPBX11441940,PPFG1196505,1',
                 @jsonResponse = @jsonResponse OUTPUT
 
@@ -1923,8 +1967,9 @@ BEGIN
 
         IF @process = 'mo-workflow'
         BEGIN
-            
+
             DROP TABLE IF EXISTS #TempPOsMO
+            DROP TABLE IF EXISTS #TB_MO_Workflow
 
             SELECT
                  [PO] = j.[PO]
@@ -1932,28 +1977,92 @@ BEGIN
             FROM OPENJSON(@data, '$.selectedOptions')
             WITH (PO NVARCHAR(200) '$.PO') AS j;
 
+            SELECT
+                 [PO]                   = TPO.[PO]
+                ,[ManufactureNumber]    = MO.[ManufactureNumber]
+                ,[ManufactureID]        = MO.[ManufactureID]
+                ,[Make]                 = MO.[QuantityOrdered]
+                ,[Style]                = ST.[StyleNumber]
+                ,[Color]                = SC.[StyleColorName]
+                ,[TaskID]               = WT.[TaskID]
+                ,[TaskName]             = WT.[TaskName]
+                ,[PPAD]                 = CASE
+                                            WHEN WT.[TaskName] = 'Create Bundles' THEN 'PPAD48074'
+                                            WHEN WT.[TaskName] = 'Receiving Finish Good in Warehouse' THEN 'PPAD48075'
+                                            ELSE ''
+                                            END
+                -- ,[TaskBarcode]          = CONCAT('PPTK',CAST(WT.[TaskID]+10000000 AS VARCHAR(100)))
+                ,[CanPack]              = CAST(NULL AS BIT)
+                ,[QtyPacked]            = CAST(NULL AS INT)
+                ,[QtyWithdraw]          = CAST(NULL AS INT)
+            INTO #TB_MO_Workflow
+            --SELECT tpo.po, od.ponumber, od.orderID, mo.*
+            FROM #TempPOsMO                             AS TPO
+            LEFT  JOIN [LCA].[dbo].[Orders]             AS OD  WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + TPO.[PO] + '%'
+            INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO  WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID] AND MO.[StatusID] < 90 --AND MO.ManufactureNumber = '23624-05PDT-381'
+            INNER JOIN [LCA].[dbo].[OrderItems]         AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
+            INNER JOIN [LCA].[dbo].[Styles]             AS ST  WITH(NOLOCK) ON ST.[StyleID] = OI.[StyleID]
+            INNER JOIN [LCA].[dbo].[StyleColors]        AS SC  WITH(NOLOCK) ON SC.[StyleColorID] = OI.[StyleColorID]
+            INNER JOIN [LCA].[dbo].[WorkFlows]          AS WF  WITH(NOLOCK) ON WF.[ManufactureID] = MO.[ManufactureID]
+            INNER JOIN [LCA].[dbo].[WorkTasks]          AS WT  WITH(NOLOCK) ON WF.[WorkFlowID] = WT.[WorkFlowID]
+            ORDER BY MO.[ManufactureID]
+
+
+            UPDATE MWF SET
+                 [CanPack]      = IIF(COALESCE(CP.[QtyPacked],0) - MWF.[Make] = 0 OR COALESCE(ABS(CT.[QtyWithdraw]),0) - MWF.[Make] = 0,0,1)
+                ,[QtyPacked]    = CP.[QtyPacked]
+                ,[QtyWithdraw]  = CT.[QtyWithdraw]
+            FROM #TB_MO_WorkFlow AS MWF
+            LEFT JOIN
+            (
+                SELECT
+                     [MO]               = TMB.[ManufactureNumber]
+                    ,[ManufactureID]    = TMB.[ManufactureID]
+                    ,[QtyPacked]        = SUM(ISNULL(PI.[Quantity],0))
+                FROM (SELECT DISTINCT ManufactureID, ManufactureNumber FROM #TB_MO_Workflow) AS TMB
+                LEFT JOIN [LCA].[dbo].[PackedItems]        AS PI WITH(NOLOCK) ON TMB.[ManufactureID] = PI.[ManufactureID]
+                LEFT JOIN [LCA].[dbo].[ManufactureOrders]  AS MO WITH(NOLOCK) ON TMB.[ManufactureID] = MO.[ManufactureID]
+                GROUP BY
+                     TMB.[ManufactureNumber]
+                    ,TMB.[ManufactureID]
+            ) AS CP ON MWF.[ManufactureID] = CP.[ManufactureID]
+            LEFT JOIN
+            (
+                SELECT
+                     [MO]               = TMB.[ManufactureNumber]
+                    ,[ManufactureID]    = TMB.[ManufactureID]
+                    ,[QtyWithdraw]      = SUM(ISNULL(CT.[Quantity],0))
+                FROM (SELECT DISTINCT ManufactureID, ManufactureNumber FROM #TB_MO_Workflow) AS TMB
+                INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON TMB.[ManufactureID] = MO.[ManufactureID]
+                LEFT  JOIN [LCA].[dbo].[RawAllocationHistory]   AS RH WITH(NOLOCK) ON TMB.[ManufactureID] = RH.[ManufactureID]
+                LEFT  JOIN [LCA].[dbo].[RawAllocations]         AS RA WITH(NOLOCK) ON TMB.[ManufactureID] = RA.[ManufactureID]
+                LEFT  JOIN [LCA].[dbo].[RawTransactions]        AS RT WITH(NOLOCK) ON MO.[ManufactureID] = RT.[ManufactureID] AND (RH.[RawMaterialID] = RT.[RawMaterialID] OR RA.[RawMaterialID] = RT.[RawMaterialID])
+                LEFT  JOIN [LCA].[dbo].[ContainerTransfers]     AS CT WITH(NOLOCK) ON RT.[RawTransactionID] = CT.[RawTransactionID]
+                LEFT  JOIN [LCA].[dbo].[RawContainers]          AS RC WITH(NOLOCK) ON RT.[RawMaterialID] = RC.[RawMaterialID] AND CT.[RawContainerID] = RC.[RawContainerID]
+                GROUP BY
+                     TMB.[ManufactureNumber]
+                    ,TMB.[ManufactureID]
+            ) AS CT ON MWF.[ManufactureID] = CT.[ManufactureID]
+
             SET @result = (
 
                 SELECT
-                    [PO]                   = TPO.[PO]
-                    ,[ManufactureNumber]    = MO.[ManufactureNumber]
-                    ,[ManufactureID]        = MO.[ManufactureID]
-                    ,[TaskID]               = WT.[TaskID]
-                    ,[TaskName]             = WT.[TaskName]
-                    ,[PPAD]                 = CASE
-                                                WHEN WT.[TaskName] = 'Create Bundles' THEN 'PPAD48074'
-                                                WHEN WT.[TaskName] = 'Receiving Finish Good in Warehouse' THEN 'PPAD48075'
-                                                ELSE ''
-                                              END
-                    -- ,[TaskBarcode]          = CONCAT('PPTK',CAST(WT.[TaskID]+10000000 AS VARCHAR(100)))
-                -- INTO #TB_MO_Workflow
-                FROM #TempPOsMO                             AS TPO
-                LEFT  JOIN [LCA].[dbo].[Orders]             AS OD  WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + TPO.[PO] + '%'
-                INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO  WITH(NOLOCK) ON MO.[OrderID] = OD.[OrderID] AND MO.[StatusID] < 90
-                INNER JOIN [LCA].[dbo].[WorkFlows]          AS WF  WITH(NOLOCK) ON WF.[ManufactureID] = MO.[ManufactureID]
-                INNER JOIN [LCA].[dbo].[WorkTasks]          AS WT  WITH(NOLOCK) ON WF.[WorkFlowID] = WT.[WorkFlowID]
-                ORDER BY MO.[ManufactureID]
+                     [PO]
+                    ,[ManufactureNumber]
+                    ,[ManufactureID]
+                    ,[Style]
+                    ,[Color]
+                    ,[Make]
+                    ,[QtyPacked]
+                    ,[QtyWithdraw]
+                    ,[TaskID]
+                    ,[TaskName]
+                    ,[PPAD]
+                FROM #TB_MO_Workflow
+                WHERE [CanPack] = 0 AND [QtyPacked] > 0
+                ORDER BY [ManufactureID]
                 FOR JSON PATH, INCLUDE_NULL_VALUES
+
             )
 
             SET @Error = 0
@@ -2000,16 +2109,16 @@ BEGIN
 
             SET @Datos              = CONCAT('OPR,',@FechaHoyWF,',',@HoraHoyWF,',1,',@BarcodePPAD,',CTSK,',@BarcodeTask)
             SET @DatosEnviarAPI= @Datos
-    
-            -- SELECT @DatosEnviarAPI 
+
+            -- SELECT @DatosEnviarAPI
             --DECLARE @flagJson AS BIT
             --DECLARE @responsePPM AS NVARCHAR(MAX)
             --DECLARE @jsonResponse AS NVARCHAR(MAX)
             --DECLARE @FinalComponent AS NVARCHAR(MAX)
 
             --- Ejecutar el procedimiento almacenado y capturar el resultado JSON en una variable de salida
-            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
-            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI] 
+            EXEC [AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
+            --EXEC [192.168.1.93].[AppsLCA].[dbo].[SP_Barcode_TransactionAPI]
                 @VarTransaction = @DatosEnviarAPI, --'BOX,PPMB1606768,20250214,1325890,1,TBUQ,PPBX11441940,PPFG1196505,1',
                 @jsonResponse = @jsonResponse OUTPUT
 
@@ -2047,7 +2156,7 @@ BEGIN
         SET @message = 'Error in Database'
 
         GOTO SELECTFINAL
-        
+
     END CATCH
 
     SELECTFINAL:

@@ -1,12 +1,12 @@
 USE [AppsLCA]
 GO
-/****** Object:  StoredProcedure [dbo].[sp_Update_Import_Export_Commercial_Invoice]    Script Date: 13/06/2025 09:16:30 a. m. ******/
+/****** Object:  StoredProcedure [dbo].[sp_Update_Import_Export_Commercial_Invoice_WithDetails]    Script Date: 26/06/2026 10:17:16 a. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
--- ALTER PROCEDURE [dbo].[sp_Update_Import_Export_Commercial_Invoice_DrawbackKelly]
--- AS
+ALTER PROCEDURE [dbo].[sp_Update_Import_Export_Commercial_Invoice_WithDetails]
+AS
 BEGIN
 
 Declare @WayBill varchar(100) = null
@@ -16,15 +16,15 @@ Declare @Executing_Date datetime = null
 Declare @Finished_Date datetime=null
 Declare @TransferVal INT = 0
 
-SET @WayBill = 'AIR-SMS-20260123'
--- declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status_Drawback]
--- 		where status='Pending'
+-- SET @WayBill = 'AIR-APP-20251031'
+declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status]
+		where status='Pending'
 
--- open WayBill_status
--- Fetch next from WayBill_status into  @WayBill, @Status, @Pending_Date, @Executing_date, @Finished_Date
+open WayBill_status
+Fetch next from WayBill_status into  @Waybill, @Status, @Pending_Date, @Executing_date, @Finished_Date
 
--- while @@Fetch_status=0
--- 	begin
+while @@Fetch_status=0
+	begin
 
 -- --  delete from appslca.dbo.Import_Export_CommercialInvoice_TEST where WayBill =@WayBill
 -- delete from appslca.dbo.Import_Export_CommercialInvoice where WayBill =@WayBill
@@ -32,8 +32,8 @@ SET @WayBill = 'AIR-SMS-20260123'
 delete from [192.168.1.93].appslca.dbo.CI_Import_Export_CommercialInvoice where WayBill =@WayBill
 delete from [192.168.1.93].AppsLCA.dbo.CI_Import_Export_DeclarationExport where WayBill =@WayBill
 
---  update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status_Drawback] set [Status] = 'Executing', Executing_Date=getdate() 
---  	where waybill =@WayBill
+  update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status] set [Status] = 'Executing', Executing_Date=getdate() 
+  	where waybill =@WayBill
 
 -----COMMERCIAL INVOICE
 
@@ -51,10 +51,89 @@ DROP TABLE IF EXISTS #Positions
 DROP TABLE IF EXISTS #Extracted
 DROP TABLE IF EXISTS #Cleaned
 
-SELECT *
+-- SELECT *
+-- INTO #TB_Transfer_Kardex
+-- FROM [AppsLCA].[dbo].[TB_Transfer_Kardex_Duty] WITH(NOLOCK)
+-- WHERE Waybill = @WayBill
+
+
+DROP TABLE IF EXISTS #TB_Transfer_Kardex_For_RO_ID
+
+drop table if exists #doble_im_ro
+SELECT
+MO
+into #doble_im_ro
+FROM
+(
+    SELECT
+    *
+    ,ROW_NUMBER() OVER(PARTITION BY MO ORDER BY MO) as R
+
+    FROM
+    (
+    SELECT
+    IM5
+    ,MO
+    FROM AppsLCA.dbo.TB_Transfer_Import_Duty WITH(NOLOCK)
+    GROUP BY
+    IM5
+    ,MO
+    ) AS A
+) AS B
+WHERE B.R > 1
+
+SELECT 
+     K.IDExport
+    ,K.IDImport
+    ,K.IDKardex
+    ,QtyExport  = K.QtyExport
+    ,k.RO_ID
+INTO #TB_Transfer_Kardex_For_RO_ID
+FROM [AppsLCA].[dbo].[TB_Transfer_Kardex_Duty] AS K WITH(NOLOCK)
+WHERE K.Waybill = @WayBill
+-- and k.IDKardex = 36156
+
+
+;WITH CTE_Import_Distinct AS (
+    SELECT 
+         I.ManufactureID
+        ,I.IM5
+        ,ID= MAX(I.ID)
+    FROM [AppsLCA].[dbo].[TB_Transfer_Import_Duty] AS I WITH(NOLOCK)
+    INNER JOIN #TB_Transfer_Kardex_For_RO_ID AS K ON K.RO_ID = I.ManufactureID
+    GROUP BY 
+     I.ManufactureID
+        ,I.IM5
+),
+CTE_Proporcion AS (
+    SELECT
+         K.IDExport
+        ,K.IDImport
+        ,K.IDKardex
+        ,QtyExport      = K.QtyExport
+        ,K.RO_ID
+        ,I.IM5
+        ,I.ID
+        ,Cnt = COUNT(I.ID) OVER (PARTITION BY K.IDKardex)
+        ,RN  = ROW_NUMBER()  OVER (PARTITION BY K.IDKardex ORDER BY I.ID)
+    FROM #TB_Transfer_Kardex_For_RO_ID  AS K
+    LEFT JOIN CTE_Import_Distinct AS I ON K.RO_ID = I.ManufactureID
+    -- WHERE K.RO_ID = 505446
+)
+SELECT
+     IDExport
+    ,IDImport   = ID
+    ,IDKardex
+    ,QtyExport          = CAST( (QtyExport / Cnt) + CASE 
+                            WHEN RN <= QtyExport % Cnt THEN 1 ELSE 0 END AS INT)
+    ,QtyExport_Original = QtyExport
+    ,RO_ID
+    ,IM5
+    -- ,ID
 INTO #TB_Transfer_Kardex
-FROM [AppsLCA].[dbo].[TB_Transfer_Kardex_Duty] WITH(NOLOCK)
-WHERE Waybill = @WayBill
+FROM CTE_Proporcion
+WHERE CAST( (QtyExport / Cnt) + CASE 
+                            WHEN RN <= QtyExport % Cnt THEN 1 ELSE 0 END AS INT) > 0 
 
 SELECT *
 INTO #TB_ContentFabric
@@ -219,7 +298,7 @@ AND TI.DepartureDate IS NULL
 			,[Batch]					=	SB.[Batch]
 			,[PONumber]					=	SB.[PONumber]
 			,[BoxNumber]				=	SB.[BoxNumber]
-			,[FormattedBoxNumber]		=	COALESCE(TB_GROUP.[FormattedBoxNumber],TB_GROUP.[BoxNumber])
+			,[FormattedBoxNumber]		=	TB_GROUP.[FormattedBoxNumber]			
 			,[StyleNumber]				=	SB.[StyleNumber]
 			,[StyleColor]				=	SB.[StyleColor]
 			,[Size]						=	SB.[Size]
@@ -261,10 +340,18 @@ AND TI.DepartureDate IS NULL
 																ELSE SB.Qty
 															END
 												)
-			,[Freight]					=	CASE 
-												WHEN CHARINDEX('FG',SB.SeasonName) > 0 AND SB.Waybill LIKE 'AIR%' AND SB.ShipDate >= '2025-11-21' THEN 0.64
-												ELSE 0.25
-										  	END
+			,[Freight]					=	CASE
+												WHEN SB.ShipDate >= '2026-08-01' THEN SB.[OutboundFreight]
+												ELSE
+													CASE 
+														WHEN CHARINDEX('FG',SB.SeasonName) > 0 AND SB.Waybill LIKE 'AIR%' AND SB.ShipDate >= '2025-11-21' THEN 0.64
+														ELSE 0.25
+													END
+											END
+			,[InboundFreight]			=	CASE
+												WHEN SB.ShipDate >= '2026-08-01' THEN SB.[InboundFreight]
+												ELSE 0.00
+											END
 			,[CA_HTSCode]				=	case 
 												when lmn.CA_HTSCode is not null then lmn.CA_HTSCode
 												when lmn.CA_HTSCode is null and lmn.US_HTSCode is not null then lmn.US_HTSCode
@@ -359,7 +446,7 @@ AND TI.DepartureDate IS NULL
 														on RW.ComponentID = CL.ComponentID and CL.ComponentCategoryID=11
 													left outer join lca.dbo.DropDownValues DRD with (nolock)
 														on RW.HTSCodeID = DRD.DropDownValueID
-													where Cl.ComponentName is not null and Col.ColorName is not null
+													where Cl.ComponentName is not null and Col.ColorName is not null and RW.HTSCodeID is not null
 												) abc123 where Cuenta=1
 								) fgh
 						) lmn	on SB.StyleNumber = lmn.Style and SB.StyleColor=lmn.Color
@@ -541,13 +628,13 @@ AND TI.DepartureDate IS NULL
 			,[Batch]					=	TE.[Batch]
 			,[PONumber]					=	TE.[PONumber]
 			,[BoxNumber]				=	TE.[BoxNumber]
-			,[FormattedBoxNumber]		=	COALESCE(TB_GROUP.[FormattedBoxNumber],TB_GROUP.[BoxNumber])
+			,[FormattedBoxNumber]		=	TB_GROUP.[FormattedBoxNumber]
 			,[StyleNumber]				=	TE.[StyleNumber]
 			,[StyleColor]				=	TE.[StyleColor]
 			,[Size]						=	TE.[Size]
 			,[PalletNumber]				=	TB_GROUP.[PalletNumber]
 			,[Price]					=	TE.[Price]
-			,[BasePrice]				=	IIF(COALESCE(TE.[Unit Decoration],0) = 0,SB.[BasePrice] - 0.08,SB.[BasePrice]) 
+			,[BasePrice]				=	SB.[BasePrice]
 			,[Screen_Print]				=	SB.Screen_Print
 			,[Total_Screen_Print]		=	SB.Total_Screen_Print
 			,[Embroidery]				=	SB.Embroidery
@@ -559,21 +646,29 @@ AND TI.DepartureDate IS NULL
 			,[DecorationSUB]			=	CASE WHEN COALESCE(SB.[Sublimation],0) > 0 THEN 'SUBLIMATION' ELSE NULL END
 			,[DecorationPack]			=	CASE WHEN COALESCE(SB.[Sublimation],0) = 0 AND COALESCE(SB.[Embroidery],0) = 0 AND COALESCE(SB.[Screen_Print],0) = 0 THEN 'PACKAGING AND LABELING' ELSE NULL END
 			,[UnitDecorationExport]		= 	COALESCE(SB.Screen_Print,0)  + COALESCE(SB.Embroidery,0) + COALESCE(SB.Sublimation,0)
-			,[UnitDecorationValue]		=	IIF(COALESCE(TE.[Unit Decoration],0) = 0,0.08,TE.[Unit Decoration]) 
+			,[UnitDecorationValue]		=	IIF(COALESCE(TE.[Unit Decoration],0) = 0,0.00,TE.[Unit Decoration]) 
 			,[TotalDecorationExport]	=	(COALESCE(SB.Total_Screen_Print,0) + COALESCE(SB.Total_Embroidery,0) + COALESCE(SB.Total_Sublimation,0))
 			,[TotalDecorationValue]		=	(TK.QtyExport * COALESCE(TE.[Unit Decoration],0.00)) + IIF(COALESCE(TE.[Unit Decoration],0.00) = 0.00 OR COALESCE(TE.[Unit Decoration],0.00) IS NULL, (TK.QtyExport * 0.08) , 0)
 			,[TotalExport]				=	TE.Total$
 			,[TotalPrice]				=	TE.Price * TK.QtyExport
-			,[TotalBlankPrice]			=	IIF(COALESCE(TE.[Unit Decoration],0) = 0,SB.[BasePrice] - 0.08,SB.[BasePrice]) * TK.QtyExport
+			,[TotalBlankPrice]			=	TE.BasePrice * TK.QtyExport
 			,[TotalFobValue]			=	(TE.Price * TK.QtyExport) 
 			
 											- ( CASE 
 													WHEN CHARINDEX('FG',SB.SeasonName) > 0 AND SB.Waybill LIKE 'AIR%' AND SB.ShipDate >= '2025-11-21' THEN 0.64
 													ELSE 0.25
 										  		END * TK.QtyExport)
-			,[Freight]					= 	CASE 
-												WHEN CHARINDEX('FG',SB.SeasonName) > 0 AND SB.Waybill LIKE 'AIR%' AND SB.ShipDate >= '2025-11-21' THEN 0.64
-												ELSE 0.25
+			,[Freight]					=	CASE
+												WHEN SB.ShipDate >= '2026-08-01' THEN SB.[OutboundFreight]
+												ELSE
+													CASE 
+														WHEN CHARINDEX('FG',SB.SeasonName) > 0 AND SB.Waybill LIKE 'AIR%' AND SB.ShipDate >= '2025-11-21' THEN 0.64
+														ELSE 0.25
+													END
+											END
+			,[InboundFreight]			=	CASE
+												WHEN SB.ShipDate >= '2026-08-01' THEN SB.[InboundFreight]
+												ELSE 0.00
 											END
 			,[CA_HTSCode]				=	case 
 												when lmn.CA_HTSCode is not null then lmn.CA_HTSCode
@@ -679,13 +774,13 @@ AND TI.DepartureDate IS NULL
 														on RW.ComponentID = CL.ComponentID and CL.ComponentCategoryID=11
 													left outer join lca.dbo.DropDownValues DRD with (nolock)
 														on RW.HTSCodeID = DRD.DropDownValueID
-													where Cl.ComponentName is not null and Col.ColorName is not null
+													where Cl.ComponentName is not null and Col.ColorName is not null and RW.HTSCodeID is not null
 												) abc123 where Cuenta=1
 								) fgh
 						) lmn	on TE.StyleNumber = lmn.Style and TE.StyleColor=lmn.Color
 
 		left outer join lca.dbo.ManufactureOrders TMO_APri with (nolock) 
-				ON TE.RO_ID = TMO_APri.manufactureid
+				ON TE.ManufactureID = TMO_APri.manufactureid
 		left outer join lca.dbo.OrderItems ODT_PRI with (nolock)
 				on TMO_APri.FirstOrderItemID = ODT_PRI.OrderItemID   and
 					TMO_APri.OrderID = ODT_PRI.OrderID 
@@ -887,15 +982,6 @@ INNER JOIN #TB_Transfer AS TR ON CI.FormattedBoxNumber = TR.FormattedBoxNumber
 			 [Cafta]					=	CASE WHEN S.[TariffCategory] ='CAFTA' THEN 'Y' 	ELSE 'N' END
 		FROM #TB_Transfer  AS S
 		
-		UPDATE #TB_DataCI
-		SET TariffCategory = 'CAFTA'
-			,Cafta = 'Y'
-			,Orden = 1
-			,DocumentID = 'AIR-SMS-20260123.C'
-		WHERE IDExport IN (1336168
-,1336169)
--- return
-
 	
 --- UPDATE agrupación para Kelly Global Logistics
 
@@ -1409,15 +1495,15 @@ BEGIN
 		,[Manufacturer]
 END
 	
--- update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status_Drawback] set [Status] = 'Finished', Finished_Date=getdate() 
--- 	where waybill =@WayBill
+update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status] set [Status] = 'Finished', Finished_Date=getdate() 
+	where waybill =@WayBill
 	
 
--- 	Fetch next from WayBill_status into  @WayBill, @Status, @Pending_Date, @Executing_date, @Finished_Date
+	Fetch next from WayBill_status into  @Waybill, @Status, @Pending_Date, @Executing_date, @Finished_Date
 
 
--- 	end
--- close WayBill_status
--- deallocate WayBill_status
+	end
+close WayBill_status
+deallocate WayBill_status
 
 END

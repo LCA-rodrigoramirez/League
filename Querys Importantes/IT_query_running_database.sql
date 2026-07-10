@@ -28,7 +28,7 @@ INNER JOIN sys.dm_exec_connections AS c ON r.session_id = c.session_id -- Unir c
 CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS st
 OUTER APPLY sys.dm_exec_query_plan(r.plan_handle) AS qp
 WHERE r.session_id != @@SPID -- Excluir la sesi�n actual
-ORDER BY r.session_id;
+ORDER BY r.cpu_time desc
 
 
 -- KILL 69

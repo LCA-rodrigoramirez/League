@@ -2,9 +2,6 @@ USE [AppsLCA]
 GO
 /****** Object:  StoredProcedure [dbo].[SP_Std_TimeHeadWearN]    Script Date: 21/07/2025 09:18:06 a. m. ******/
 -- SET ANSI_NULLS ON
--- GO
-SET QUOTED_IDENTIFIER ON
-GO
 ALTER PROCEDURE [dbo].[SP_Std_TimeApparel]
 	 @process		NVARCHAR(MAX)
 	,@data			NVARCHAR(MAX)
@@ -25,10 +22,10 @@ BEGIN
 	--SET @data = '{"selectedOptions":[]}'
 
 	-- SET @process = 'data.Flex'
-	-- SET @data = '{"selectedOptions":[{"FechaIni":"2025-11-05","FechaFin":"2025-11-05","Equipo":"","Bordadora":""}]}'
+	-- SET @data = '{"selectedOptions":[{"FechaIni":"2026-06-22","FechaFin":"2026-06-27","Equipo":"","Bordadora":""}]}'
 
 	-- SET @process = 'data.PONumber'
-	-- SET @data = '{"selectedOptions":[{"FechaIni":"","FechaFin":"","Equipo":"","Bordadora":"","PONumber":"ORD-5206478"}]}'
+	-- SET @data = '{"selectedOptions":[{"FechaIni":"","FechaFin":"","Equipo":"","Bordadora":"","PONumber":"5896916"}]}'
 
 	IF @process = 'selects.list'
 	BEGIN
@@ -71,6 +68,7 @@ BEGIN
 			DROP TABLE IF EXISTS #TB_Maria
 			DROP TABLE IF EXISTS #TB_Final
 			DROP TABLE IF EXISTS #TB_DateTransactions
+			DROP TABLE IF EXISTS #TB_WO_MAKE
 
 		------------CREO LAS TABLAS TEMPORALES-------------
 		---------------------------------------------------
@@ -84,7 +82,7 @@ BEGIN
 			,StyleNumber        VARCHAR(100)
 			,StyleColorName     VARCHAR(100)
 			,Turno              VARCHAR(10)
-			,ChangeDate         DATE
+			,ChangeDate         DATETIME
 			,FechaAjustada      DATE
 			,TaskName           VARCHAR(100)
 			,[#Ciclos]          INT
@@ -93,6 +91,7 @@ BEGIN
 			,Muestra			FLOAT
 			,Machine     		VARCHAR(MAX)
 			,Make           	INT
+			,Make2           	INT
 		);
 		
 		CREATE INDEX IDX_TB_ProdEMH_TaskName_PONumber ON #TB_ProdEM (TaskName, PONumber);
@@ -147,11 +146,22 @@ BEGIN
 			,StyleNumber				= s.StyleNumber									 
 			,StyleColorName				= sc.StyleColorName								 
 			-- ,QuantityOrdered			= CAST(b.QuantityOrdered AS int)					  
+			-- ,Turno						= CASE 
+			-- 								WHEN DATEPART(HOUR, ChangeDate) >= 6 AND DATEPART(HOUR, ChangeDate) < 18 THEN 'DÍA'
+			-- 								ELSE 'NOCHE'
+			-- 							END
 			,Turno						= CASE 
-											WHEN DATEPART(HOUR, ChangeDate) >= 6 AND DATEPART(HOUR, ChangeDate) < 18 THEN 'DÍA'
-											ELSE 'NOCHE'
-										END
-			,ChangeDate					= CAST(CHLog.ChangeDate AS DATE)
+											WHEN CHLog.ChangeDate < '2026-05-04'
+												THEN 
+													CASE 
+														WHEN CAST(CHLog.ChangeDate AS time) >= '06:00:00' AND CAST(CHLog.ChangeDate AS time) <  '18:00:00'
+															THEN 'Dia'
+														ELSE 'Noche'
+														END
+												ELSE TR.PowerBITurno
+											END -- CASE PARA FECHAS ANTES DE MAY-26
+			-- ,ChangeDate					= CAST(CHLog.ChangeDate AS DATE)
+			,ChangeDate					= CHLog.ChangeDate
 			,FechaAjustada				= CASE 
 											WHEN DATEPART(HOUR, ChangeDate) < 6 AND 
 											(DATEPART(HOUR, ChangeDate) >= 18 OR DATEPART(HOUR, ChangeDate) < 6) THEN DATEADD(DAY, -1, CAST (ChangeDate AS DATE))
@@ -167,7 +177,8 @@ BEGIN
 											else 
 											concat('Bordadora #',RIGHT(REPLICATE('0',3)+ORD.Comments28,3)) 
 											end
-			,Make						= IIF(t.TaskName LIKE 'Start%',0,CAST(MO.QuantityOrdered AS int))
+			,Make						= CAST(MO.QuantityOrdered AS int)
+			,Make2						= IIF(t.TaskName LIKE 'Start%',0,CAST(MO.QuantityOrdered AS int))
 			-- ,CHLog.ChangeDate
 		FROM			[lca].[dbo].[Bundles]			AS b		WITH(NOLOCK)
 		INNER JOIN		[lca].[dbo].[ManufactureOrders]	AS mo		WITH(NOLOCK) ON b.ManufactureID		= mo.ManufactureID AND MO.StatusID < 95
@@ -183,12 +194,26 @@ BEGIN
 		INNER JOIN		[lca].[dbo].[StyleColors]		AS sc		WITH(NOLOCK) ON ordi.StyleColorID	= sc.StyleColorID
 		LEFT OUTER JOIN	[lca].[dbo].[Addresses]			AS TADD1	WITH(NOLOCK) ON wt.OperatorID		= TADD1.AddressID --ORD-3530610
 		LEFT OUTER JOIN	[lca].[dbo].[StatusNames]		AS st		WITH(NOLOCK) ON st.StatusID			= t.StatusID
+		--===== TABLAS PARA TURNOS
+		LEFT JOIN		[AppsLCA].[dbo].[TV_Modulos]				AS md  WITH(NOLOCK) ON TADD1.CompanyName	= md.Modulo		AND md.Area_ID		= 4 -- AREA DE BORDADO APPAREL
+		LEFT JOIN		[AppsLCA].[dbo].[TV_Cal_GroupSchedule]	AS gs  WITH(NOLOCK) ON md.ID			= gs.Modulo_ID	AND gs.ScheduleDate = CASE 
+																																			WHEN CAST(CHLog.ChangeDate AS time) < '06:00:00'
+																																				THEN DATEADD(DAY, -1, CAST(CHLog.ChangeDate AS date))
+																																			ELSE CAST(CHLog.ChangeDate AS date)
+																																		END--CAST(emb.ChangeDate as date) -- Aqui deberia ser la fecha ajustada porque es el schedule de los turnos
+		LEFT JOIN		[AppsLCA].[dbo].[TV_Cal_Turnos]			AS tr  WITH(NOLOCK) ON tr.ID			= gs.Turno_ID
+		--===== TABLAS PARA TURNOS
 
 
 		SELECT
 			 OrderID					= ORD.OrderID
 			,PONumber					= ORD.PONumber
 			,ChangeDate 				= CHLog.ChangeDate
+			,FechaAjustada				= CASE 
+											WHEN DATEPART(HOUR, ChangeDate) < 6 AND 
+											(DATEPART(HOUR, ChangeDate) >= 18 OR DATEPART(HOUR, ChangeDate) < 6) THEN DATEADD(DAY, -1, CAST (ChangeDate AS DATE))
+											ELSE CAST (ChangeDate AS DATE)
+										  END
 		INTO #TB_DateTransactions
 		FROM			[lca].[dbo].[Bundles]			AS b		WITH(NOLOCK)
 		INNER JOIN		[lca].[dbo].[ManufactureOrders]	AS mo		WITH(NOLOCK) ON b.ManufactureID		= mo.ManufactureID AND MO.StatusID < 95
@@ -204,7 +229,24 @@ BEGIN
 		INNER JOIN		[lca].[dbo].[StyleColors]		AS sc		WITH(NOLOCK) ON ordi.StyleColorID	= sc.StyleColorID
 		LEFT OUTER JOIN	[lca].[dbo].[Addresses]			AS TADD1	WITH(NOLOCK) ON wt.OperatorID		= TADD1.AddressID --ORD-3530610
 		LEFT OUTER JOIN	[lca].[dbo].[StatusNames]		AS st		WITH(NOLOCK) ON st.StatusID			= t.StatusID
-		-- WHERE ord.PONumber = 'ORD-5077519'		
+		
+		-- WHERE ord.PONumber = 'ORD-5077519'
+		SELECT
+			PONumber
+			,SUM(Make) AS Make
+		INTO #TB_WO_Make
+		FROM
+		(
+			SELECT
+				PONumber
+				,Make
+			FROM #TB_ProdEM AS TPE		
+			GROUP BY
+				PONumber
+				,Make
+		) AS A
+		GROUP BY PONumber
+
 		
 		INSERT INTO #TB_Loc
 		SELECT
@@ -306,6 +348,8 @@ BEGIN
 				
 				') AS MARIA_DB_QUERY
 			-- WHERE MARIA_DB_QUERY.rn = 1;
+
+
 		
 		UPDATE HW1 SET
 		--select hw1.*,
@@ -313,17 +357,18 @@ BEGIN
 							WHEN TB.ConteoPOBordadora = 1 THEN TB.SetUP 
 							ELSE 0 
 						END
-		--select * from #TB_Loc where ponumber = 'ORD-5088854'
+		--select * 
 		FROM #TB_ProdEM AS HW1
 		LEFT JOIN
 		(
 			SELECT
 				HW1.*
-				,ROW_NUMBER() OVER(PARTITION BY PONumber, BordadoraMDB ORDER BY PONumber,ConteoPONumber) AS ConteoPOBordadora
+				,ROW_NUMBER() OVER(PARTITION BY PONumber, BordadoraMDB, TaskName ORDER BY PONumber,ConteoPONumber, ChangeDate) AS ConteoPOBordadora
 			FROM
 			(
 				SELECT 
 					HW1.*
+					,HW2.Loca1 as Localidad
 					,STEMAR.Bordadora AS BordadoraMDB
 					,STEMAR.SetUP AS SetUP
 					-- ,COALESCE(STEMAR.Bordadora,STEMAR2.Bordadora) AS BordadoraMDB
@@ -335,10 +380,10 @@ BEGIN
 				-- LEFT  JOIN		#TB_Maria		AS STEMAR2	ON CONCAT(HW1.PONumber,HW2.[DescripValue],HW2.MachineValue) = CONCAT(STEMAR2.[Order],STEMAR2.Localidad,STEMAR2.Bordadora) AND STEMAR2.Conteo = 1
 				WHERE HW1.TaskName LIKE 'Start%'
 				-- AND 
-				-- HW1.PONumber = 'ORD-5067594'
+				-- HW1.PONumber = 'ORD-5896916'
 			) AS HW1
 		) AS TB ON HW1.PONumber = TB.PONumber AND HW1.ConteoPONumber = TB.ConteoPONumber AND HW1.TaskName = TB.TaskName
-		-- where HW1.PONumber = 'ORD-5134283'
+		-- where HW1.PONumber = 'ORD-5896916'
 
 		SELECT
 			 PONumber
@@ -355,7 +400,7 @@ BEGIN
 			,TaskName
 			,#Ciclos
 			,Machine
-			,Make
+			,CAST(NULL AS INT) AS Make
 			,SUM(Quantity) AS Quantity
 			,SUM(Muestra) AS Muestra
 			,ROW_NUMBER() OVER(PARTITION BY OrderID, TaskName, Equipo, FechaAjustada ORDER BY OrderID, TaskName, Equipo, FechaAjustada) AS RN
@@ -376,11 +421,11 @@ BEGIN
 			,TaskName
 			,#Ciclos
 			,Machine
-			,Make
 
 		-- return
 		UPDATE HW1 SET
-		#Ciclos = CASE WHEN HW1.RN = 1 THEN CEILING(1.0 * HW1_Cons.Quantity / CAST(COALESCE(STEMAR.Cabezales,STEMAR2.Cabezales,PPM.Cabezales) AS INT)) ELSE 0 END
+		-- #Ciclos = CASE WHEN HW1.RN = 1 THEN CEILING(1.0 * HW1_Cons.Quantity / CAST(COALESCE(STEMAR.Cabezales,STEMAR2.Cabezales,PPM.Cabezales) AS INT)) ELSE 0 END
+		#Ciclos = CASE WHEN HW1.RN = 1 THEN CEILING(1.0 * HW1_Cons.Quantity / CAST(COALESCE(STEMAR.Cabezales,PPM.Cabezales) AS INT)) ELSE 0 END
 		-- select *
 		FROM			
 		(
@@ -419,7 +464,8 @@ BEGIN
 		SELECT 
 			HW1.FechaAjustada,
 			HW1.ChangeDate as ProdDate,
-			COALESCE(STEMAR.CreateDate,STEMAR2.CreateDate) as StdCreateDate,
+			-- COALESCE(STEMAR.CreateDate,STEMAR2.CreateDate) as StdCreateDate,
+			COALESCE(STEMAR.CreateDate,'') as StdCreateDate,
 			HW1.Equipo as Equipo,
 			HW1.PONumber,
 			HW1.OrderID,
@@ -427,26 +473,38 @@ BEGIN
 			HW2.[DescripValue] AS Locacion,
 			HW1.Quantity, 
 			HW1.Make,
-			COALESCE(STEMAR.Bordadora,STEMAR2.Bordadora) as Bordadora,
-			COALESCE(STEMAR.CantidadDePuntadas,STEMAR2.CantidadDePuntadas) as qtyPuntadas,
-			COALESCE(STEMAR.Secuencias,STEMAR2.Secuencias) as Secuencias,
-			COALESCE(STEMAR.Apliques,STEMAR2.Apliques) as Apliques,
-			COALESCE(STEMAR.TipoDePellum,STEMAR2.TipoDePellum) as tBordado,
-			COALESCE(STEMAR.CostingCode,STEMAR2.CostingCode) as CtgCode,
-			COALESCE(STEMAR.Estilo,STEMAR2.Estilo) as Estilo,
+			-- COALESCE(STEMAR.Bordadora,STEMAR2.Bordadora) as Bordadora,
+			-- COALESCE(STEMAR.CantidadDePuntadas,STEMAR2.CantidadDePuntadas) as qtyPuntadas,
+			-- COALESCE(STEMAR.Secuencias,STEMAR2.Secuencias) as Secuencias,
+			-- COALESCE(STEMAR.Apliques,STEMAR2.Apliques) as Apliques,
+			-- COALESCE(STEMAR.TipoDePellum,STEMAR2.TipoDePellum) as tBordado,
+			-- COALESCE(STEMAR.CostingCode,STEMAR2.CostingCode) as CtgCode,
+			-- COALESCE(STEMAR.Estilo,STEMAR2.Estilo) as Estilo,
+			COALESCE(STEMAR.Bordadora,'') as Bordadora,
+			COALESCE(STEMAR.CantidadDePuntadas,0) as qtyPuntadas,
+			COALESCE(STEMAR.Secuencias,0) as Secuencias,
+			COALESCE(STEMAR.Apliques,0) as Apliques,
+			COALESCE(STEMAR.TipoDePellum,'') as tBordado,
+			COALESCE(STEMAR.CostingCode,'') as CtgCode,
+			COALESCE(STEMAR.Estilo,'') as Estilo,
 	
 			hw1.Muestra, --SETUP
-			COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) AS TCicloIndiv,
+			-- COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) AS TCicloIndiv,
+			COALESCE(STEMAR.TCicloIndiv,0) AS TCicloIndiv,
 	
 			HW1.[#Ciclos],
-			HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) * HW1.[#Ciclos]) AS [Tiempo Estandar],
+			-- HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) * HW1.[#Ciclos]) AS [Tiempo Estandar],
+			HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,0) * HW1.[#Ciclos]) AS [Tiempo Estandar],
 	
 	
+			-- ROUND((
+			-- HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) * HW1.[#Ciclos])) / 60 * 3.02 * 2, 2) AS [Devengado],
 			ROUND((
-			HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,STEMAR2.TCicloIndiv) * HW1.[#Ciclos])) / 60 * 3.02 * 2, 2) AS [Devengado],
+			HW1.Muestra + (COALESCE(STEMAR.TCicloIndiv,0) * HW1.[#Ciclos])) / 60 * 3.02 * 2, 2) AS [Devengado],
 	
 			HW1.Turno,
-			ISNULL(COALESCE(STEMAR.Cabezales,STEMAR2.Cabezales),PPM.Cabezales) as Cabezales,
+			-- ISNULL(COALESCE(STEMAR.Cabezales,STEMAR2.Cabezales),PPM.Cabezales) as Cabezales,
+			ISNULL(STEMAR.Cabezales,PPM.Cabezales) as Cabezales,
 			HW2.MachineValue,
 			STEMAR.ID AS ID
 
@@ -472,30 +530,38 @@ BEGIN
 		BEGIN
 			UPDATE TF SET
 				ProdDate = td.ChangeDate
+				,Make = TWM.Make
 			FROM #TB_Final AS TF
-			INNER JOIN 
+			LEFT JOIN 
 			(
 			select
 				PONumber
 				,MAX(ChangeDate) as ChangeDate
+				,FechaAjustada
 			from #TB_DateTransactions
-			where (CAST(ChangeDate AS DATE) <= @FechaFinal)
-			GROUP BY PONumber
-			) AS TD ON TF.PONumber = TD.PONumber 
+			-- where (CAST(ChangeDate AS DATE) <= @FechaFinal)
+			where (FechaAjustada <= @FechaFinal)
+			GROUP BY PONumber,FechaAjustada
+			) AS TD ON TF.PONumber = TD.PONumber AND TF.FechaAjustada = TD.FechaAjustada
+			INNER JOIN #TB_WO_MAKE AS TWM ON TF.PONumber = TWM.PONumber
+
 		END
 		ELSE
 		BEGIN
 			UPDATE TF SET
 				ProdDate = td.ChangeDate
+				,Make = TWM.Make
 			FROM #TB_Final AS TF
-			INNER JOIN 
+			LEFT JOIN 
 			(
 			select
 				PONumber
+				,FechaAjustada
 				,MAX(ChangeDate) as ChangeDate
 			from #TB_DateTransactions
-			GROUP BY PONumber
-			) AS TD ON TF.PONumber = TD.PONumber 
+			GROUP BY PONumber,FechaAjustada
+			) AS TD ON TF.PONumber = TD.PONumber AND TF.FechaAjustada = TD.FechaAjustada
+			INNER JOIN #TB_WO_MAKE AS TWM ON TF.PONumber = TWM.PONumber
 		END
 
     	IF @process = 'data.Flex'
@@ -512,7 +578,7 @@ BEGIN
 					,PONumber
 					,Equipo
 					,Bordadora
-					,SUM(Make) AS Make
+					,Make
 					,qtyPuntadas
 					,Secuencias
 					,Apliques
@@ -531,6 +597,7 @@ BEGIN
 					,Turno
 
 				FROM #TB_Final  
+				-- where PONumber = 'ORD-5127691'
 				GROUP BY
 				FechaAjustada
 					,ProdDate
@@ -540,6 +607,7 @@ BEGIN
 					-- ,MO
 					,Locacion
 					,Bordadora
+					,Make
 					,qtyPuntadas
 					,Secuencias
 					,Apliques
@@ -559,7 +627,6 @@ BEGIN
 			-- AND Quantity <> 0
 			ORDER BY FechaAjustada, Quantity
 
-			RETURN
 					 
 		END
     	IF @process = 'data.PONumber'
@@ -576,7 +643,7 @@ BEGIN
 					,PONumber
 					,Equipo
 					,Bordadora
-					,SUM(Make) AS Make
+					,Make
 					,qtyPuntadas
 					,Secuencias
 					,Apliques
@@ -604,6 +671,7 @@ BEGIN
 					-- ,MO
 					,Locacion
 					,Bordadora
+					,Make
 					,qtyPuntadas
 					,Secuencias
 					,Apliques
@@ -651,4 +719,4 @@ BEGIN
 			,[Error]			= @Error
             ,[FinalComponent]   = @FinalComponent
             ,[Msg]              = @Msg
-END;
+END

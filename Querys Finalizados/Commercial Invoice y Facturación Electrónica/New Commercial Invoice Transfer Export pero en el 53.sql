@@ -16,7 +16,7 @@ Declare @Executing_Date datetime = null
 Declare @Finished_Date datetime=null
 Declare @TransferVal INT = 0
 
--- SET @WayBill = 'AIR-APP-20251031'
+-- SET @WayBill = 'APP-20260706'
 declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status]
 		where status='Pending'
 
@@ -408,6 +408,7 @@ AND TI.DepartureDate IS NULL
 			FROM [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll] with (nolock)
 			-- FROM [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll] with (nolock)
 			WHERE WayBill IN (@WayBill) --'AIR20240409'
+			-- AND BoxNumber = '01160749'
 			GROUP BY WayBill 
 					,BoxNumber
 					,FormattedBoxNumber
@@ -487,6 +488,7 @@ AND TI.DepartureDate IS NULL
 
 		left outer join 
 				(select distinct ManufactureId, CountryOfOrigin , Manufacturer, TariffCategory,Category
+				,ROW_NUMBER() OVER(PARTITION BY ManufactureID ORDER BY ManufactureID, Consumption desc) as cuenta2
 					from 
 						(	Select * from (
 											select *,row_number() over (partition by Manufactureid order by Manufactureid, consumption desc ) as Cuenta
@@ -505,7 +507,7 @@ AND TI.DepartureDate IS NULL
 						) TB_MO_1
 					--where TB_MO_1.ncuenta=1
 				) TB_MO_2
-				ON SB.ManufactureID = TB_MO_2.ManufactureID 
+				ON SB.ManufactureID = TB_MO_2.ManufactureID and cuenta2 = 1
 
 			LEFT JOIN #TB_Transfer_Kardex AS TK ON SB.ID = TK.IDExport
 
@@ -704,7 +706,7 @@ AND TI.DepartureDate IS NULL
 			,[ArrivalDate]				=	TI.ArrivalDate
 			,[DepartureDate]			=	TI.DepartureDate
 			,[PortOfLoading]			=	TI.PortOfLoading
-
+		--SELECT *
 		FROM 
 		(
 			SELECT  
@@ -722,6 +724,7 @@ AND TI.DepartureDate IS NULL
 				,GrossWeightKGSXUnits
 			FROM [AppsLCA].[dbo].[ImportExport_ShipmentBoxAll] with (nolock)
 			WHERE WayBill IN (@WayBill) --'AIR20240409'
+			-- AND BoxNumber = '01166741'
 			GROUP BY WayBill 
 					,ContainerNumber
 					,BoxNumber
@@ -807,11 +810,13 @@ AND TI.DepartureDate IS NULL
 
 		left outer join 
 				(select distinct ManufactureId, CountryOfOrigin , Manufacturer, TariffCategory,Category
+				,ROW_NUMBER() OVER(PARTITION BY ManufactureID ORDER BY ManufactureID, Consumption desc) as cuenta2
 					from 
 						(	Select * from (
 											select *,row_number() over (partition by Manufactureid order by Manufactureid, consumption desc ) as Cuenta
 													from appslca.dbo.TB_MO_PartNumber_IM_Summary with (nolock)
 											where (Size is null or rtrim(Size)='') and category='Fabric'
+											-- and ManufactureId = 987592
 											--and mo in ('RO123021CCW115-837-5','TO1018CCW115-837-1')
 										) SubFabric01 where Cuenta =1
 							union all
@@ -820,12 +825,13 @@ AND TI.DepartureDate IS NULL
 											select *, row_number() over (partition by Manufactureid order by Manufactureid, consumption desc ) as Cuenta
 											from appslca.dbo.TB_MO_PartNumber_IM_Summary with (nolock)
 											where (Size is null or rtrim(Size)='') and category='Contracts'
+											-- and ManufactureId = 987592
 											--and mo in ('RO123021CCW115-837-5','TO1018CCW115-837-1')
 											)SubContract WHERE Cuenta =1
 						) TB_MO_1
 					--where TB_MO_1.ncuenta=1
 				) TB_MO_2
-		ON TE.ManufactureID = TB_MO_2.ManufactureID 
+		ON TE.ManufactureID = TB_MO_2.ManufactureID AND cuenta2 = 1
 	) WB99
 	WHERE Quantity > 0
 

@@ -8,7 +8,7 @@ SELECT
 	,GETDATE() AS StartDate
 	,GETDATE() AS FinishDate
 	,CAST(NULL AS INT) AS ScreensMO
-	,IIF(A.Prepress_SequenceTasks_ID = 4,ISNULL(MO.Numeric2,0),NULL) AS ScreensByLocation
+	,ISNULL(MO.Numeric2,0) AS ScreensByLocation
 	,A.Prepress_SequenceTasks_ID
 	,IIF(A.Prepress_SequenceTasks_ID = 4, MO.Numeric1, NULL) AS Bin
 INTO #TB_Orders_Prepress
@@ -38,4 +38,4 @@ SELECT
     ,GETDATE()
 FROM #TB_Orders_Prepress
 
-SELECT * FROM AppsLCA.dbo.TB_Prepress_OrdersScanned
+SELECT * FROM AppsLCA.dbo.TB_Prepress_OrdersScanned AS OS

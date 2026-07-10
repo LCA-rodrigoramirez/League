@@ -74,7 +74,6 @@ SET NOCOUNT ON;
 			INNER JOIN      LCA.dbo.Orders                      AS OD   WITH(NOLOCK) ON OD.OrderID          = OI.OrderID              AND OD.PONumber IS NOT NULL
 			
 
-
 			--- BORDADO DE PRENDAS ---
 
 			UPDATE MO SET
@@ -83,7 +82,7 @@ SET NOCOUNT ON;
 			FROM #TB_MO_FILTER AS MO
 			INNER JOIN LCA.dbo.WorkFlows AS WF WITH (NOLOCK) ON MO.ManufactureID = WF.ManufactureID
 
-			
+
 			UPDATE MO SET
 				[EmbAPP]           =   IIF(WT_01.TaskName  IS NOT NULL, 1, 0) +
 										IIF(WT_02.TaskName  IS NOT NULL, 1, 0) +
@@ -120,17 +119,8 @@ SET NOCOUNT ON;
 										IIF(WT_07.TaskName  IS NOT NULL, 1, 0) +
 										IIF(WT_08.TaskName  IS NOT NULL, 1, 0) +
 										IIF(WT_09.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_10.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_11.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_12.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_13.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_14.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_15.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_16.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_17.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_18.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_19.TaskName  IS NOT NULL, 1, 0) +
-										IIF(WT_20.TaskName  IS NOT NULL, 1, 0) 
+										IIF(WT_10.TaskName  IS NOT NULL, 1, 0) 
+										--SELECT * 
 			FROM #TB_MO_FILTER       AS MO
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_01    WITH(NOLOCK) ON MO.WorkFlowID = WT_01.WorkFlowID    AND WT_01.TaskName  = 'Start  Embroidery HW 1'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_02    WITH(NOLOCK) ON MO.WorkFlowID = WT_02.WorkFlowID    AND WT_02.TaskName  = 'Start  Embroidery HW 2'
@@ -142,17 +132,6 @@ SET NOCOUNT ON;
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_08    WITH(NOLOCK) ON MO.WorkFlowID = WT_08.WorkFlowID    AND WT_08.TaskName  = 'Start  Embroidery HW 8'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_09    WITH(NOLOCK) ON MO.WorkFlowID = WT_09.WorkFlowID    AND WT_09.TaskName  = 'Start  Embroidery HW 9'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_10    WITH(NOLOCK) ON MO.WorkFlowID = WT_10.WorkFlowID    AND WT_10.TaskName  = 'Start  Embroidery HW 10'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_11    WITH(NOLOCK) ON MO.WorkFlowID = WT_11.WorkFlowID    AND WT_11.TaskName  = 'Start Embroidery Post HW 1'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_12    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 2'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_13    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 3'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_14    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 4'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_15    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 5'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_16    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 6'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_17    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 7'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_18    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 8'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_19    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 9'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_20    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 10'
-			
 			
 			--- SABER SI EL PROCESO DE BORDADO DE PRENDAS YA SE EMPEZÓ --- 
 			
@@ -193,17 +172,7 @@ SET NOCOUNT ON;
 										IIF(WT_07.FinishDate  IS NOT NULL, 1, 0) +
 										IIF(WT_08.FinishDate  IS NOT NULL, 1, 0) +
 										IIF(WT_09.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_10.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_11.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_12.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_13.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_14.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_15.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_16.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_17.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_18.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_19.FinishDate  IS NOT NULL, 1, 0) +
-										IIF(WT_20.FinishDate  IS NOT NULL, 1, 0) 
+										IIF(WT_10.FinishDate  IS NOT NULL, 1, 0) 
 			FROM #TB_MO_FILTER       AS MO
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_01    WITH(NOLOCK) ON MO.WorkFlowID = WT_01.WorkFlowID    AND WT_01.TaskName  = 'Start  Embroidery HW 1'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_02    WITH(NOLOCK) ON MO.WorkFlowID = WT_02.WorkFlowID    AND WT_02.TaskName  = 'Start  Embroidery HW 2'
@@ -215,18 +184,6 @@ SET NOCOUNT ON;
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_08    WITH(NOLOCK) ON MO.WorkFlowID = WT_08.WorkFlowID    AND WT_08.TaskName  = 'Start  Embroidery HW 8'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_09    WITH(NOLOCK) ON MO.WorkFlowID = WT_09.WorkFlowID    AND WT_09.TaskName  = 'Start  Embroidery HW 9'
 			LEFT JOIN LCA.dbo.WorkTasks     AS WT_10    WITH(NOLOCK) ON MO.WorkFlowID = WT_10.WorkFlowID    AND WT_10.TaskName  = 'Start  Embroidery HW 10'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_11    WITH(NOLOCK) ON MO.WorkFlowID = WT_11.WorkFlowID    AND WT_11.TaskName  = 'Start Embroidery Post HW 1'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_12    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 2'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_13    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 3'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_14    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 4'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_15    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 5'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_16    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 6'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_17    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 7'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_18    WITH(NOLOCK) ON MO.WorkFlowID = WT_12.WorkFlowID    AND WT_12.TaskName  = 'Start Embroidery Post HW 8'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_19    WITH(NOLOCK) ON MO.WorkFlowID = WT_13.WorkFlowID    AND WT_13.TaskName  = 'Start Embroidery Post HW 9'
-			LEFT JOIN LCA.dbo.WorkTasks     AS WT_20    WITH(NOLOCK) ON MO.WorkFlowID = WT_14.WorkFlowID    AND WT_14.TaskName  = 'Start Embroidery Post HW 10'
-
-		
 
 			-------------- INSERT FINAL CON LAS MO A UTILIZAR Y LA INFORMACION NECESARIA PARA EL REPORTE FINAL ----------------
 
@@ -267,6 +224,7 @@ SET NOCOUNT ON;
 			INNER JOIN      LCA.dbo.StyleColors                 AS STC  WITH(NOLOCK) ON STC.StyleColorID    		= OI.StyleColorID
 			LEFT  JOIN      LCA.dbo.DropDownValues3             AS DDV  WITH(NOLOCK) ON MO.ProductionStatusID    	= DDV.DropDownValueID
 
+
 			SELECT
 				*
 			INTO #L2_Applique
@@ -306,10 +264,11 @@ SET NOCOUNT ON;
 			DELETE FROM #TB_MO
 			WHERE NOT(EmbHW =1 OR EmbAPP =1)
 
+
 		/********************************* FILTER MO STATUS < 90 Y UPDATES PARA EXTRAER ORDENES DE BORDADO Y SABER SI YA FINALIZARON EL PROCESO O NO *******************************/
 		
 		
-		IF @process = 'report-general'
+		IF @process = 'report-general' OR @process = 'pivot-thread'
 		BEGIN
 
 			/******************************************* Obteniendo info de los hilos y appliques por ItemDetailID, Location y Color de Hilo *******************************************/
@@ -374,6 +333,7 @@ SET NOCOUNT ON;
 							,[Location]
 							,StitchCount
 						FROM #L2_ThreadInfo
+						-- WHERE ItemDetailID = 6046572
 						GROUP BY
 							ItemDetailID
 							,[Location]
@@ -385,6 +345,7 @@ SET NOCOUNT ON;
 				UPDATE L2 SET
 					TotalThread = L2_MaxThread.TotalThread
 					,TotalThreadColor = L2_MaxColor.TotalThreadColor
+					--SELECT *
 				FROM #L2_TotalThreadPerWO AS L2
 				INNER JOIN
 				(
@@ -394,6 +355,7 @@ SET NOCOUNT ON;
 						,[Location]
 						,MAX(R_Thread) AS TotalThread
 					FROM #L2_TotalThreadPerWO
+					-- WHERE ItemDetailID = 6046572
 					GROUP BY
 						ItemDetailID
 						,EmbType
@@ -426,6 +388,7 @@ SET NOCOUNT ON;
 				DC.StitchCountPerThread = ROUND((TT.NewStitchPerThread),0)
 				,DC.CountApplique			 	 = CA.CountApp
 				,DC.CountSpoolID		 		 = CT.CountSpool
+				--select *
 				FROM #L2_ThreadInfo AS DC
 				INNER JOIN
 				(
@@ -450,6 +413,7 @@ SET NOCOUNT ON;
 							,IIF(AppliqueMaterial IS NOT NULL, ROW_NUMBER() OVER(PARTITION BY APP.ItemDetailID,[Location] ORDER BY APP.ItemDetailID), 0) AS CountApp
 						FROM (SELECT DISTINCT ItemDetailID FROM #TB_MO) AS MO
 						INNER JOIN #L2_Applique AS APP ON MO.ItemDetailID = APP.ItemDetailID
+						-- AND mo.ItemDetailID = 6046572
 					) AS TB
 					GROUP BY 
 						ItemDetailID
@@ -467,6 +431,7 @@ SET NOCOUNT ON;
 						,Proportion
 						,CAST(ROUND(StitichCount * Proportion,0) AS INT) AS NewStitchPerThread
 					FROM #L2_TotalThreadPerWO
+					-- WHERE ItemDetailID = 6046572
 					GROUP BY
 						ItemDetailID
 						,EmbType
@@ -516,23 +481,46 @@ SET NOCOUNT ON;
 				------------------------------------------------------------------ INVENTARIO DE HILOS EN LCA --------------------------------------------------------------------------
 
 					SELECT
-						SUM(RC.[QuantityOnHand]) AS Qty
-						,RM.[PartNumber]
-						-- ,C.[ColorName]
-						,IIF(C.[ColorName] = 'White',C.[ColorName],SUBSTRING(RM.[PartNumber],CHARINDEX('-',RM.[PartNumber]) + 1, LEN(RM.[PartNumber]))) AS ColorName
+						 [Qty]			= SUM(Qty)	
+						,[StockMinimo]	= StockMinimo
+						,[ThreadID]		= ThreadID
+						,[UnitMeasure]	= UnitMeasure
+						,[PartNumbers]	= STRING_AGG(COALESCE([Part Number LCA],''),',') WITHIN GROUP (ORDER BY [RawMaterialID])
+
 					INTO #TB_InventoryThread
-					FROM [LCA].[dbo].[RawContainers]				AS RC WITH(NOLOCK)
-					INNER JOIN [LCA].[dbo].[RawMaterials] 			AS RM WITH(NOLOCK)	ON RC.[RawMaterialID] = RM.[RawMaterialID] 
-																						AND RC.[StockWarehouseID] IN (50,55)
-																						AND RC.[StatusID] < 90 
-																						AND RC.[ContainerCode] <> '<Default>' 
-																						AND RC.[QuantityOnHand] > 0
-					INNER JOIN [LCA].[dbo].[Colors]					AS C  WITH(NOLOCK) ON RM.[ColorID] = C.[ColorID]
-					INNER JOIN [LCA].[dbo].[ComponentLibrary]		AS CL WITH(NOLOCK) ON RM.[ComponentID] = CL.[ComponentID]
-					INNER JOIN [LCA].[dbo].[ComponentCategories]	AS CC WITH(NOLOCK) ON CL.[ComponentCategoryID] = CC.[ComponentCategoryID] AND CC.[CategoryName] = 'Thread'
+					FROM
+					(
+						SELECT
+							 [Qty]				= SUM(RC.[QuantityOnHand])
+							,[StockMinimo]		= PP.[Stock Minimo]
+							,[ThreadID]			= PP.[ThreadID L2]
+							,[UnitMeasure]		= UN.[UnitName]
+							,[Part Number LCA]	= PP.[Part Number LCA]
+							,[RawMaterialID]	= PP.[RawMaterialID]
+							-- ,C.[ColorName]
+						FROM [LCA].[dbo].[RawContainers]						AS RC WITH(NOLOCK)
+						INNER JOIN [LCA].[dbo].[RawMaterials] 					AS RM WITH(NOLOCK)	ON RC.[RawMaterialID] = RM.[RawMaterialID] 
+																									AND RC.[StockWarehouseID] IN (50,55)
+																									AND RC.[StatusID] < 90 
+																									AND RC.[ContainerCode] <> '<Default>' 
+																									AND RC.[QuantityOnHand] > 0
+						INNER JOIN [LCA].[dbo].[Colors]							AS C  WITH(NOLOCK) ON RM.[ColorID] = C.[ColorID]
+						INNER JOIN [LCA].[dbo].[ComponentLibrary]				AS CL WITH(NOLOCK) ON RM.[ComponentID] = CL.[ComponentID]
+						INNER JOIN [LCA].[dbo].[ComponentCategories]			AS CC WITH(NOLOCK) ON CL.[ComponentCategoryID] = CC.[ComponentCategoryID] AND CC.[CategoryName] = 'Thread'
+						INNER JOIN [LCA].[dbo].[UnitNames]						AS UN WITH(NOLOCK) ON CL.[DatabaseUnitID] = UN.[UnitNameID]
+						INNER JOIN [AppsLCA].[dbo].[Planning_PartNumber_L2]		AS PP WITH(NOLOCK) ON RM.[RawMaterialID] = PP.[RawMaterialID]
+						GROUP BY
+							
+							PP.[Stock Minimo]
+							,PP.[ThreadID L2]
+							,UN.[UnitName]
+							,PP.[Part Number LCA]
+							,PP.[RawMaterialID]
+					) AS TB
 					GROUP BY
-						RM.[PartNumber]
-						,IIF(C.[ColorName] = 'White',C.[ColorName],SUBSTRING(RM.[PartNumber],CHARINDEX('-',RM.[PartNumber]) + 1, LEN(RM.[PartNumber])))
+						 [StockMinimo]
+						,[ThreadID]
+						,[UnitMeasure]
 
 				------------------------------------------------------------------ INVENTARIO DE HILOS EN LCA --------------------------------------------------------------------------
 
@@ -570,10 +558,15 @@ SET NOCOUNT ON;
 				,ROUND(TI.TotalYards * Make,2) AS TotalYardsPerQty
 				,ROUND(TI.TotalYardsNeedle * Make,2) AS TotalYardsNeedlePerQty
 				,ROUND(TI.TotalYardsBobine * Make,2) AS TotalYardsBobinePerQty
+				,COALESCE(IT.StockMinimo,0) AS StockMinimo
+				,COALESCE(IT.Qty,0) AS Inventory_OnHand
+				,COALESCE(IT.UnitMeasure,'') AS UnitMeasure
+				,COALESCE(IT.PartNumbers,'') AS PartNumbers
 				,TI.CountApplique
 			INTO #TB_MO_CONSUMPTION
 			FROM #TB_MO AS MO
 			INNER JOIN #L2_ThreadInfo AS TI ON MO.ItemDetailID = TI.ItemDetailID
+			LEFT JOIN #TB_InventoryThread AS IT ON TI.ColorSpoolID = IT.ThreadID
 			-- WHERE MO.EmbAPP = 1 AND ProcessFinish = 0
 			ORDER BY MO.ItemDetailID,MO.MO,TI.[Location]
 
@@ -617,106 +610,88 @@ SET NOCOUNT ON;
 			--- CONSULTA FINAL E INSERT EN #TB_RESPONSE PARA MOSTRAR AL USUARIO
 
 			SELECT 
-				ROW_NUMBER() OVER(ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]) AS R
+				ROW_NUMBER() OVER(ORDER BY CAST(CAST(MOC.RequiredDate AS DATE) AS VARCHAR(100)),MOC.ItemDetailID, MOC.MO, MOC.EmbType, DI.SequenceNo, MOC.[Location]) AS R
 				,IIF(DI.Comment LIKE '%tackdown%' OR DI.Comment LIKE '%TACK DOWN%' OR DI.Comment LIKE '%tac down%' OR DI.Comment LIKE '%TAKCDOWN%' OR DI.Comment LIKE '%TACK DWON%',1,0) AS TackDown
-				,DI.MO
-				,DI.ProductionStatus
-				,DI.WorkOrder
-				,DI.ItemDetailID
-				,DI.[CustomerName]
-				,DI.CustomerOrder
-				,DI.Style
-				,DI.Color
-				,DI.Qty
-				,DI.ProductDivision
-				,CAST(CAST(DI.RequiredDate AS DATE) AS VARCHAR(100)) AS [Req Ship]
-				,DI.[Status/Date]
-				,DI.SKUID
-				,COALESCE(MOC.EmbType,MOC2.EmbType,DI.EmbType) AS EmbType
-				,COALESCE(MOC.[Location],MOC2.[Location],DI.[Location]) AS [Location]
+				,MOC.MO
+				,MOC.ProductionStatus
+				,MOC.WorkOrder
+				,MOC.ItemDetailID
+				,MOC.[CustomerName]
+				,MOC.CustomerOrder
+				,MOC.Style
+				,MOC.Color
+				,MOC.Qty
+				,MOC.ProductDivision
+				,CAST(CAST(MOC.RequiredDate AS DATE) AS VARCHAR(100)) AS [Req Ship]
+				,MOC.[Status/Date]
+				,MOC.SKUID
+				,COALESCE(MOC.EmbType,DI.EmbType) AS EmbType
+				,COALESCE(MOC.[Location],DI.[Location]) AS [Location]
 				,DI.Design
 				,DI.SequenceNo
 				,DI.Comment
-				,COALESCE(MOC.LogoStyle,MOC2.LogoStyle,'-') AS LogoStyle
-				,COALESCE(MOC.LogoStyleName,MOC2.LogoStyleName,'-') AS LogoStyleName
-				,COALESCE(MOC.ThreadID,MOC2.ThreadID,'-') AS ThreadID
-				,COALESCE(MOC.ThreadColor,MOC2.ThreadColor,'-') AS ThreadColor
-				,COALESCE(MOC.StitchCount,MOC2.StitchCount,0) AS StitchCount
-				,COALESCE(MOC.StitchCountPerThread,MOC2.StitchCountPerThread,0) AS StitchCountPerThread
-				,COALESCE(MOC.TotalYardsNeedlePerUnit,MOC2.TotalYardsNeedlePerUnit,0) AS TotalYardsNeedlePerUnit
-				,COALESCE(MOC.TotalYardsBobinePerUnit,MOC2.TotalYardsBobinePerUnit,0) AS TotalYardsBobinePerUnit
-				,COALESCE(MOC.TotalYardsPerUnit,MOC2.TotalYardsPerUnit,0) AS TotalYardsPerUnit
-				,COALESCE(MOC.TotalYardsNeedlePerQty,MOC2.TotalYardsNeedlePerQty,0) AS TotalYardsNeedlePerQty
-				,COALESCE(MOC.TotalYardsBobinePerQty,MOC2.TotalYardsBobinePerQty,0) AS TotalYardsBobinePerQty
-				,COALESCE(MOC.TotalYardsPerQty,MOC2.TotalYardsPerQty,0) AS TotalYardsPerQty
+				-- ,COALESCE(MOC.LogoStyle,MOC2.LogoStyle,'-') AS LogoStyle
+				-- ,COALESCE(MOC.LogoStyleName,MOC2.LogoStyleName,'-') AS LogoStyleName
+				-- ,COALESCE(MOC.ThreadID,MOC2.ThreadID,'-') AS ThreadID
+				-- ,COALESCE(MOC.ThreadColor,MOC2.ThreadColor,'-') AS ThreadColor
+				-- ,COALESCE(MOC.StitchCount,MOC2.StitchCount,0) AS StitchCount
+				-- ,COALESCE(MOC.StitchCountPerThread,MOC2.StitchCountPerThread,0) AS StitchCountPerThread
+				-- ,COALESCE(MOC.TotalYardsNeedlePerUnit,MOC2.TotalYardsNeedlePerUnit,0) AS TotalYardsNeedlePerUnit
+				-- ,COALESCE(MOC.TotalYardsBobinePerUnit,MOC2.TotalYardsBobinePerUnit,0) AS TotalYardsBobinePerUnit
+				-- ,COALESCE(MOC.TotalYardsPerUnit,MOC2.TotalYardsPerUnit,0) AS TotalYardsPerUnit
+				-- ,COALESCE(MOC.TotalYardsNeedlePerQty,MOC2.TotalYardsNeedlePerQty,0) AS TotalYardsNeedlePerQty
+				-- ,COALESCE(MOC.TotalYardsBobinePerQty,MOC2.TotalYardsBobinePerQty,0) AS TotalYardsBobinePerQty
+				-- ,COALESCE(MOC.TotalYardsPerQty,MOC2.TotalYardsPerQty,0) AS TotalYardsPerQty
+				-- ,COALESCE(MOC.StockMinimo,MOC2.StockMinimo,0) AS StockMinimo
+				,MOC.LogoStyle AS LogoStyle
+				,MOC.LogoStyleName AS LogoStyleName
+				,MOC.ThreadID AS ThreadID
+				,MOC.ThreadColor AS ThreadColor
+				,MOC.StitchCount AS StitchCount
+				,MOC.StitchCountPerThread AS StitchCountPerThread
+				,MOC.TotalYardsNeedlePerUnit AS TotalYardsNeedlePerUnit
+				,MOC.TotalYardsBobinePerUnit AS TotalYardsBobinePerUnit
+				,MOC.TotalYardsPerUnit AS TotalYardsPerUnit
+				,MOC.TotalYardsNeedlePerQty AS TotalYardsNeedlePerQty
+				,MOC.TotalYardsBobinePerQty AS TotalYardsBobinePerQty
+				,MOC.TotalYardsPerQty AS TotalYardsPerQty
+				,MOC.StockMinimo AS StockMinimo
+				,MOC.Inventory_OnHand AS Inventory_OnHand
+				,MOC.UnitMeasure
+				,MOC.PartNumbers
 				
 			INTO #TB_RESPONSE
-			FROM #TB_MO_DIGITIZING AS DI
-			LEFT JOIN #TB_MO_CONSUMPTION AS MOC  ON DI.ManufactureID = MOC.ManufactureID AND DI.[Location] = MOC.[Location] AND DI.SpoolID = MOC.ThreadID
-			LEFT JOIN #TB_MO_CONSUMPTION AS MOC2 ON DI.ManufactureID = MOC2.ManufactureID AND DI.[Location] = MOC2.[Location] AND MOC.ManufactureID IS NULL AND DI.SpoolID IS NOT NULL
+			-- SELECT COUNT(*)
+			FROM #TB_MO_CONSUMPTION AS MOC
+			LEFT JOIN #TB_MO_DIGITIZING  AS DI  ON DI.ManufactureID = MOC.ManufactureID AND DI.[Location] = MOC.[Location] AND DI.SpoolID = MOC.ThreadID
+			-- LEFT JOIN #TB_MO_CONSUMPTION AS MOC2 ON DI.ManufactureID = MOC2.ManufactureID AND DI.[Location] = MOC2.[Location] AND MOC.ManufactureID IS NULL AND DI.SpoolID IS NOT NULL
 			WHERE 
 			-- 	DI.EmbAPP = 1 
 			-- AND 
 				DI.ProcessFinish = 0
 				-- or DI.ItemDetailID = 5167504
-			ORDER BY DI.ItemDetailID, DI.MO, DI.EmbType, DI.SequenceNo, DI.[Location]
+			ORDER BY MOC.ItemDetailID, MOC.MO, MOC.EmbType, DI.SequenceNo, MOC.[Location]
 
-		-- 	SELECT * FROM #TB_RESPONSE WHERE ItemDetailID = 5857305
 			
-		-- 	RETURN
 		--- SELECT FINAL ---
-		SET @result =
-		(
-			SELECT
-				MO
-				,ProductionStatus
-				,WorkOrder
-				,TRIM(REPLACE(REPLACE(REPLACE(CustomerName, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) as CustomerName
-				,CustomerOrder
-				,Style
-				,Color
-				,Qty
-				,TRIM(REPLACE(REPLACE(REPLACE(ProductDivision, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS ProductDivision
-				,[Req Ship]
-				,DATEPART(WEEK, CAST([Req Ship] AS DATE)) AS [Week Req Ship]
-				,TRIM(REPLACE(REPLACE(REPLACE([Status/Date], CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS [Status/Date]
-				,SKUID
-				,EmbType
-				,[Location]
-				,Design
-				,SequenceNo
-				,Comment
-				,LogoStyle
-				,LogoStyleName
-				,ThreadID
-				,ThreadColor
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCount, 0) AS StitchCount
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCountPerThread, 0) AS StitchCountPerThread
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit / 5000, 0.00) AS [Poly Thread Colors Demand]
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit / 3000, 0.00) AS [Bobine Thread Demand]
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit, 0.00) AS UnitYardConsumptionNeedle
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit, 0.00) AS UnitYardConsumptionBobine
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerUnit, 0.00) AS UnitYardConsumption
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty / 5000, 0.00) AS [Total Poly Thread Colors Demand]
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty / 3000, 0.00) AS [Total Bobine Thread Demand]
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty, 0.00) AS TotalYardNeedlePerQty
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty, 0.00) AS TotalYardBobinePerQty
-				,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) AS TotalYardsPerQty
-			FROM
+		IF @process = 'report-general'
+		BEGIN
+			SET @result =
 			(
-				SELECT 
-					R
-					,MO
+				SELECT
+					MO
 					,ProductionStatus
 					,WorkOrder
-					,CustomerName
+					,TRIM(REPLACE(REPLACE(REPLACE(CustomerName, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) as CustomerName
 					,CustomerOrder
 					,Style
 					,Color
 					,Qty
-					,ProductDivision
+					,TRIM(REPLACE(REPLACE(REPLACE(ProductDivision, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS ProductDivision
 					,[Req Ship]
-					,[Status/Date]
+					,DATEPART(WEEK, CAST([Req Ship] AS DATE)) AS [Week Req Ship]
+					,DATEPART(YEAR, CAST([Req Ship] AS DATE)) AS [Year Req Ship]
+					,TRIM(REPLACE(REPLACE(REPLACE([Status/Date], CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS [Status/Date]
 					,SKUID
 					,EmbType
 					,[Location]
@@ -725,25 +700,171 @@ SET NOCOUNT ON;
 					,Comment
 					,LogoStyle
 					,LogoStyleName
-					,ROW_NUMBER() OVER(PARTITION BY MO,[Location],ThreadColor order by MO,SequenceNo,[Location],ThreadColor) AS FirstThread
-					,TackDown
 					,ThreadID
 					,ThreadColor
-					,StitchCount
-					,StitchCountPerThread
-					,TotalYardsNeedlePerUnit
-					,TotalYardsBobinePerUnit
-					,TotalYardsPerUnit
-					,TotalYardsNeedlePerQty
-					,TotalYardsBobinePerQty
-					,TotalYardsPerQty
-				FROM #TB_RESPONSE
-			) AS F
-			-- WHERE WorkOrder = 'ORD-5255453'
-			-- WHERE WorkOrder ='ORD-5666226'
-			ORDER BY R--, FirstThread
-			FOR JSON PATH, INCLUDE_NULL_VALUES
-		)
+					,PartNumbers AS [LCA PartNumber]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCount, 0) AS StitchCount
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCountPerThread, 0) AS StitchCountPerThread
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit / 5000, 0.00) AS [Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit / 3000, 0.00) AS [Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit, 0.00) AS UnitYardConsumptionNeedle
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit, 0.00) AS UnitYardConsumptionBobine
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerUnit, 0.00) AS UnitYardConsumption
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty / 5000, 0.00) AS [Total Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty / 3000, 0.00) AS [Total Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty, 0.00) AS TotalYardNeedlePerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty, 0.00) AS TotalYardBobinePerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) AS TotalYardsPerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00) AS [Minimum Stock]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,Inventory_OnHand, 0.00) AS [Inventory OnHand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,UnitMeasure, '') AS [Unit of Measure]
+					,IIF(IIF(FirstThread = 1 AND ThreadID IS NOT NULL,Inventory_OnHand, 0.00) 
+							<= IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00)
+							AND IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00) <> 0.00, 1,0) AS Rev_Inventory
+				FROM
+				(
+					SELECT 
+						R
+						,MO
+						,ProductionStatus
+						,WorkOrder
+						,CustomerName
+						,CustomerOrder
+						,Style
+						,Color
+						,Qty
+						,ProductDivision
+						,[Req Ship]
+						,[Status/Date]
+						,SKUID
+						,EmbType
+						,[Location]
+						,Design
+						,SequenceNo
+						,Comment
+						,LogoStyle
+						,LogoStyleName
+						,ROW_NUMBER() OVER(PARTITION BY MO,[Location],ThreadColor order by MO,SequenceNo,[Location],ThreadColor) AS FirstThread
+						,TackDown
+						,ThreadID
+						,ThreadColor
+						,PartNumbers
+						,StitchCount
+						,StitchCountPerThread
+						,TotalYardsNeedlePerUnit
+						,TotalYardsBobinePerUnit
+						,TotalYardsPerUnit
+						,TotalYardsNeedlePerQty
+						,TotalYardsBobinePerQty
+						,TotalYardsPerQty
+						,StockMinimo
+						,Inventory_OnHand
+						,UnitMeasure
+					FROM #TB_RESPONSE
+					-- WHERE ThreadID = '80114'
+				) AS F
+				-- WHERE WorkOrder = 'ORD-5255453'
+				-- WHERE WorkOrder ='ORD-5666226'
+				ORDER BY R--, FirstThread
+				FOR JSON PATH, INCLUDE_NULL_VALUES
+			)
+		END
+
+		IF @process = 'pivot-thread'
+		BEGIN
+			SET @result =
+			(
+				SELECT
+					MO
+					,ProductionStatus
+					,WorkOrder
+					,TRIM(REPLACE(REPLACE(REPLACE(CustomerName, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) as CustomerName
+					,CustomerOrder
+					,Style
+					,Color
+					,Qty
+					,TRIM(REPLACE(REPLACE(REPLACE(ProductDivision, CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS ProductDivision
+					,[Req Ship]
+					,DATEPART(WEEK, CAST([Req Ship] AS DATE)) AS [Week Req Ship]
+					,DATEPART(YEAR, CAST([Req Ship] AS DATE)) AS [Year Req Ship]
+					,TRIM(REPLACE(REPLACE(REPLACE([Status/Date], CHAR(10), ''), CHAR(9), ''), CHAR(13), '')) AS [Status/Date]
+					,SKUID
+					,EmbType
+					,[Location]
+					,Design
+					,SequenceNo
+					,Comment
+					,LogoStyle
+					,LogoStyleName
+					,ThreadID
+					,ThreadColor
+					,PartNumbers AS [LCA PartNumber]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCount, 0) AS StitchCount
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCountPerThread, 0) AS StitchCountPerThread
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit / 5000, 0.00) AS [Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit / 3000, 0.00) AS [Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit, 0.00) AS UnitYardConsumptionNeedle
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit, 0.00) AS UnitYardConsumptionBobine
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerUnit, 0.00) AS UnitYardConsumption
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty / 5000, 0.00) AS [Total Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty / 3000, 0.00) AS [Total Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty, 0.00) AS TotalYardNeedlePerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty, 0.00) AS TotalYardBobinePerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) AS TotalYardsPerQty
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00) AS [Minimum Stock]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,Inventory_OnHand, 0.00) AS [Inventory OnHand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,UnitMeasure, '') AS [Unit of Measure]
+					,IIF(IIF(FirstThread = 1 AND ThreadID IS NOT NULL,Inventory_OnHand, 0.00) 
+							<= IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00)
+							AND IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StockMinimo, 0.00) <> 0.00, 1,0) AS Rev_Inventory
+				FROM
+				(
+					SELECT 
+						R
+						,MO
+						,ProductionStatus
+						,WorkOrder
+						,CustomerName
+						,CustomerOrder
+						,Style
+						,Color
+						,Qty
+						,ProductDivision
+						,[Req Ship]
+						,[Status/Date]
+						,SKUID
+						,EmbType
+						,[Location]
+						,Design
+						,SequenceNo
+						,Comment
+						,LogoStyle
+						,LogoStyleName
+						,ROW_NUMBER() OVER(PARTITION BY MO,[Location],ThreadColor order by MO,SequenceNo,[Location],ThreadColor) AS FirstThread
+						,TackDown
+						,ThreadID
+						,ThreadColor
+						,StitchCount
+						,StitchCountPerThread
+						,TotalYardsNeedlePerUnit
+						,TotalYardsBobinePerUnit
+						,TotalYardsPerUnit
+						,TotalYardsNeedlePerQty
+						,TotalYardsBobinePerQty
+						,TotalYardsPerQty
+						,StockMinimo
+						,Inventory_OnHand
+						,UnitMeasure
+					FROM #TB_RESPONSE
+					-- WHERE ThreadID = '80114'
+				) AS F
+				-- WHERE WorkOrder = 'ORD-5255453'
+				-- WHERE WorkOrder ='ORD-5666226'
+				WHERE IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) > 0
+				ORDER BY R, Rev_Inventory--, FirstThread
+				FOR JSON PATH, INCLUDE_NULL_VALUES
+			)
+		END
 
 		SET @Error = 0
 		SET @Component = '[200]'

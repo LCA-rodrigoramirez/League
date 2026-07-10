@@ -321,8 +321,8 @@ SET NOCOUNT ON;
 			,IIF(CHARINDEX('Poly',ColorName) > 0, RTRIM(SUBSTRING(ColorName,1,CHARINDEX('Poly',ColorName) -1)), ColorName) AS ColorShort --- EXTRAIGO SOLO UNA PARTE DEL COLOR, NECESARIO PARA LOS UPDATE
 			,CAST(NULL AS INT)				AS StitchCountPerThread
 			,CAST(NULL AS VARCHAR(100)) 	AS AppliqueMaterial
-			,CAST(NULL AS VARCHAR(100)) 	AS AppliqueColor
-			,CAST(NULL AS VARCHAR(100)) 	AS AppliqueFilename
+			,CAST(NULL AS VARCHAR(400)) 	AS AppliqueColor
+			,CAST(NULL AS VARCHAR(400)) 	AS AppliqueFilename
 			,CAST(NULL AS INT)				AS CountApplique
 			,CAST(NULL AS INT)				AS CountAppliquePerThread
 			,CAST(NULL AS INT)				AS CountSpoolID
@@ -704,7 +704,7 @@ SET NOCOUNT ON;
 			,COALESCE(MOC.TotalYardsBobinePerQty,MOC2.TotalYardsBobinePerQty,0) AS TotalYardsBobinePerQty
 			,COALESCE(MOC.TotalYardsPerQty,MOC2.TotalYardsPerQty,0) AS TotalYardsPerQty
 			,COALESCE(MOC.AppliqueFilename,MOC2.AppliqueFilename,'-') AS AppliqueFilename
-			,COALESCE(MOC.AppliqueMaterial,MOC2.AppliqueMaterial,'-') AS AppliqueMaterial
+			,CAST(COALESCE(MOC.AppliqueMaterial,MOC2.AppliqueMaterial,'-') AS VARCHAR(400)) AS AppliqueMaterial
 			,COALESCE(MOC.AppliqueColor,MOC2.AppliqueColor,'-') AS AppliqueColor
 			,COALESCE(MOC.AppliquePerUnit,MOC2.AppliquePerUnit,0) AS AppliquePerUnit
 			,COALESCE(MOC.TotalAppliquePerQty,MOC2.TotalAppliquePerQty,0) AS TotalAppliquePerQty
@@ -725,7 +725,7 @@ SET NOCOUNT ON;
 		SELECT DISTINCT
 			TMC.ItemDetailID
 			,TMC.[Location]
-			,APP_AGG.AppliqueMaterial
+			,CAST(APP_AGG.AppliqueMaterial AS VARCHAR(200)) AS AppliqueMaterial
 		INTO #TB_PAIR_FIX
 		FROM
 		(

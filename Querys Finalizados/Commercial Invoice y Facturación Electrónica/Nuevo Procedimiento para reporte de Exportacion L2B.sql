@@ -28,8 +28,8 @@ BEGIN
     -- SET @data = '{
     --     "selectedDates":[
     --         {
-    --              "DateFrom":"2026-03-01"
-    --             ,"DateTo":"2026-03-31"
+    --              "DateFrom":"2026-06-15"
+    --             ,"DateTo":"2026-06-15"
     --         }
     --     ]
     -- }'
@@ -39,7 +39,56 @@ BEGIN
 
 --     SET @process = 'download.reports'
 --     SET @data = '{
---       "selectedOptions":[{"DM":"3-2192","Container_Tracking":"810-42710850","TypeShip":"Air","ShipDate":"2026-05-04","Total":83013.61}]
+--       "selectedOptions":[
+--                         {
+--                             "DM": "3-2993",
+--                             "Container_Tracking": "810-42711222",
+--                             "Waybills": "AIR-BND-20260615,AIR-HW-20260615,AIR-APP-20260615",
+--                             "TypeShip": "Air",
+--                             "ShipDate": "2026-06-15",
+--                             "Total": 116137.16,
+--                             "FlagDownload": true
+--                         },
+--                         {
+--                             "DM": "3-2999",
+--                             "Container_Tracking": "SALE-TRIMS20260615",
+--                             "Waybills": "SALE-TRIMS20260615",
+--                             "TypeShip": "Trim",
+--                             "ShipDate": "2026-06-15",
+--                             "Total": 200,
+--                             "FlagDownload": true
+--                         }
+--                         ,
+--                         {
+--                             "DM": "3-4692",
+--                             "Container_Tracking": "SMLU8525076",
+--                             "Waybills": "HW-20260615,APP-20260615",
+--                             "TypeShip": "Container",
+--                             "ShipDate": "2026-06-15",
+--                             "Total": 180424.95,
+--                             "FlagDownload": true
+--                         }
+--                         ]
+--    }'
+--     SET @data = '{
+--       "selectedOptions":[
+--                         {
+--                             "DM":"3-5358",
+--                             "Container_Tracking":"KOSU4512425",
+--                             "Waybills": "HW-20260706-1",
+--                             "TypeShip":"Container",
+--                             "ShipDate":"2026-07-06",
+--                             "Total":8735.34
+--                         },
+--                         {
+--                             "DM":"3-5358",
+--                             "Container_Tracking":"KOSU4512425",
+--                             "Waybills": "APP-20260706-1",
+--                             "TypeShip":"Container",
+--                             "ShipDate":"2026-07-07",
+--                             "Total":211863.81
+--                         }
+--                         ]
 --    }'
 
 
@@ -49,6 +98,7 @@ BEGIN
         -- 1. Sección de Eliminación de tablas temporales
         -------------------------------------------------------------------------------------------------------------------------------------------------------
             DROP TABLE IF EXISTS #TB_BillingData
+            DROP TABLE IF EXISTS #TB_DMMariaDB
             DROP TABLE IF EXISTS #TB_PackingList
             DROP TABLE IF EXISTS #TB_DATA_SHIPMENTS
             DROP TABLE IF EXISTS #TB_ALL_SHIPMENTS
@@ -72,16 +122,24 @@ BEGIN
                ,[Container_Tracking] VARCHAR(200)
                ,[TypeShip]           VARCHAR(10)
                ,[Total]              DECIMAL(18,2)
+               ,[FlagDownload]       BIT
             )
 
             CREATE TABLE #TB_DATA_SHIPMENTS (
                 [RowNum]             INT
                ,[DM]                 VARCHAR(200)
                ,[Container_Tracking] VARCHAR(200)
+               ,[Waybill]            VARCHAR(200)
                ,[TypeShip]           VARCHAR(10)
                ,[ShipDate]           DATE
                ,[Total]              DECIMAL(18,2)
                ,[SheetName]          VARCHAR(200)
+            )
+
+            CREATE TABLE #TB_DMMariaDB (
+                     [dm]      VARCHAR(200)
+                    ,[dm_date] VARCHAR(200)
+                    ,[waybill] VARCHAR(200)
             )
         -------------------------------------------------------------------------------------------------------------------------------------------------------
         -- 1.1. Creación de tablas temporales
@@ -105,9 +163,10 @@ BEGIN
                         ,[Container_Tracking]
                         ,[TypeShip]
                         ,[Total]
+                        ,[FlagDownload]
                     )
                     SELECT
-                        af.[Container]
+                        CASE WHEN StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')THEN af.[Container] ELSE af.[Waybill] END
                         ,af.[Waybill]
                         -- ,af.[ShipDate]
                         ,MAX(fe.[fecEmi])
@@ -115,13 +174,15 @@ BEGIN
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(10))
                         ,SUM(af.[Total$])
+                        ,CAST(1 AS BIT)
                     FROM  [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] af WITH(NOLOCK)
                     INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS] AS FE WITH(NOLOCK) ON AF.[Waybill] = FE.[factura] AND FE.[invalidado] = 0
                     WHERE fe.[fecEmi] >= DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0)
                       AND fe.[fecEmi] <  DATEADD(month, DATEDIFF(month, 0, GETDATE()) + 1, 0)
-                      AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
+                      AND af.[Waybill] NOT LIKE 'ARD%' AND FE.[idReceptor] IN (1,4)
+                    --   AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
                     GROUP BY
-                        af.[Container]
+                        CASE WHEN StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')THEN af.[Container] ELSE af.[Waybill] END
                         ,af.[Waybill]
                 END
 
@@ -139,9 +200,10 @@ BEGIN
                         ,[Container_Tracking]
                         ,[TypeShip]
                         ,[Total]
+                        ,[FlagDownload]
                     )
                     SELECT
-                        af.[Container]
+                         CASE WHEN StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')THEN af.[Container] ELSE af.[Waybill] END
                         ,af.[Waybill]
                         -- ,af.[ShipDate]
                         ,MAX(fe.[fecEmi])
@@ -149,13 +211,31 @@ BEGIN
                         ,CAST(NULL AS VARCHAR(200))
                         ,CAST(NULL AS VARCHAR(10))
                         ,SUM(af.[Total$])
+                        ,CAST(1 AS BIT)
                     FROM  [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] af WITH(NOLOCK)
                     INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS] AS FE WITH(NOLOCK) ON AF.[Waybill] = FE.[factura] AND FE.[invalidado] = 0
                     WHERE FE.[fecEmi] BETWEEN @DateFrom AND @DateTo
-                      AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
+                    AND af.[Waybill] NOT LIKE 'ARD%' AND FE.[idReceptor] IN (1,4)
+                    --   AND StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
                     GROUP BY
-                        af.[Container]
+                        CASE WHEN StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')THEN af.[Container] ELSE af.[Waybill] END
                         ,af.[Waybill]
+                END
+
+                DECLARE @Waybills AS NVARCHAR(MAX)
+                DECLARE @SQL_DMMariaDB AS NVARCHAR(MAX)
+
+                SELECT @Waybills = STRING_AGG('''''' + REPLACE([Waybill], '''', '''''''''''') + '''''', ',')
+                FROM (SELECT DISTINCT [Waybill] FROM #TB_BillingData) AS W
+
+                IF @Waybills IS NOT NULL
+                BEGIN
+                    SET @SQL_DMMariaDB = N'
+                        INSERT INTO #TB_DMMariaDB (dm, dm_date, waybill)
+                        SELECT dm, dm_date, waybill
+                        FROM OPENQUERY(MARIADB, ''SELECT * FROM wordpress.VW_ImpExp_Imp_Output WHERE waybill IN (' + @Waybills + ')'')'
+
+                    EXEC sp_executesql @SQL_DMMariaDB
                 END
 
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -202,6 +282,48 @@ BEGIN
                     INNER JOIN [LCA].[dbo].[ShippingContainers]     AS SC   WITH(NOLOCK) ON SBA.[ShippingContainerID] = SC.[ShippingContainerID]
                 ) AS SH ON BD.[Waybill] = SH.[WayBill]
 
+
+                ------------------------- UPDATE DE DM Y CONTAINER_TRACKING PARA WAYBILL DE MATERIALES ---------------------------------
+                
+                    UPDATE BD SET
+                        [DM] = MDB.[dm]
+                    FROM #TB_BillingData AS BD
+                    INNER JOIN #TB_DMMariaDB AS MDB ON BD.[Waybill] = MDB.[waybill] AND BD.[DM] IS NULL
+
+                    UPDATE BD SET
+                        [Container_Tracking] = BD.[Waybill]
+                        ,[TypeShip] = TS.[StyleNumber]
+                    FROM #TB_BillingData AS BD
+                    INNER JOIN
+                    (
+                        SELECT
+                             TBD.[Waybill]
+                            ,AF.[StyleNumber]
+                        FROM #TB_BillingData AS TBD
+                        INNER JOIN [AppsLCA].[dbo].[ImportExport_AnexoFacturacion] AS AF WITH(NOLOCK) ON TBD.[Waybill] = AF.[Waybill]
+                        AND AF.[Waybill] NOT LIKE 'ARD%' AND AF.[StyleNumber] IN ('-','Fabric','Trim','Supplies','SWATCH')
+                        GROUP BY
+                             TBD.[Waybill]
+                            ,AF.[StyleNumber]
+
+                    ) AS TS ON BD.[Waybill] = TS.[Waybill] 
+                    WHERE TypeShip IS NULL
+
+                ------------------------- UPDATE DE DM Y CONTAINER_TRACKING PARA WAYBILL DE MATERIALES ---------------------------------
+
+            UPDATE BD SET
+                [DM] = COALESCE([DM],'TBD')
+            FROM #TB_BillingData AS BD
+            WHERE DM IS NULL
+
+            IF EXISTS (SELECT TOP 1 * FROM #TB_BillingData WHERE [DM] = 'TBD' )
+            BEGIN
+
+                UPDATE BD SET
+                    [FlagDownload] = 0
+                FROM #TB_BillingData AS BD
+            END
+
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 2.2. UPDATE para completar información desde ShippingContainers y Shipments
             -- DM: Campo BookingNumber de tabla Shipments
@@ -209,20 +331,22 @@ BEGIN
             -- TypeShip: Envío Aéreo o Contenedor, para determinarlo se compara el campo Invoice8 con ContainerNumber (ambos de ShippingContainers), si es igual
             -- es Contenedor, si no Aéreo
             -------------------------------------------------------------------------------------------------------------------------------------------------------
-
             SET @resultStatement = (
                                         SELECT
-                                            [DM]
+                                             [DM]
                                             ,[Container_Tracking]
+                                            ,[Waybills] = STRING_AGG(Waybill,',') WITHIN GROUP (ORDER BY ShipDate)
                                             ,[TypeShip]
                                             ,[ShipDate]
                                             ,[Total] = SUM([Total])
+                                            ,[FlagDownload]
                                         FROM #TB_BillingData
                                         GROUP BY 
                                             [DM]
                                             ,[Container_Tracking]
                                             ,[TypeShip]
                                             ,[ShipDate]
+                                            ,[FlagDownload]
                                         ORDER BY
                                             [ShipDate]
                                         FOR JSON PATH, INCLUDE_NULL_VALUES
@@ -256,6 +380,7 @@ BEGIN
                      [RowNum]
                     ,[DM]
                     ,[Container_Tracking]
+                    ,[Waybill]
                     ,[TypeShip]
                     ,[ShipDate]
                     ,[Total]
@@ -263,13 +388,16 @@ BEGIN
                 )
                 SELECT
                      [RowNum]             = ROW_NUMBER() OVER (ORDER BY (SELECT NULL))
-                    ,[DM]                 = JSON_VALUE(value, '$.DM')
-                    ,[Container_Tracking] = JSON_VALUE(value, '$.Container_Tracking')
-                    ,[TypeShip]           = JSON_VALUE(value, '$.TypeShip')
-                    ,[ShipDate]           = CAST(JSON_VALUE(value, '$.ShipDate') AS DATE)
-                    ,[Total]              = CAST(JSON_VALUE(value, '$.Total')    AS DECIMAL(18,2))
+                    ,[DM]                 = JSON_VALUE(SO.[value], '$.DM')
+                    ,[Container_Tracking] = JSON_VALUE(SO.[value], '$.Container_Tracking')
+                    ,[Waybill]            = LTRIM(RTRIM(WB.[value]))
+                    ,[TypeShip]           = JSON_VALUE(SO.[value], '$.TypeShip')
+                    ,[ShipDate]           = CAST(JSON_VALUE(SO.[value], '$.ShipDate') AS DATE)
+                    ,[Total]              = CAST(JSON_VALUE(SO.[value], '$.Total')    AS DECIMAL(18,2))
                     ,[SheetName]          = CAST(NULL AS VARCHAR(200))
-                FROM OPENJSON(@data, '$.selectedOptions')
+                FROM OPENJSON(@data, '$.selectedOptions') AS SO
+                CROSS APPLY STRING_SPLIT(JSON_VALUE(SO.[value], '$.Waybills'), ',') AS WB
+
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.1. Parseando JSON a #TB_DATA_SHIPMENTS
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -281,20 +409,29 @@ BEGIN
 
                 IF @HasContainers = 1
                 BEGIN
-                    -- Contenedores: 'Tot. Invoice Mmm dd', con sufijo -1, -2... si comparten fecha
-                    ;WITH ContainerRanked AS (
+                    -- Contenedores: 'Tot. Invoice Mmm dd', con sufijo -1, -2... si comparten fecha (un sufijo por Contenedor, aunque tenga varios Waybill)
+                    ;WITH ContainerGroups AS (
                         SELECT
-                             [RowNum]
+                             [Container_Tracking]
                             ,[ShipDate]
-                            ,[Suffix] = ROW_NUMBER() OVER (PARTITION BY [ShipDate] ORDER BY [RowNum]) - 1
+                            ,[MinRowNum] = MIN([RowNum])
                         FROM #TB_DATA_SHIPMENTS
                         WHERE [TypeShip] = 'Container'
+                        GROUP BY [Container_Tracking], [ShipDate]
+                    ),
+                    ContainerRanked AS (
+                        SELECT
+                             [Container_Tracking]
+                            ,[ShipDate]
+                            ,[Suffix] = ROW_NUMBER() OVER (PARTITION BY [ShipDate] ORDER BY [MinRowNum]) - 1
+                        FROM ContainerGroups
                     )
                     UPDATE DS SET
                         [SheetName] = 'Tot. Invoice ' + FORMAT(CR.[ShipDate], 'MMM dd', 'en-US')
                                     + CASE WHEN CR.[Suffix] = 0 THEN '' ELSE '-' + CAST(CR.[Suffix] AS VARCHAR(5)) END
                     FROM #TB_DATA_SHIPMENTS AS DS
-                    INNER JOIN ContainerRanked AS CR ON DS.[RowNum] = CR.[RowNum]
+                    INNER JOIN ContainerRanked AS CR ON DS.[Container_Tracking] = CR.[Container_Tracking] AND DS.[ShipDate] = CR.[ShipDate]
+                    WHERE DS.[TypeShip] = 'Container'
 
                     -- Aéreos: buscar el Contenedor con fecha más cercana, desempate a favor del que viene DESPUÉS
                     UPDATE DS SET
@@ -308,7 +445,7 @@ BEGIN
                                 ,CASE WHEN C.[ShipDate] >= DS.[ShipDate] THEN 0 ELSE 1 END ASC
                         )
                     FROM #TB_DATA_SHIPMENTS AS DS
-                    WHERE DS.[TypeShip] = 'Air'
+                    WHERE DS.[TypeShip] <> 'Container'
                 END
                 ELSE
                 BEGIN
@@ -317,6 +454,7 @@ BEGIN
                         [SheetName] = 'Tot. Invoice ' + FORMAT(DS.[ShipDate], 'MMM dd', 'en-US')
                     FROM #TB_DATA_SHIPMENTS AS DS
                 END
+
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.1.1. Asignando SheetName según agrupación por Contenedor o por fecha (solo aéreos)
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -335,12 +473,11 @@ BEGIN
                     ,[Waybill]            = AF.[Waybill]
                     ,[Container]          = AF.[Container]
                 INTO #TB_ALL_SHIPMENTS
-                --SELECT *
+                --SELECT ds.*,SH.Waybill
                 FROM #TB_DATA_SHIPMENTS AS DS
-                INNER JOIN [LCA].[dbo].[Shipments]                          AS SH WITH(NOLOCK) ON DS.[DM]        = SH.[BookingNumber]
-                INNER JOIN [LCA].[dbo].[ShippingContainers]                 AS SC WITH(NOLOCK) ON SH.[ShippingContainerID] = SC.[ShippingContainerID] AND DS.[Container_Tracking] = SC.[Invoice8]
-                INNER JOIN [AppsLCA].[dbo].[ImportExport_AnexoFacturacion]  AS AF WITH(NOLOCK) ON SH.[WayBill]   = AF.[Waybill]
-                WHERE AF.[StyleNumber] NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
+                INNER JOIN [AppsLCA].[dbo].[ImportExport_AnexoFacturacion]  AS AF WITH(NOLOCK) ON DS.[WayBill]   = AF.[Waybill]
+                INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS]      AS FE WITH(NOLOCK) ON FE.[factura]   = AF.[Waybill] AND DS.[ShipDate] = FE.[fecEmi] AND [invalidado] = 0
+                AND FE.[idReceptor] IN (1,4)
                 GROUP BY
                      DS.[RowNum]
                     ,DS.[DM]
@@ -364,6 +501,7 @@ BEGIN
                 FROM #TB_ALL_SHIPMENTS
 
                 CREATE CLUSTERED INDEX IX_WB_FILTER ON #TB_Date_FILTER ([ShipDate])
+
 
                 -- Paso 2: Extraer SOLO las filas necesarias de la vista, sin JOIN todavía
                 SELECT
@@ -396,6 +534,7 @@ BEGIN
 
                 CREATE CLUSTERED INDEX IX_PL_RAW ON #TB_PL_RAW ([Waybill])
 
+
                 -- Paso 3: JOIN entre la vista ya materializada y #TB_ALL_SHIPMENTS
                 SELECT
                      [DM]                 = DS.[DM]
@@ -424,13 +563,16 @@ BEGIN
                     ,[BoxNo]              = PL.[BoxNo]
                     ,[ColorPolyPM]        = PL.[ColorPolyPM]
                     ,[Price]              = PL.[Price]
-                    ,[TotalPrices]        = PL.[TotalPrices]
+                    ,[TotalPrices]        = COALESCE(PL.[TotalPrices],DS.[Total])
                     ,[InvoiceDate]        = PL.[InvoiceDate]
                 INTO #TB_PACKING_LIST
-                FROM #TB_PL_RAW                AS PL
-                INNER JOIN #TB_ALL_SHIPMENTS   AS DS ON PL.[Waybill] = DS.[Waybill]
+                FROM #TB_ALL_SHIPMENTS        AS DS
+                LEFT JOIN #TB_PL_RAW          AS PL ON PL.[Waybill] = DS.[Waybill]
 
                 CREATE CLUSTERED INDEX IX_PACKING_SHEET ON #TB_PACKING_LIST ([SheetName], [ShipDate], [TypeShip], [Waybill])
+
+
+                -- SELECT DISTINCT Waybill FROM #TB_PACKING_LIST
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.3. Obteniendo Packing List desde la vista, cruzando por Waybill con #TB_ALL_SHIPMENTS → #TB_PACKING_LIST
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -445,21 +587,45 @@ BEGIN
                         (
                             SELECT [TypeShip], [Qty], [TotalPrices]
                             FROM (
+                                -- Cada TypeShip individual presente en este SheetName (Container, Air, y cualquier otro)
                                 SELECT
                                      [TypeShip]    = T.[TypeShip]
                                     ,[Qty]         = ISNULL(SUM(PL.[Qty]), 0)
                                     ,[TotalPrices] = ISNULL(SUM(PL.[TotalPrices]), 0)
-                                    ,[SortOrder]   = CASE T.[TypeShip] WHEN 'Container' THEN 1 WHEN 'Air' THEN 2 END
-                                FROM (VALUES ('Container'), ('Air')) AS T([TypeShip])
+                                    ,[SortOrder]   = T.[SortOrder]
+                                FROM (
+                                    -- Container = 1, Air = 2, cualquier otro TypeShip = 4, 5, 6... en orden alfabético
+                                    SELECT
+                                         [TypeShip]
+                                        ,[SortOrder] = CASE
+                                                            WHEN [TypeShip] = 'Container' THEN 1
+                                                            WHEN [TypeShip] = 'Air'       THEN 2
+                                                            ELSE 3 + ROW_NUMBER() OVER (PARTITION BY CASE WHEN [TypeShip] NOT IN ('Container', 'Air') THEN 1 END ORDER BY [TypeShip])
+                                                       END
+                                    FROM (SELECT DISTINCT [TypeShip] FROM #TB_PACKING_LIST WHERE [SheetName] = S.[SheetName]) AS DT
+                                ) AS T
                                 LEFT JOIN #TB_PACKING_LIST PL ON PL.[TypeShip] = T.[TypeShip]
                                                               AND PL.[SheetName] = S.[SheetName]
-                                GROUP BY T.[TypeShip]
+                                GROUP BY T.[TypeShip], T.[SortOrder]
+
                                 UNION ALL
+                                -- Subtotal combinado de Container + Air
+                                SELECT
+                                     'Total ($) DM'
+                                    ,ISNULL(SUM([Qty]), 0)
+                                    ,ISNULL(SUM([TotalPrices]), 0)
+                                    ,3
+                                FROM #TB_PACKING_LIST
+                                WHERE [SheetName] = S.[SheetName]
+                                  AND [TypeShip] IN ('Container', 'Air')
+
+                                UNION ALL
+                                -- Total general
                                 SELECT
                                      'Total ($) DM contenedor'
                                     ,ISNULL(SUM([Qty]), 0)
                                     ,ISNULL(SUM([TotalPrices]), 0)
-                                    ,3
+                                    ,999
                                 FROM #TB_PACKING_LIST
                                 WHERE [SheetName] = S.[SheetName]
                             ) AS U
@@ -496,7 +662,7 @@ BEGIN
                                 ,[TotalPrices]
                                 ,[ShipDateText] = CONVERT(VARCHAR(8), [ShipDate], 112)
                             FROM #TB_PACKING_LIST PL2
-                            WHERE PL2.[SheetName] = S.[SheetName]
+                            WHERE PL2.[SheetName] = S.[SheetName] AND TypeShip IN ('Container','Air')
                             ORDER BY PL2.[ShipDate], PL2.[TypeShip] DESC, PL2.[Waybill]
                             FOR JSON PATH, INCLUDE_NULL_VALUES
                         ), '[]'
@@ -528,8 +694,9 @@ BEGIN
                 DECLARE @ContainerKeys TABLE (
                     [Container_Tracking] VARCHAR(200)
                    ,[ShipDateText]       VARCHAR(20)
+                   ,[ShipDate]           DATE
                 )
-                INSERT INTO @ContainerKeys ([Container_Tracking], [ShipDateText])
+                INSERT INTO @ContainerKeys ([Container_Tracking], [ShipDateText], [ShipDate])
                 SELECT
                      [Container_Tracking]
                     ,[ShipDateText] = CONVERT(VARCHAR(8), [ShipDate], 112)
@@ -537,6 +704,7 @@ BEGIN
                                THEN ''
                                ELSE '-' + CAST(ROW_NUMBER() OVER (PARTITION BY [ShipDate] ORDER BY [RowNum]) - 1 AS VARCHAR(5))
                           END
+                    ,[ShipDate]
                 FROM #TB_DATA_SHIPMENTS
                 WHERE [TypeShip] = 'Container'
 
@@ -548,13 +716,14 @@ BEGIN
                     ,[Qty]          = SUM(PL.[Qty])
                 INTO #TB_PIVOT_SOURCE
                 FROM #TB_PACKING_LIST PL
-                INNER JOIN @ContainerKeys CK ON PL.[Container_Tracking] = CK.[Container_Tracking]
+                INNER JOIN @ContainerKeys CK ON PL.[Container_Tracking] = CK.[Container_Tracking] AND PL.[ShipDate] = CK.[ShipDate]
                 WHERE PL.[TypeShip] = 'Container'
                 GROUP BY
                      CK.[ShipDateText]
                     ,[Fact]
                     ,[Style]
                     ,[Size]
+
 
                 CREATE CLUSTERED INDEX IX_PIVOT_SOURCE ON #TB_PIVOT_SOURCE ([ShipDateText], [Fact], [Style], [Size])
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -629,7 +798,7 @@ BEGIN
                 PIVOT (SUM([Qty]) FOR [Size] IN (' + @pivotCols + ')) AS pvt
 
                 INSERT INTO ' + @pivotTable + ' ([ContainerKey], [ShipDate], [Fact], [Style], ' + @pivotCols + ', [Total])
-                SELECT [ContainerKey], ''TotalGeneral'', NULL, NULL, ' + @sumCols + ', SUM([Total])
+                SELECT [ContainerKey], ''TotalGeneral'', NULL, ''TotalGeneral'', ' + @sumCols + ', SUM([Total])
                 FROM ' + @pivotTable + '
                 GROUP BY [ContainerKey]
                 '
@@ -675,9 +844,9 @@ BEGIN
         -- 5.Sheet 4 - Invoice For L2Brands
         -------------------------------------------------------------------------------------------------------------------------------------------------------
 
-            SELECT
-                 [SheetName]                = tb2.[SheetName]
-                ,[RowL]                     = ROW_NUMBER() OVER (PARTITION BY tb2.[SheetName] ORDER BY tb2.[ShipDate] ASC, tb2.[Container_Tracking] DESC)
+             SELECT
+                 --[SheetName]                = tb2.[SheetName]
+                 [RowL]                     = ROW_NUMBER() OVER (PARTITION BY tb2.[SheetName] ORDER BY tb2.[ShipDate] ASC, tb2.[Container_Tracking] DESC)
                 ,[DM]                       = tb2.[DM]
                 ,[Container_Tracking]       = tb2.[Container_Tracking]
                 ,[WayBill]                  = tb2.[WayBill]
@@ -724,12 +893,12 @@ BEGIN
                     -- ,TB1.[Final Payment]
                 FROM (
                     SELECT
-                         TB_Sel.[SheetName]
+                         [SheetName] = MAX(TB_Sel.[SheetName])
                         ,TB_Sel.[DM]
                         ,TB_Sel.[Container_Tracking]
                         ,TB_Sel.[WayBill]
                         -- ,TB_Sel.[ContainerNumber]
-                        ,TB_Sel.[ShipDate]
+                        ,[ShipDate] = MAX(TB_Sel.[ShipDate])
                         ,TB_Sel.[PO]
                         -- ,TB_Sel.[Batch]
                         ,TB_Sel.[Style]
@@ -751,7 +920,7 @@ BEGIN
                             ,(SELECT TOP 1 Waybill FROM #TB_ALL_SHIPMENTS AS ALL_S WHERE ALL_S.[DM] = AS_TB.[DM]) AS [Waybill]
                             -- ,SBI.[WayBill]
                             -- ,SBI.[ContainerNumber]
-                            ,SBI.[ShipDate]
+                            ,AS_TB.[ShipDate]
                             ,SBI.[PONumber]                 AS [PO]
                             -- ,SBI.[Batch]
                             ,SBI.[StyleNumber]              AS [Style]
@@ -786,17 +955,48 @@ BEGIN
                         INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS]    DFE  WITH(NOLOCK) ON SBI.[WayBill]  = DFE.[factura]
                                                                                                    AND SBI.[Batch]    = DFE.[items]
                                                                                                    AND DFE.[invalidado] = 0
+																								   AND DFE.[fecEmi]	  = AS_TB.[ShipDate]
+                                                                                                   AND AS_TB.[TypeShip] IN ('Container', 'Air')
+                                                                                                   AND DFE.[idReceptor] IN (1,4)
                         LEFT  JOIN [AppsLCA].[dbo].[TB_ShipmentCheckPrices]       SCP  WITH(NOLOCK) ON SBI.[WayBill]  = SCP.[Waybill]
                         LEFT  JOIN [AppsLCA].[dbo].[TB_ShipmentCheckPricesDetail] SCPD WITH(NOLOCK) ON SCP.[id]       = SCPD.[shipmentCheckPrices_id]
                                                                                                    AND SBI.[ManufactureID] = SCPD.[ManufactureID]
+
+                        UNION ALL
+
+                        SELECT
+                             AS_TB.[SheetName]
+                            ,AS_TB.[DM]
+                            ,AS_TB.[Container_Tracking]
+                            ,(SELECT TOP 1 Waybill FROM #TB_ALL_SHIPMENTS AS ALL_S WHERE ALL_S.[DM] = AS_TB.[DM]) AS [Waybill]
+                            -- ,SBI.[WayBill]
+                            -- ,SBI.[ContainerNumber]
+                            ,AS_TB.[ShipDate]
+                            ,''                 AS [PO]
+                            -- ,SBI.[Batch]
+                            ,AF.[StyleNumber]              AS [Style]
+                            ,AF.[HTSDescription]            AS [Description]
+                            ,[UnitPrice]    = AF.[Price]
+                            ,[EmbPrice]     = 0.00
+                            ,[BasePrice]    = AF.[BasePrice]
+                            ,[Pcs E]        = AF.[Qty]
+                            ,[Total]        = AF.[Total$]
+                        FROM #TB_ALL_SHIPMENTS                                      AS AS_TB
+                        INNER JOIN [AppsLCA].[dbo].[DTE_FACTURAS_ELECTRONICAS]    DFE  WITH(NOLOCK) ON AS_TB.[WayBill]  = DFE.[factura]
+                                                                                                   AND DFE.[invalidado] = 0
+																								   AND DFE.[fecEmi]	  = AS_TB.[ShipDate]
+                                                                                                   AND AS_TB.[TypeShip] NOT IN ('Container', 'Air')
+                                                                                                   AND DFE.[idReceptor] IN (1,4)
+                        INNER JOIN [AppsLCA].[dbo].[ImportExport_AnexoFacturacion]  AS AF WITH(NOLOCK) ON DFE.[factura] = AF.[Waybill] 
+
                     ) AS TB_Sel
                     GROUP BY
-                         TB_Sel.[SheetName]
-                        ,TB_Sel.[DM]
+                         --TB_Sel.[SheetName]
+                         TB_Sel.[DM]
                         ,TB_Sel.[Container_Tracking]
                         ,TB_Sel.[WayBill]
                         -- ,TB_Sel.[ContainerNumber]
-                        ,TB_Sel.[ShipDate]
+                        --,TB_Sel.[ShipDate]
                         -- ,TB_Sel.[Ocean Freight]
                         -- ,TB_Sel.[Advance Payment Received]
                         ,ROLLUP (
@@ -816,10 +1016,7 @@ BEGIN
                     OR ([Style] IS NOT NULL AND [Description] IS NOT NULL AND [UnitPrice] IS NOT NULL AND [BasePrice] IS NOT NULL)
             ) AS tb2
             WHERE [PO] NOT LIKE '%SUBTOTAL%'
-
-            -- SELECT
-            -- * 
-            -- FROM #TB_INVOICE
+            
             -- WHERE [PO] NOT LIKE '%SUBTOTAL%'
 
             CREATE CLUSTERED INDEX IX_INVOICE_DM ON #TB_INVOICE ([DM], [RowL])
