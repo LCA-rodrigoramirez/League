@@ -1,6 +1,7 @@
 USE [AppsLCA]
 GO
 
+
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ----------SP PARA PREPRENSA, PRODUCTION PREPRESS PROCESS-------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -10,12 +11,12 @@ GO
 ------   devuelve un mensaje de error si es el caso.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-CREATE OR ALTER PROCEDURE [dbo].[SP_Production_PrepressProcess]
-(
-     @process NVARCHAR(200)
-    ,@data NVARCHAR(MAX)
-)
-AS
+-- CREATE OR ALTER PROCEDURE [dbo].[SP_Production_PrepressProcess]
+-- (
+--      @process NVARCHAR(200)
+--     ,@data NVARCHAR(MAX)
+-- )
+-- AS
 BEGIN
     SET NOCOUNT ON;
     
@@ -24,8 +25,8 @@ BEGIN
     DECLARE @message AS NVARCHAR(200)
     DECLARE @result AS NVARCHAR(MAX)
     DECLARE @category AS NVARCHAR(200)
-    -- DECLARE @process NVARCHAR(200)
-    -- DECLARE @data NVARCHAR(MAX)
+    DECLARE @process NVARCHAR(200)
+    DECLARE @data NVARCHAR(MAX)
 
     ---------PRUEBA PARA ESCANEO DE PPAD Y MO 
     -- SET @process = 'scan-mo'
@@ -45,8 +46,8 @@ BEGIN
     -- SET @data = '[]'
 
     ---------PRUEBA PARA REPORTE DE TRABAJO PARA PREPRENSA POR DISEÑO Y ASSIGNMENT
-    -- SET @process = 'orders-list'
-    -- SET @data = '[]'
+    SET @process = 'orders-list'
+    SET @data = '[]'
 
     BEGIN TRY
 
@@ -363,6 +364,7 @@ BEGIN
                 ,[ProductionStatus] = DV.[DropDownValue]
                 ,[Style]            = ST.[StyleNumber]
                 ,[Color]            = SC.[StyleColorName]
+                ,[Season]           = SE.[SeasonName]
                 ,[Make]             = OD.[RequestCount]
                 ,[PWModulo]         = MO.[Comments7]
                 ,[WorkFlowID]       = WF.[WorkFlowID]
@@ -382,6 +384,7 @@ BEGIN
             INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI WITH(NOLOCK) ON OI.[OrderItemID] = MO.[FirstOrderItemID]
             INNER JOIN [LCA].[dbo].[Styles]                         AS ST WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
             INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
+            INNER JOIN [LCA].[dbo].[Seasons]                        AS SE WITH(NOLOCK) ON ST.[SeasonID] = SE.[SeasonID]
             LEFT  JOIN [LCA].[dbo].[DropDownValues3]                AS DV WITH(NOLOCK) ON MO.[ProductionStatusID] = DV.[DropDownValueID]
             LEFT  JOIN [LCA].[dbo].[WorkFlows]                      AS WF WITH(NOLOCK) ON MO.[ManufactureID] = WF.[ManufactureID]
             LEFT  JOIN 
@@ -451,6 +454,7 @@ BEGIN
             LEFT JOIN [LCA].[dbo].[WorkTasks]     AS WT_09     WITH(NOLOCK) ON MO.[WorkFlowID] = WT_09.[WorkFlowID]    AND WT_09.[TaskName]  = 'Start Print 9'     AND WT_09.[FinishDate] IS NOT NULL
             LEFT JOIN [LCA].[dbo].[WorkTasks]     AS WT_10     WITH(NOLOCK) ON MO.[WorkFlowID] = WT_10.[WorkFlowID]    AND WT_10.[TaskName]  = 'Start Print 10'    AND WT_10.[FinishDate] IS NOT NULL
 
+
             DELETE FROM #TB_MO_FILTER WHERE [ScreenPrint] = 1
 
             UPDATE MO SET
@@ -481,6 +485,10 @@ BEGIN
                 GROUP BY
                      Design
             ) AS A ON MF.[Design] = A.[Design]
+
+            select * FROM #TB_MO_FILTER
+            ORDER BY MinReqShip, Design, [Req Ship], StatusPrePress
+            return
 
             SET @result = (
                 SELECT 

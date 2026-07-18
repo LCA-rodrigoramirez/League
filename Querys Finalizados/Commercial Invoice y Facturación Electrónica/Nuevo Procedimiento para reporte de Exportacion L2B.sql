@@ -41,31 +41,31 @@ BEGIN
 --     SET @data = '{
 --       "selectedOptions":[
 --                         {
---                             "DM": "3-2993",
---                             "Container_Tracking": "810-42711222",
---                             "Waybills": "AIR-BND-20260615,AIR-HW-20260615,AIR-APP-20260615",
+--                             "DM": "3-3580",
+--                             "Container_Tracking": "810-42711572",
+--                             "Waybills": "AIR-HW-20260714-1,AIR-BND-20260714-1,AIR-APP-20260714-1",
 --                             "TypeShip": "Air",
---                             "ShipDate": "2026-06-15",
---                             "Total": 116137.16,
+--                             "ShipDate": "2026-07-14",
+--                             "Total": 37322.81,
 --                             "FlagDownload": true
 --                         },
 --                         {
---                             "DM": "3-2999",
---                             "Container_Tracking": "SALE-TRIMS20260615",
---                             "Waybills": "SALE-TRIMS20260615",
+--                             "DM": "3-3580",
+--                             "Container_Tracking": "SALE-TRIMS20260713",
+--                             "Waybills": "SALE-TRIMS20260713",
 --                             "TypeShip": "Trim",
---                             "ShipDate": "2026-06-15",
---                             "Total": 200,
+--                             "ShipDate": "2026-07-14",
+--                             "Total": 2450,
 --                             "FlagDownload": true
 --                         }
 --                         ,
 --                         {
---                             "DM": "3-4692",
---                             "Container_Tracking": "SMLU8525076",
---                             "Waybills": "HW-20260615,APP-20260615",
+--                             "DM": "3-5609",
+--                             "Container_Tracking": "KOSU451278 6",
+--                             "Waybills": "HW-20260714,APP-20260714",
 --                             "TypeShip": "Container",
---                             "ShipDate": "2026-06-15",
---                             "Total": 180424.95,
+--                             "ShipDate": "2026-07-14",
+--                             "Total": 176135.42,
 --                             "FlagDownload": true
 --                         }
 --                         ]
@@ -471,7 +471,7 @@ BEGIN
                     ,[Total]              = DS.[Total]
                     ,[SheetName]          = DS.[SheetName]
                     ,[Waybill]            = AF.[Waybill]
-                    ,[Container]          = AF.[Container]
+                    ,[Container]          = CASE WHEN AF.[StyleNumber] IN ('-','Fabric','Trim','Supplies','SWATCH') THEN AF.[Waybill] ELSE AF.[Container] END
                 INTO #TB_ALL_SHIPMENTS
                 --SELECT ds.*,SH.Waybill
                 FROM #TB_DATA_SHIPMENTS AS DS
@@ -487,7 +487,7 @@ BEGIN
                     ,DS.[Total]
                     ,DS.[SheetName]
                     ,AF.[Waybill]
-                    ,AF.[Container]
+                    ,CASE WHEN AF.[StyleNumber] IN ('-','Fabric','Trim','Supplies','SWATCH') THEN AF.[Waybill] ELSE AF.[Container] END
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.2. Cruzando #TB_DATA_SHIPMENTS con Shipments + AnexoFacturacion para obtener Waybills → #TB_ALL_SHIPMENTS
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -571,8 +571,6 @@ BEGIN
 
                 CREATE CLUSTERED INDEX IX_PACKING_SHEET ON #TB_PACKING_LIST ([SheetName], [ShipDate], [TypeShip], [Waybill])
 
-
-                -- SELECT DISTINCT Waybill FROM #TB_PACKING_LIST
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.3. Obteniendo Packing List desde la vista, cruzando por Waybill con #TB_ALL_SHIPMENTS → #TB_PACKING_LIST
             -------------------------------------------------------------------------------------------------------------------------------------------------------
