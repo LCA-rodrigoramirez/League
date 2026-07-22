@@ -201,6 +201,7 @@ AND TI.DepartureDate IS NULL
 		,[GroupType]       		 	= 	CAST(NULL AS VARCHAR(100))
 		,[GarmentType]     		 	= 	CAST(NULL AS VARCHAR(100))
 		,[InvoicingGroupKelly]     	= 	CAST(NULL AS VARCHAR(200))
+		,[InvoicingGroupLine]     	= 	CAST(NULL AS VARCHAR(200))
 		,[ManufacturerGroupKelly]   = 	CAST(NULL AS VARCHAR(200))
 		,[LineGroupKelly]   		= 	CAST(NULL AS INT)
 		,[TypeData]					=	'CommercialInvoice'
@@ -525,6 +526,7 @@ AND TI.DepartureDate IS NULL
 		,[GroupType]       		 	= 	CAST(NULL AS VARCHAR(100))
 		,[GarmentType]     		 	= 	CAST(NULL AS VARCHAR(100))
 		,[InvoicingGroupKelly]     	= 	CAST(NULL AS VARCHAR(200))
+		,[InvoicingGroupLine]     	= 	CAST(NULL AS VARCHAR(200))
 		,[ManufacturerGroupKelly]   = 	CAST(NULL AS VARCHAR(200))
 		,[LineGroupKelly]   		= 	CAST(NULL AS INT)
 		,[TypeData]					=	'DeclarationExport'
@@ -1162,31 +1164,54 @@ UPDATE #TB_Data_All	SET
 								  END
 	,[ManufacturerGroupKelly] 	= CONCAT([Manufacturer], '/', [CountryOfOrigin])
 
+UPDATE #TB_Data_All	SET 
+	[InvoicingGroupLine] = IIF(ProductDivision <> 'Headwear', [InvoicingGroupKelly], '')
+
 UPDATE TDA SET
 	[LineGroupKelly] = TDA2.[Line]
 FROM #TB_Data_All AS TDA
 LEFT JOIN
 (
 	SELECT
-		
-		-- [R_Order] = CI.[R]  -- SOLO PARA ORDEN GLOBAL, NO ES Line
-		 [Line] = ROW_NUMBER() OVER(PARTITION BY CI.[DocumentID]
-									ORDER BY CI.[Orden])  -- <-- AQUI ORDER = correlativo interno
-		, [DocumentID]           	= CI.[DocumentID]  
-		, [InvoicingDescription] 	= CI.[InvoicingGroupKelly]            
-		, [US_HTSCode]           	= COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
-		, [ManufacturerGroupKelly]  = CI.ManufacturerGroupKelly
-		, [Orden]                	= CI.[Orden]
-	FROM #TB_Data_All as ci
-	WHERE Waybill = @WayBill
-	GROUP BY  
-                CI.[DocumentID]
-                , CI.[InvoicingGroupKelly]
-                , COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode]) 
-                , CI.[ManufacturerGroupKelly]
-                , CI.[Orden]
+	*
+	,[Line]					= ROW_NUMBER() OVER(PARTITION BY A.[DocumentID] ORDER BY A.[Ord])
+	FROM
+	(
+		SELECT
+				[Ord]						= ROW_NUMBER() OVER(PARTITION BY CI.[DocumentID] ORDER BY CI.[Orden],  CI.[ManufacturerGroupKelly]) 
+				, [DocumentID]           	= CI.[DocumentID]  
+				, [InvoicingDescription] 	= [InvoicingGroupLine]
+				, [US_HTSCode]           	= COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
+				, [ManufacturerGroupKelly]  = CI.ManufacturerGroupKelly
+				, [Orden]                	= CI.[Orden]
+		FROM #TB_Data_All AS CI WITH(NOLOCK)
+		WHERE  ProductDivision = 'Headwear'
+		GROUP BY  
+						CI.[DocumentID]
+						, COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode]) 
+						, CI.[ManufacturerGroupKelly]
+						, CI.[Orden]
 
-) AS TDA2 ON TDA.InvoicingGroupKelly = TDA2.InvoicingDescription
+		UNION ALL
+
+		SELECT
+				[Ord]						= ROW_NUMBER() OVER(PARTITION BY CI.[DocumentID] ORDER BY CI.[Orden]) 
+				, [DocumentID]           	= CI.[DocumentID]  
+				, [InvoicingDescription] 	= CI.[InvoicingGroupLine]            
+				, [US_HTSCode]           	= COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
+				, [ManufacturerGroupKelly]  = CI.ManufacturerGroupKelly
+				, [Orden]                	= CI.[Orden]
+		FROM #TB_Data_All AS CI WITH(NOLOCK)
+		WHERE  ProductDivision <> 'Headwear'
+		GROUP BY  
+						CI.[DocumentID]
+						, CI.[InvoicingGroupKelly]
+						, COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode]) 
+						, CI.[ManufacturerGroupKelly]
+						, CI.[Orden]
+	) AS A
+
+) AS TDA2 ON TDA.InvoicingGroupLine = TDA2.InvoicingDescription
 		 AND TDA.DocumentID = TDA2.DocumentID
 		 AND COALESCE(TDA.[US_HTSCode2],TDA.[US_HTSCode])    = TDA2.US_HTSCode
 		 AND TDA.ManufacturerGroupKelly = TDA2.ManufacturerGroupKelly
