@@ -88,13 +88,33 @@ BEGIN
     -- SET @data = '[]'
 
     -----------PRUEBA PARA GUARDAR ITEMS DESDE EXCEL SUBIDO
-    -- SET @process = 'save-upload-file'
-    -- SET @data = '{"PO":"LCA24262","Warehouse":"Warehouse","CodEmpleado":"02889","VendorID":4,"Vendor":"NG Trading, S.A.","Bin":"CDN","Category":"Contracts","Items":[{"#REF!":"I agree to maintain, and present upon request, documentation necessary to support this certificate.","__EMPTY":null,"__EMPTY_1":null,"#REF!_1":null,"__EMPTY_2":null},{"CTN#":1,"Inventory ID":"RVF400-225A-XS","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XS","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"XS","ORDER QTY":100,"SHIP QTY":105,"+/-":5,"%":5},{"CTN#":2,"Inventory ID":"RVF400-225A-XS","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XS","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"S","ORDER QTY":220,"SHIP QTY":233,"+/-":13,"%":5.909090909090908},{"CTN#":3,"Inventory ID":"RVF400-225A-XS","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XS","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"M","ORDER QTY":198,"SHIP QTY":221,"+/-":23,"%":11.616161616161616},{"CTN#":4,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"L","ORDER QTY":293,"SHIP QTY":292,"+/-":-1,"%":-0.341296928327645},{"CTN#":5,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"XL","ORDER QTY":157,"SHIP QTY":165,"+/-":8,"%":5.095541401273885},{"CTN#":6,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"2XL","ORDER QTY":48,"SHIP QTY":51,"+/-":3,"%":6.25},{"CTN#":7,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"3XL","ORDER QTY":null,"SHIP QTY":null,"+/-":0,"%":null},{"CTN#":8,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":1016,"SHIP QTY":1067,"+/-":51,"%":null},{"CTN#":9,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":10,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":30,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"CAJAS","ORDER QTY":"CAJAS","SHIP QTY":43,"+/-":null,"%":null},{"CTN#":11,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"KG","ORDER QTY":null,"SHIP QTY":528.04,"+/-":"GW","%":null},{"CTN#":12,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":"KG","ORDER QTY":null,"SHIP QTY":474.71999999999997,"+/-":"NW","%":null},{"CTN#":13,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":14,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":15,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":16,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":17,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":18,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":19,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":20,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":21,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":22,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":23,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":24,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":25,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":26,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":27,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":28,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":29,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":30,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":24,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":31,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":32,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":33,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":34,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":35,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":36,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":37,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":38,"Inventory ID":"RVF400-225F-2XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"2XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":39,"Inventory ID":"RVF400-225F-2XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"2XL","QTY":21,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":40,"Inventory ID":"RVF400-225A-XS","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XS","QTY":15,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":40,"Inventory ID":"RVF400-225F-2XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"2XL","QTY":9,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":41,"Inventory ID":"RVF400-225B-S","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"S","QTY":23,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":42,"Inventory ID":"RVF400-225C-M","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"M","QTY":29,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":43,"Inventory ID":"RVF400-225D-L","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"L","QTY":4,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"CTN#":43,"Inventory ID":"RVF400-225E-XL","FULL ITEM DESCRIPTION":"DIANA MOCK NECK","STYLE":"RVF400","COLOR":"POPCORN","Color Code":225,"SIZE":"XL","QTY":18,"PO#":"LCA24262","BOX BARCODE":null,"WORK ORDER":null,"Size":null,"ORDER QTY":null,"SHIP QTY":null,"+/-":null,"%":null},{"333":99,"LCA23954":"LCA23954","RVF400-429":"RVF400-007","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"DUSTY ROSE","8,194 pcs":2436,"4089.00":1216,"3,676.00":1093,"29.69":8.83,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":87,"LCA23954":"LCA23954","RVF400-429":"RVF400-461","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"NAVY","8,194 pcs":2100,"4089.00":1068.4,"3,676.00":960.48,"29.69":6.42,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":32,"LCA23954":"LCA24184","RVF400-429":"RVF400-225","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"POPCORN","8,194 pcs":779,"4089.00":393,"3,676.00":353.3,"29.69":2.85,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":40,"LCA23954":"LCA24262","RVF400-429":"RVF400-225","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"POPCORN","8,194 pcs":984,"4089.00":491.2,"3,676.00":441.6,"29.69":3.57,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":246,"LCA23954":"LCA23724","RVF400-429":"RVF400-849","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"STEEL GREY","8,194 pcs":5987,"4089.00":3021,"3,676.00":2716,"29.69":18.14,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":240,"LCA23954":"LCA23701","RVF400-429":"RVF400-632","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"OATMEAL HEATHER","8,194 pcs":6002,"4089.00":2947.2,"3,676.00":2649.6,"29.69":17.7,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":29,"LCA23954":"LCA23724","RVF400-429":"RVF400-632","DIANA MOCK NECK":"DIANA MOCK NECK","CASHMERE BLUE":"OATMEAL HEATHER","8,194 pcs":693,"4089.00":356.12,"3,676.00":320.16,"29.69":2.59,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":4,"LCA23954":"LCA24515","RVF400-429":"RVF450-632","DIANA MOCK NECK":"DIANA QUARTER ZIP","CASHMERE BLUE":"OATMEAL HEATHER","8,194 pcs":120,"4089.00":49.12,"3,676.00":44.16,"29.69":0.36,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null},{"333":1160,"LCA23954":null,"RVF400-429":null,"DIANA MOCK NECK":null,"CASHMERE BLUE":null,"8,194 pcs":28951,"4089.00":14245.04,"3,676.00":12806.300000000001,"29.69":94.60000000000001,"__EMPTY":null,"__EMPTY_1":null,"__EMPTY_2":null,"__EMPTY_3":null,"__EMPTY_4":null,"__EMPTY_5":null,"__EMPTY_6":null,"__EMPTY_7":null,"__EMPTY_8":null,"__EMPTY_9":null}]'
+--     SET @process = 'save-upload-file'
+--     SET @data = '{
+--    "PO":"LCA23953",
+--    "Warehouse":"Warehouse",
+--    "CodEmpleado":"02889",
+--    "VendorID":3,
+--    "Vendor":"NG TEXTILES GUATEMALA S.A.",
+--    "Bin":"CDN",
+--    "Category":"Contracts",
+--    "Items":[
+--       {
+--          "CTN#":1,
+--          "Inventory ID":"JS200-488B-S",
+--          "FULL ITEM DESCRIPTION":"JERSEY SLUB WOMENS S/S TEE",
+--          "STYLE":"JS200",
+--          "COLOR":"POWER BLUE",
+--          "SIZE":"S",
+--          "QTY":66,
+--          "PO#":"LCA23953",
+--          "BOX BARCODE":null
+--       }
+-- }'
 
 -----------PRUEBA PARA CARGAR CONTAINERS Y SUS RESPECTIVAS MO
     -- SET @process = 'containers-mo'
     -- SET @data = '{
-    --   "selectedOptions":[{"PO":"LCA24262"}]
+    --   "selectedOptions":[{"PO":"LCA23626"}]
     -- }'
 
 -----------PRUEBA PARA DESPACHAR CONTENEDORES
@@ -114,7 +134,7 @@ BEGIN
 
 -----------PRUEBA PARA CREAR CAJAS
     -- SET @process = 'create-boxes'
-    -- SET @data = '{"selectedOptions":[{"MO":"23701-RVF400-632-3","ManufactureID":997254,"UsePONumber":"True"}]}'
+    -- SET @data = '{"selectedOptions":[{"MO":"23626-CCW115-404-1","ManufactureID":1010218,"UsePONumber":"True"}]}'
 
 -----------PRUEBA PARA CARGAR BINS CAJAS DE MO
     -- SET @process = 'boxes-list'
@@ -978,19 +998,20 @@ BEGIN
                 ,[BoxWeight]   DECIMAL(10,4) NULL
                 ,[TypeData]    INT           NULL
                 ,[MaxBoxID]    INT           NULL
+                ,[R]           INT           NULL
             );
 
             SET @sqlInsert = N'
                 INSERT INTO #TempUploadItems
                 (CodEmpleado, Warehouse, Barcode, Color, CTN, Description, InventoryID, PONumber,
-                 Qty, [Size], Style, Item, Ordered, Received, HTSCode, Bin, Vendor, BoxWeight, TypeData, MaxBoxID)
+                 Qty, [Size], Style, Item, Ordered, Received, HTSCode, Bin, Vendor, BoxWeight, TypeData, MaxBoxID,R)
                 SELECT
                      @CodEmpleado, @Warehouse
                     ,j.[Barcode], j.[Color], j.[CTN], j.[Description], RTRIM(j.[InventoryID]), j.[PONumber]
                     ,j.[Qty], j.[Size], j.[Style]
                     ,NULL, NULL, NULL, NULL
                     ,@Bin
-                    ,NULL, 1.04, 3, 0
+                    ,NULL, 1.04, 3, 0, ROW_NUMBER() OVER(PARTITION BY j.[PONumber] ORDER BY j.[PONumber])
                 FROM OPENJSON(@jsonData, N''$.Items'')
                 WITH (' + @withClause + N') AS j';
 
@@ -1027,13 +1048,13 @@ BEGIN
                                                                                          AND COALESCE(L2.[PartNumberLCA],TUI.[InventoryID]) = POD.[PartNumber]
 
             UPDATE TUI SET
-                 [MaxBoxID]      = COALESCE(BC.[IDCaja], 0) + TUI.[CTN]
-                ,[Barcode]       = COALESCE([Barcode],COALESCE(BC.[PO],TUI.[PONumber]) + '/' + RIGHT('00000' + CAST(COALESCE(BC.[IDCaja], 0) + TUI.[CTN] AS VARCHAR(5)), 5))
+                 [MaxBoxID]      = COALESCE(BC.[IDCaja], 0) + TUI.[R]
+                ,[Barcode]       = COALESCE([Barcode],COALESCE(BC.[PO],TUI.[PONumber]) + '/' + RIGHT('00000' + CAST(COALESCE(BC.[IDCaja], 0) + TUI.[R] AS VARCHAR(5)), 5))
             FROM #TempUploadItems AS TUI
             LEFT JOIN
             (
                 SELECT
-                     [R]        = ROW_NUMBER() OVER(ORDER BY MB.[IDCaja] DESC)
+                     [R]        = ROW_NUMBER() OVER(PARTITION BY MB.[PO] ORDER BY MB.[IDCaja] DESC)
                     ,[IDCaja]   = MB.[IDCaja]
                     ,[PO]       = MB.[PO]
                 FROM
@@ -1056,6 +1077,7 @@ BEGIN
                     GROUP BY
                         TUI.[PONumber]
                 ) AS MB
+                
             ) AS BC ON TUI.[PONumber] = BC.[PO] AND BC.[R] = 1
 
 
@@ -1185,9 +1207,13 @@ BEGIN
                 ,[RawMaterialID_MO]     = COALESCE(RA.[RawMaterialID], RAH.[RawMaterialID])
                 ,[PartNumber_MO]        = RM.[PartNumber]
                 ,[StyleNumber]          = ST.[StyleNumber]
+                ,[StyleID]              = ST.[StyleID]
                 ,[StyleColorName]       = STC.[StyleColorName]
-                ,[RawMaterialID_Styles] = STV.[RawMaterialID]
-                ,[PartNumber_Styles]    = RMS.[PartNumber]
+                ,[StyleColorID]         = STC.[StyleColorID]
+                -- ,[RawMaterialID_Styles] = STV.[RawMaterialID]
+                -- ,[PartNumber_Styles]    = RMS.[PartNumber]
+                ,[RawMaterialID_Styles] = CAST(NULL AS VARCHAR(200))
+                ,[PartNumber_Styles]    = CAST(NULL AS VARCHAR(200))
                 ,[Containers]           = CAST(NULL AS NVARCHAR(MAX))
                 ,[Boxes]                = CAST(NULL AS NVARCHAR(MAX))
                 ,[RawMaterialID_RC]     = CAST(NULL AS INT)
@@ -1202,6 +1228,7 @@ BEGIN
                 ,[Error_Final]          = CAST(NULL AS VARCHAR(MAX))
                 ,[Flag_PackBox]         = CAST(NULL AS BIT)
             INTO #TB_MO_Containers
+            --SELECT *
             FROM #TB_MOs                                    AS TMO
             INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO  WITH(NOLOCK) ON MO.[ManufactureID] = TMO.[ManufactureID]
             LEFT  JOIN [LCA].[dbo].[RawAllocations]         AS RA  WITH(NOLOCK) ON MO.[ManufactureID] = RA.[ManufactureID]  --- CAMBIAR A RAWALLOCATION DESPUES DEL DESARROLLO
@@ -1211,10 +1238,15 @@ BEGIN
             INNER JOIN [LCA].[dbo].[OrderItems]             AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
             INNER JOIN [LCA].[dbo].[Styles]                 AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
             INNER JOIN [LCA].[dbo].[StyleColors]            AS STC WITH(NOLOCK) ON OI.[StyleColorID] = STC.[StyleColorID]
-            LEFT  JOIN [LCA].[dbo].[StyleVariations]        AS STV WITH(NOLOCK) ON ST.[StyleID] = STV.[StyleID]
-                                                                                 AND STC.[StyleColorID] = STV.[StyleColorID]
-                                                                                 AND (RA.[RawMaterialID] = STV.[RawMaterialID] OR RAH.[RawMaterialID] = STV.[RawMaterialID])
-            LEFT  JOIN [LCA].[dbo].[RawMaterials]           AS RMS WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID]
+            
+            UPDATE TMC SET
+                 [RawMaterialID_Styles] = RMS.[RawMaterialID]
+                ,[PartNumber_Styles] = RMS.[PartNumber]
+            FROM #TB_MO_Containers AS TMC
+            LEFT  JOIN [LCA].[dbo].[StyleVariations]        AS STV WITH(NOLOCK) ON TMC.[StyleID] = STV.[StyleID]
+                                                                                 AND TMC.[StyleColorID] = STV.[StyleColorID]
+                                                                                 AND TMC.[RawMaterialID_MO] = STV.[RawMaterialID]
+            LEFT  JOIN [LCA].[dbo].[RawMaterials]           AS RMS WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID] 
 
 
             SELECT
@@ -1273,6 +1305,8 @@ BEGIN
             LEFT  JOIN [LCA].[dbo].[Warehouses]             AS WH WITH(NOLOCK)  ON RC.[StockWarehouseID] = WH.[WarehouseID]
             LEFT  JOIN [LCA].[dbo].[ReceiveSlips]           AS RS WITH(NOLOCK)  ON RC.[ReceiveID] = RS.[ReceiveID]
             LEFT  JOIN [LCA].[dbo].[Addresses]              AS VD WITH(NOLOCK)  ON RS.[VendorID] = VD.[AddressID]
+
+            -- SELECT * FROM #TB_MO_Containers
 
 
             UPDATE TMC SET
@@ -1618,7 +1652,9 @@ BEGIN
                 ,[BoxWeight]        = 1.04
                 ,[SKUNumber]        = FG.[SKUNumber]
                 ,[Style]            = ST.[StyleNumber]
+                ,[StyleID]          = ST.[StyleID]
                 ,[Color]            = STC.[StyleColorName]
+                ,[ColorID]          = STC.[StyleColorID]
                 ,[Size]             = ODT.[GarmentSize]
                 ,[Make]             = MO.[QuantityOrdered]
                 ,[Qty]              = ABS(SUM(CT.[Quantity]))
@@ -1626,10 +1662,13 @@ BEGIN
                 ,[BoxLabel]         = CONCAT(CAST(GETDATE() AS DATE),'-',RC.[ContainerCode] )
                 ,[BoxComments]      = CONCAT(RC.[ContainerCode], ' - CREATED WITH THE RECEIVE CONTAINERS APP')
                 ,[PartNumber_RC]    = RMC.[PartNumber]
-                ,[PartNumber_ST]    = RMS.[PartNumber]
+                ,[RawMaterialID_RC] = RMC.[RawMaterialID]   
+                ,[PartNumber_ST]    = CAST(NULL AS VARCHAR(200))
+                ,[RawMaterialID_ST] = CAST(NULL AS INT)
                 ,[CanPack]          = CAST(NULL AS BIT)
                 ,[ErrorPack]        = CAST(NULL AS NVARCHAR(MAX))
             INTO #TB_DataFinal
+            --select *
             FROM #TempCreateBoxes AS TMB
             INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO   WITH(NOLOCK) ON TMB.[ManufactureID] = MO.[ManufactureID]
             INNER JOIN [LCA].[dbo].[RawTransactions]    AS RT   WITH(NOLOCK) ON MO.[ManufactureID] = RT.[ManufactureID]
@@ -1645,9 +1684,8 @@ BEGIN
 								end
             INNER JOIN [LCA].[dbo].[Styles]             AS ST   WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
             INNER JOIN [LCA].[dbo].[StyleColors]        AS STC  WITH(NOLOCK) ON OI.[StyleColorID] = STC.[StyleColorID]
-            LEFT  JOIN [LCA].[dbo].[StyleVariations]    AS STV  WITH(NOLOCK) ON RMC.[RawMaterialID] = STV.[RawMaterialID] AND STV.[StyleID] = OI.[StyleID] AND STV.[StyleColorID] = OI.[StyleColorID] AND STV.[RawMaterialID] = RC.[RawMaterialID]
-            LEFT  JOIN [LCA].[dbo].[RawMaterials]       AS RMS  WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID] AND RMS.[RawMaterialID] = RC.[RawMaterialID]
             LEFT  JOIN [LCA].[dbo].[FinishedGoods]      AS FG   WITH(NOLOCK) ON ODT.[FinishedGoodsID] = FG.[FinishedGoodsID]
+            
             GROUP BY
                  TMB.[ManufactureID]
                 ,TMB.[MO]
@@ -1659,11 +1697,20 @@ BEGIN
                                       END
                 ,FG.[SKUNumber]
                 ,ST.[StyleNumber]
+                ,ST.[StyleID]
                 ,STC.[StyleColorName]
+                ,STC.[StyleColorID]
                 ,ODT.[GarmentSize]
                 ,MO.[QuantityOrdered]
                 ,RMC.[PartNumber]
-                ,RMS.[PartNumber]
+                ,RMC.[RawMaterialID]
+
+            UPDATE TDF SET
+                 [RawMaterialID_ST] = RMS.[RawMaterialID]
+                ,[PartNumber_ST] = RMS.[PartNumber]
+            FROM #TB_DataFinal AS TDF
+            LEFT  JOIN [LCA].[dbo].[StyleVariations]    AS STV  WITH(NOLOCK) ON TDF.[RawMaterialID_RC] = STV.[RawMaterialID] AND STV.[StyleID] = TDF.[StyleID] AND STV.[StyleColorID] = TDF.[ColorID]
+            LEFT  JOIN [LCA].[dbo].[RawMaterials]       AS RMS  WITH(NOLOCK) ON STV.[RawMaterialID] = RMS.[RawMaterialID]
 
 
             UPDATE TDF SET
