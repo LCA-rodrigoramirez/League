@@ -224,12 +224,11 @@ SET NOCOUNT ON;
 			INNER JOIN      LCA.dbo.StyleColors                 AS STC  WITH(NOLOCK) ON STC.StyleColorID    		= OI.StyleColorID
 			LEFT  JOIN      LCA.dbo.DropDownValues3             AS DDV  WITH(NOLOCK) ON MO.ProductionStatusID    	= DDV.DropDownValueID
 
-
 			SELECT
-				*
+				app.*
 			INTO #L2_Applique
-			FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Applique AS APP WITH(NOLOCK)
-			WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
+			FROM #TB_MO AS TMO
+			INNER JOIN [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Applique AS APP WITH(NOLOCK) ON TMO.ItemDetailID = APP.ItemDetailID
 			
 
 			--- ACTUALIZAR ORDENES DE BORDADO QUE NO TIENEN WORKFLOW CORRECTO ---
@@ -263,7 +262,6 @@ SET NOCOUNT ON;
 
 			DELETE FROM #TB_MO
 			WHERE NOT(EmbHW =1 OR EmbAPP =1)
-
 
 		/********************************* FILTER MO STATUS < 90 Y UPDATES PARA EXTRAER ORDENES DE BORDADO Y SABER SI YA FINALIZARON EL PROCESO O NO *******************************/
 		
@@ -705,13 +703,13 @@ SET NOCOUNT ON;
 					,PartNumbers AS [LCA PartNumber]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCount, 0) AS StitchCount
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCountPerThread, 0) AS StitchCountPerThread
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit / 5000, 0.00) AS [Poly Thread Colors Demand]
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit / 3000, 0.00) AS [Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsNeedlePerUnit / 5000 AS DECIMAL(18,5)), 0.00) AS [Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsBobinePerUnit / 3000 AS DECIMAL(18,5)), 0.00) AS [Bobine Thread Demand]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit, 0.00) AS UnitYardConsumptionNeedle
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit, 0.00) AS UnitYardConsumptionBobine
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerUnit, 0.00) AS UnitYardConsumption
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty / 5000, 0.00) AS [Total Poly Thread Colors Demand]
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty / 3000, 0.00) AS [Total Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsNeedlePerQty / 5000 AS DECIMAL(18,5)), 0.00) AS [Total Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsBobinePerQty / 3000 AS DECIMAL(18,5)), 0.00) AS [Total Bobine Thread Demand]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty, 0.00) AS TotalYardNeedlePerQty
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty, 0.00) AS TotalYardBobinePerQty
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) AS TotalYardsPerQty
@@ -801,13 +799,13 @@ SET NOCOUNT ON;
 					,PartNumbers AS [LCA PartNumber]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCount, 0) AS StitchCount
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,StitchCountPerThread, 0) AS StitchCountPerThread
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit / 5000, 0.00) AS [Poly Thread Colors Demand]
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit / 3000, 0.00) AS [Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsNeedlePerUnit / 5000 AS DECIMAL(18,5)), 0.00) AS [Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsBobinePerUnit / 3000 AS DECIMAL(18,5)), 0.00) AS [Bobine Thread Demand]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerUnit, 0.00) AS UnitYardConsumptionNeedle
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerUnit, 0.00) AS UnitYardConsumptionBobine
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerUnit, 0.00) AS UnitYardConsumption
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty / 5000, 0.00) AS [Total Poly Thread Colors Demand]
-					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty / 3000, 0.00) AS [Total Bobine Thread Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsNeedlePerQty / 5000 AS DECIMAL(18,5)), 0.00) AS [Total Poly Thread Colors Demand]
+					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,CAST(TotalYardsBobinePerQty / 3000 AS DECIMAL(18,5)), 0.00) AS [Total Bobine Thread Demand]
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsNeedlePerQty, 0.00) AS TotalYardNeedlePerQty
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsBobinePerQty, 0.00) AS TotalYardBobinePerQty
 					,IIF(FirstThread = 1 AND ThreadID IS NOT NULL,TotalYardsPerQty, 0.00) AS TotalYardsPerQty
@@ -844,6 +842,7 @@ SET NOCOUNT ON;
 						,TackDown
 						,ThreadID
 						,ThreadColor
+						,PartNumbers
 						,StitchCount
 						,StitchCountPerThread
 						,TotalYardsNeedlePerUnit
