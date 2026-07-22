@@ -1180,7 +1180,7 @@ LEFT JOIN
 		SELECT
 				[Ord]						= ROW_NUMBER() OVER(PARTITION BY CI.[DocumentID] ORDER BY CI.[Orden],  CI.[ManufacturerGroupKelly]) 
 				, [DocumentID]           	= CI.[DocumentID]  
-				, [InvoicingDescription] 	= [InvoicingGroupLine]
+				, [InvoicingDescription] 	= CI.[InvoicingGroupLine]
 				, [US_HTSCode]           	= COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
 				, [ManufacturerGroupKelly]  = CI.ManufacturerGroupKelly
 				, [Orden]                	= CI.[Orden]
@@ -1189,6 +1189,7 @@ LEFT JOIN
 		GROUP BY  
 						CI.[DocumentID]
 						, COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode]) 
+						, CI.[InvoicingGroupLine]
 						, CI.[ManufacturerGroupKelly]
 						, CI.[Orden]
 
@@ -1197,7 +1198,7 @@ LEFT JOIN
 		SELECT
 				[Ord]						= ROW_NUMBER() OVER(PARTITION BY CI.[DocumentID] ORDER BY CI.[Orden]) 
 				, [DocumentID]           	= CI.[DocumentID]  
-				, [InvoicingDescription] 	= CI.[InvoicingGroupLine]            
+				, [InvoicingDescription] 	= CI.[InvoicingGroupLine]
 				, [US_HTSCode]           	= COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
 				, [ManufacturerGroupKelly]  = CI.ManufacturerGroupKelly
 				, [Orden]                	= CI.[Orden]
@@ -1205,7 +1206,7 @@ LEFT JOIN
 		WHERE  ProductDivision <> 'Headwear'
 		GROUP BY  
 						CI.[DocumentID]
-						, CI.[InvoicingGroupKelly]
+						, CI.[InvoicingGroupLine]
 						, COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode]) 
 						, CI.[ManufacturerGroupKelly]
 						, CI.[Orden]
