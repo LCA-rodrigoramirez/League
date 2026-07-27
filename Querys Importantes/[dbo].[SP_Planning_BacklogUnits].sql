@@ -1,32 +1,33 @@
 ﻿USE [AppsLCA]
--- GO
--- SET ANSI_NULLS ON
--- GO
--- SET QUOTED_IDENTIFIER ON
--- GO
+GO
+/****** Object:  StoredProcedure [dbo].[SP_Planning_BacklogUnits]    Script Date: 21/07/2026 07:31:54 a. m. ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
                                                                                                                                   
--- ALTER PROCEDURE [dbo].[SP_Planning_BacklogUnits]
---      @process    VARCHAR(MAX)
---     ,@data       NVARCHAR(MAX)
---     ,@NoSelect   BIT = 0
---     ,@otherData  NVARCHAR(MAX) = NULL OUTPUT
--- AS
+ALTER PROCEDURE [dbo].[SP_Planning_BacklogUnits]
+     @process    VARCHAR(MAX)
+    ,@data       NVARCHAR(MAX)
+    ,@NoSelect   BIT = 0
+    ,@otherData  NVARCHAR(MAX) = NULL OUTPUT
+AS
 BEGIN
     SET NOCOUNT ON;
     
     -- -- -- -- -- =========================================================================================================
     -- -- -- -- -- PRUEBA RAPIDA (DESCOMENTAR PARA PROBAR)
     -- -- -- -- -- =========================================================================================================
-    DECLARE @process   VARCHAR(MAX)
-    DECLARE @data      NVARCHAR(MAX)
-    DECLARE @NoSelect  BIT = 0
-    DECLARE @otherData NVARCHAR(MAX)
+    -- DECLARE @process   VARCHAR(MAX)
+    -- DECLARE @data      NVARCHAR(MAX)
+    -- DECLARE @NoSelect  BIT = 0
+    -- DECLARE @otherData NVARCHAR(MAX)
     
     
-    SET @process = 'dispatchinventory.run'
+    -- SET @process = 'dispatchinventory.run'
     
     -- SET @data = '{
-    --   "key":"PRUEBA20260706_001",
+    --   "key":"PRUEBA20260715_001",
     --   "flag":true,
     --   "reserveUnits":true,
     --   "runDate":"ReqShip"
@@ -35,12 +36,12 @@ BEGIN
     
     
     -- {"process":"dispatchinventory.run","data":{"key":"c9180ccf-75de-4aab-b669-18fe9c6c96e3","reserveUnits":true,"runDate":"ReqShip"}}
-    SET @data = '{
-      "key":"NDS-20260710_0001"
-      ,"flag":true
-      ,"runDate":"ReqShip"
-      ,"flagDispatchSamples":true
-    }'
+    -- SET @data = '{
+    --   "key":"BARN_Urgentes20260720"
+    --   ,"flag":true
+    --   ,"runDate":"ReqShip"
+    --   ,"flagDispatchSamples":true
+    -- }'
     
     -- "runDate":"ReqShip"             -> [RequiredDate]      (default)
     -- "runDate":"PromiseDate"         -> [PromiseDate]
@@ -69,11 +70,11 @@ BEGIN
     -- FROM LCA.dbo.Orders WITH(NOLOCK)
     -- WHERE PONumber LIKE  '%2987582%'
     
-    DECLARE @message            VARCHAR(300)
+    DECLARE @message            VARCHAR(MAX)
     DECLARE @messageData        NVARCHAR(MAX)
     DECLARE @error              BIT
     DECLARE @result             NVARCHAR(MAX)
-    DECLARE @version            VARCHAR(100) = 'v20260602.0.0.1'
+    DECLARE @version            VARCHAR(100) = 'v20260715.0.0.1'
     DECLARE @ProcessName        VARCHAR(150) = 'dispatchinventory.run'
     DECLARE @KeyGenerated       VARCHAR(200)
     DECLARE @TestData           BIT = 0
@@ -543,7 +544,7 @@ BEGIN
     					        @flagDispatchSamples = 1
     					        AND MO.[ManufactureID] IN (
     					            SELECT [ManufactureID]
-    					            FROM [AppsLCA].[dbo].[TB_Backlog_Parameters_OrdersDispatch]
+    					            FROM [AppsLCA].[dbo].[TB_Backlog_Parameters_OrdersDispatch] WITH(NOLOCK)
     					            WHERE [Status] = 1
     					        )
     					    )
@@ -5148,7 +5149,7 @@ BEGIN
                   AND L2.[ItemDetailID] IS NOT NULL
                   AND L2.[CustName] NOT LIKE 'L2 SKU Set Up%'
              ) AS TB
-            --  WHERE TB.[RowItem]  = 1
+             WHERE TB.[RowItem]  = 1            ----cambio dio error por item.. 
              ORDER BY  TB.[RowData]
     
 
@@ -7914,7 +7915,7 @@ EndProcedureDispatchInventory:
 -- SELECT @otherData
 
 END
-GO
+
 
 
 
@@ -7944,14 +7945,14 @@ GO
 -- ----PONER COLUMNAS DE L2BRAND
 -- ----AGREGAR LAS QUE NO ESTAN EN BASE LCA
 
-SELECT A.* FROM #TB_FINAL_PROC_ORDENES_DEMAND                           AS A ORDER BY A.[RowData]        
-SELECT A.* FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO                        AS A ORDER BY A.[RowData]        
-SELECT A.* FROM #DispatchOrdersFromInventoryWIP                         AS A ORDER BY A.[RowData]        
-SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched        AS A ORDER BY A.[RowData]        
-SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched     AS A ORDER BY A.[RowData]        
-SELECT A.* FROM #TB_FINAL_PROC_CSV                                      AS A ORDER BY A.[Date], A.[Hour] 
-SELECT A.* FROM #TB_BACKLOG_L2BRAND_ACTIVE                             AS A ORDER BY A.[RowData]         
-SELECT A.* FROM #TB_BACKLOG_INVENTORY_UNIFIED                          AS A ORDER BY A.[R],A.[RowData]   
+-- SELECT A.* FROM #TB_FINAL_PROC_ORDENES_DEMAND                           AS A ORDER BY A.[RowData]        
+-- SELECT A.* FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO                        AS A ORDER BY A.[RowData]        
+-- SELECT A.* FROM #DispatchOrdersFromInventoryWIP                         AS A ORDER BY A.[RowData]        
+-- SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched        AS A ORDER BY A.[RowData]        
+-- SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched     AS A ORDER BY A.[RowData]        
+-- SELECT A.* FROM #TB_FINAL_PROC_CSV                                      AS A ORDER BY A.[Date], A.[Hour] 
+-- SELECT A.* FROM #TB_BACKLOG_L2BRAND_ACTIVE                             AS A ORDER BY A.[RowData]         
+-- SELECT A.* FROM #TB_BACKLOG_INVENTORY_UNIFIED                          AS A ORDER BY A.[R],A.[RowData]   
 
 
 
