@@ -6,9 +6,9 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
                                                                                                                                   
-CREATE PROCEDURE [dbo].[SP_UpdateTariffs_UnitsInvoiced]
-     @entry VARCHAR(200)
-AS
+-- ALTER PROCEDURE [dbo].[SP_UpdateTariffs_UnitsInvoiced]
+--      @entry VARCHAR(200)
+-- AS
 
 BEGIN
 
@@ -62,7 +62,8 @@ BEGIN
                 ON ei.document_id = ed.id
             left join AppsLCA.dbo.TB_Transfer_KellyTariffCodes as tc with(nolock)
                 ON tc.Codigo = REPLACE(el.htsus,'.','')
-            WHERE el.duty IS NOT NULL AND el.htsus IS NOT NULL 
+            WHERE el.duty IS NOT NULL 
+            --AND el.htsus IS NOT NULL 
             -- AND entry_number = @entry
             group by
                 RIGHT(
@@ -129,6 +130,8 @@ BEGIN
                 FOR Tarifa IN ([Tariff 122], [301 China], [Reciprocal], [Fentanylo], [HTS])
             ) AS pivote;
 
+            SELECT * FROM #PIV_EntryKelly WHERE invoice = 'APP-20260529.NC'
+            RETURN
         -------------------------------------------------------------------------------------------------------------------------------------------------------
         -- 2.3. Creacion de Pivote por cada tarifa distinta que tenemos hasta el momento (122, 301 China, Recip, Fenta y HTS)
         -------------------------------------------------------------------------------------------------------------------------------------------------------
