@@ -27,6 +27,7 @@ BEGIN
     DROP TABLE IF EXISTS #TB_FAMO_SUMMARY;
     DROP TABLE IF EXISTS #TB_L2BrandInv;
     DROP TABLE IF EXISTS #TB_Orders;
+    DROP TABLE IF EXISTS #TB_All_Shipment
 
     PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] SP iniciado.';
 
@@ -48,13 +49,15 @@ BEGIN
         WHERE ID IN
         (
          -- Existen en Anexo, pero no en L2B
-            SELECT DISTINCT T.IDExport
-            FROM AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs AS T WITH(NOLOCK)
+            SELECT DISTINCT o.ID
+            FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS O WITH(NOLOCK)
             WHERE NOT EXISTS (
                 SELECT 1
-                FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS O WITH(NOLOCK)
-                WHERE O.ID = T.IDExport AND o.StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
+                FROM AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs AS T WITH(NOLOCK)
+                WHERE O.ID = T.IDExport 
             )
+            AND o.StyleNumber NOT IN ('-','Fabric','Trim','Supplies','SWATCH')
+            AND ShipDate >= '2025-01-01'
         )
     ) AS AF
     LEFT JOIN AppsLCA.dbo.TB_ShipmentCheckPrices AS SCP WITH (NOLOCK)
@@ -726,6 +729,42 @@ BEGIN
         DELETE FROM AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs WHERE Waybill IN (SELECT DISTINCT Waybill FROM #TB_All_Shipment)
 
         INSERT INTO AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs
+        (
+            [IDExport]
+            ,[Size]
+            ,[StyleColor]
+            ,[Quantity]
+            ,[Style]
+            ,[StyleID]
+            ,[TariffCategory]
+            ,[TransactionDate]
+            ,[MO]
+            ,[MO_ID]
+            ,[ItemDetailID]
+            ,[Item #]
+            ,[Blank_InvoicedPrice]
+            ,[InlandFreight]
+            ,[NorthBoundFreight]
+            ,[OutboundFreight]
+            ,[InboundFreight]
+            ,[CustomerPO]
+            ,[StyleOption]
+            ,[ShipToPort]
+            ,[Waybill]
+            ,[Decoration_Invoiced_Price]
+            ,[Unit_Invoiced_Price]
+            ,[CountryOfOrigin]
+            ,[US_HTSCode]
+            ,[FOBTotal]
+            ,[301China_Tariff]
+            ,[Fenta_Tariff]
+            ,[Recip_Tariff]
+            ,[HTS_Tariff]
+            ,[Tariff122_Tariff]
+            ,[TotalTariff]
+            ,[Entry #]
+            ,[EntryDate]
+        )
         SELECT
         *
         FROM #TB_All_Shipment
