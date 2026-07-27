@@ -11,12 +11,12 @@ GO
 ------   devuelve un mensaje de error si es el caso.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
--- CREATE OR ALTER PROCEDURE [dbo].[SP_Production_PrepressProcess]
--- (
---      @process NVARCHAR(200)
---     ,@data NVARCHAR(MAX)
--- )
--- AS
+CREATE OR ALTER PROCEDURE [dbo].[SP_Production_PrepressProcess]
+(
+     @process NVARCHAR(200)
+    ,@data NVARCHAR(MAX)
+)
+AS
 BEGIN
     SET NOCOUNT ON;
     
@@ -25,8 +25,8 @@ BEGIN
     DECLARE @message AS NVARCHAR(200)
     DECLARE @result AS NVARCHAR(MAX)
     DECLARE @category AS NVARCHAR(200)
-    DECLARE @process NVARCHAR(200)
-    DECLARE @data NVARCHAR(MAX)
+    -- DECLARE @process NVARCHAR(200)
+    -- DECLARE @data NVARCHAR(MAX)
 
     ---------PRUEBA PARA ESCANEO DE PPAD Y MO 
     -- SET @process = 'scan-mo'
@@ -46,8 +46,12 @@ BEGIN
     -- SET @data = '[]'
 
     ---------PRUEBA PARA REPORTE DE TRABAJO PARA PREPRENSA POR DISEÑO Y ASSIGNMENT
-    SET @process = 'orders-list'
-    SET @data = '[]'
+    -- SET @process = 'orders-list'
+    -- SET @data = '[]'
+
+    ---------PRUEBA PARA REPORTE DE TRABAJO PARA PREPRENSA (SOLO WO ENTREGADAS A PICKING)
+    -- SET @process = 'orders-picking'
+    -- SET @data = '[]'
 
     BEGIN TRY
 
@@ -55,294 +59,310 @@ BEGIN
             -- 1. Datos escaneados por el usuario
         -------------------------------------------------------------------------------------------------------------------------------------------------------
 
-        IF @process = 'scan-mo'
-        BEGIN
-
-            DROP TABLE IF EXISTS #TempScanMO;
-            SELECT
-                [PPAD]              = outer_j.[PPAD]
-                ,[WO]               = inner_j.[WO]
-                ,[AddressID]        = (CAST(SUBSTRING(outer_j.[PPAD], 5, LEN(outer_j.[PPAD])) AS INT) - 10000)
-                ,[ManufactureID]    = CAST(NULL AS INT)
-                ,[MO]               = CAST(NULL AS VARCHAR(200))
-                ,[WorkOrder]        = CAST(NULL AS VARCHAR(200))
-                ,[Assignment]       = CAST(NULL AS VARCHAR(200))
-                ,[BinID]            = outer_j.[Bin]
-            INTO #TempScanMO
-            FROM OPENJSON(@data, '$.scannedValues')
-            WITH (
-                PPAD  VARCHAR(200) '$.PPAD'
-                ,MO    NVARCHAR(MAX) '$.MO' AS JSON
-                ,Bin    VARCHAR(100) '$.Bin'
-            ) AS outer_j
-            CROSS APPLY OPENJSON(outer_j.[MO])
-            WITH (
-                WO VARCHAR(200) '$.WO'
-            ) AS inner_j;
-
-            UPDATE TSM SET
-                [ManufactureID] = MO.[ManufactureID]
-            FROM #TempScanMO                            AS TSM
-            INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO  WITH(NOLOCK) ON MO.[ManufactureNumber] LIKE '%' + TSM.[WO] + '%' AND MO.[StatusID] < 90
-
-            -- Si la WO tiene más de 1 ManufactureID, insertar los registros faltantes en #TempScanMO
-            INSERT INTO #TempScanMO ([PPAD], [WO], [AddressID], [ManufactureID], [BinID])
-            SELECT DISTINCT
-                 TSM.[PPAD]
-                ,TSM.[WO]
-                ,TSM.[AddressID]
-                ,MO.[ManufactureID]
-                ,TSM.[BinID]
-            FROM #TempScanMO                           AS TSM
-            INNER JOIN [LCA].[dbo].[ManufactureOrders] AS MO WITH(NOLOCK) ON MO.[ManufactureNumber] LIKE '%' + TSM.[WO] + '%'
-                                                                           AND MO.[StatusID] < 90
-                                                                           AND MO.[ManufactureID] <> TSM.[ManufactureID]
-            WHERE NOT EXISTS (
-                SELECT 1 FROM #TempScanMO AS TSM2
-                WHERE TSM2.[ManufactureID] = MO.[ManufactureID]
-                  AND TSM2.[WO]            = TSM.[WO]
-            );
-
-            UPDATE TSM SET
-                 [MO]        = MO.[ManufactureNumber]
-                ,[WorkOrder]  = OD.[PONumber]
-                ,[Assignment] = MO.[Comments7]
-            FROM #TempScanMO                           AS TSM
-            INNER JOIN [LCA].[dbo].[ManufactureOrders] AS MO WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
-            INNER JOIN [LCA].[dbo].[Orders]            AS OD WITH(NOLOCK) ON MO.[OrderID]        = OD.[OrderID]
-
-            -- Validar que el PPAD escaneado exista en TB_Prepress_SequenceTasks
-            DECLARE @ErrorPPAD NVARCHAR(MAX) = NULL;
-
-            SELECT TOP 1
-                @ErrorPPAD = 'El PPAD: ' + TSM.[PPAD] + ' no es válido para este proceso'
-            FROM #TempScanMO AS TSM
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK)
-                WHERE PST.[PPMOperatorID] = TSM.[AddressID] AND PST.[Status] = 1
-            );
-
-            IF @ErrorPPAD IS NOT NULL
-            BEGIN
-                SET @Error     = 1
-                SET @Component = '[PPAD]'
-                SET @message   = @ErrorPPAD
-                SET @result    = '[]'
-                GOTO SELECTFINAL
-            END
-
-            -- DECLARE @ValidateBin BIT = 0
-            -- DECLARE @SequenceValidateBin INT = 0
-
-            -- SELECT TOP 1
-            --     @ValidateBin = PST.[RequiresBin]
-            -- FROM #TempScanMO AS TSM
-            -- INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID]
-            -- ORDER BY PST.[Sequence] DESC
-
-            -- IF @ValidateBin = 1
-            -- BEGIN
-
-            --     SELECT TOP 1
-            --         @SequenceValidateBin = PST.[Sequence]
-            --     FROM #TempScanMO AS TSM
-            --     INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID]
-            --     ORDER BY PST.[Sequence] DESC
-
-            --     SELECT
-            --          [Prepress_Bins_ID] = POS.[ID_prepress_bins]
-            --         ,[MaxScreens]       = PPB.[MaxScreens]
-            --         ,[BinScreens]       = SUM(POS.[ScreensByLocations])
-            --     FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]        AS POS WITH(NOLOCK)
-            --     INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST.[ID]
-            --     LEFT  JOIN [AppsLCA].[dbo].[TB_Prepress_Bins]           AS PPB WITH(NOLOCK) ON POS.[Prepress_Bins_ID] = PPB.[ID] 
-            --     WHERE PPB.[Bin] IN (SELECT [Bin] FROM #TempScanMO)
-            --     GROUP BY
-            --          POS.[Prepress_Bins_ID]
-            --         ,PPB.[MaxScreens]
-            --     HAVING MAX(PST.[Sequence]) = @SequenceValidateBin
-
-                
-            -- END
-            -- RETURN
-
-            -- Validar que la MO + tarea no haya sido escaneada previamente
-            DECLARE @ErrorDuplicate NVARCHAR(MAX) = NULL;
-
-            SELECT TOP 1
-                @ErrorDuplicate = 'La WO: ' + TSM.[WorkOrder] + ' ya fue escaneada para la tarea: ' + PST.[Task]
-            FROM #TempScanMO                                        AS TSM
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-            WHERE EXISTS (
-                SELECT 1
-                FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned] AS POS WITH(NOLOCK)
-                WHERE POS.[ManufactureID]             = TSM.[ManufactureID]
-                AND POS.[Prepress_SequenceTasks_ID] = PST.[ID]
-            );
-
-            -- Validar que la secuencia anterior esté completada antes de permitir el scan
-            DECLARE @ErrorSequence NVARCHAR(MAX) = NULL;
-
-            SELECT TOP 1
-                @ErrorSequence = 'La tarea anterior (' + PST_PREV.[Task] + ') no ha sido completada para la WO: ' + TSM.[WorkOrder]
-            FROM #TempScanMO                                            AS TSM
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]     AS PST      WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]     AS PST_PREV WITH(NOLOCK) ON PST_PREV.[Sequence] = PST.[Sequence] - 1
-            WHERE PST.[Sequence] > 1
-            AND NOT EXISTS (
-                    SELECT 1
-                    FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]      AS POS       WITH(NOLOCK)
-                    INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_PREV2 WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST_PREV2.[ID]
-                    WHERE POS.[ManufactureID] = TSM.[ManufactureID]
-                    AND PST_PREV2.[Sequence] = PST.[Sequence] - 1
-            );
-
-            IF @ErrorDuplicate IS NOT NULL
-            BEGIN
-                SET @Error     = 0
-                SET @Component = '[Barcode]'
-                SET @message   = @ErrorDuplicate
-                SET @result = (
-                    SELECT 
-                        [Task]     = PST.[Task]
-                        ,[Style]    = ST.[StyleNumber]
-                        ,[Color]    = SC.[StyleColorName]
-                    FROM #TempScanMO AS TSM
-                    INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-                    INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
-                    INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
-                    INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
-                    INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
-                    GROUP BY
-                        PST.[Task]
-                        ,ST.[StyleNumber]
-                        ,SC.[StyleColorName]
-                    FOR JSON PATH
-                )
-                GOTO SELECTFINAL
-            END
-
-            IF @ErrorSequence IS NOT NULL
-            BEGIN
-                SET @Error     = 1
-                SET @Component = '[NextTask]'
-                SET @message   = @ErrorSequence
-                SET @result = (
-                    SELECT 
-                        [Task]     = PST.[Task]
-                        ,[Style]    = ST.[StyleNumber]
-                        ,[Color]    = SC.[StyleColorName]
-                    FROM #TempScanMO AS TSM
-                    INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-                    INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
-                    INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
-                    INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
-                    INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
-                    GROUP BY
-                        PST.[Task]
-                        ,ST.[StyleNumber]
-                        ,SC.[StyleColorName]
-                    FOR JSON PATH
-                )
-                GOTO SELECTFINAL
-            END
-            
+            IF @process = 'scan-mo'
             BEGIN
 
-            INSERT INTO [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]
-            (
-                 [Prepress_SequenceTasks_ID]
-                ,[ManufactureID]
-                ,[MO]
-                ,[WorkOrder]
-                ,[Assignment]
-                ,[Prepress_Bins_ID]
-                ,[StartDate]
-                ,[FinishDate]
-                ,[created_at]
-            )
-            SELECT
-                 [TaskID]           = PST.[ID]
-                ,[ManufactureID]    = TSM.[ManufactureID]
-                ,[MO]               = TSM.[MO]
-                ,[WorkOrder]        = TSM.[WorkOrder]
-                ,[Assignment]       = TSM.[Assignment]
-                ,[ID_prepress_bins] = TSM.[BinID]
-                ,[StartDate]        = GETDATE()
-                ,[FinishDate]       = IIF(NOT EXISTS (
-                                        SELECT 1
-                                        FROM [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_NEXT WITH(NOLOCK)
-                                        WHERE PST_NEXT.[Sequence] > PST.[Sequence] AND PST_NEXT.[Status] = 1
-                                    ), GETDATE(), NULL)
-                ,[created_at]       = GETDATE()
-            FROM #TempScanMO                                        AS TSM
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-
-            -- Si la tarea actual tiene secuencia anterior, marcar ese registro como finalizado
-            UPDATE POS SET
-                [FinishDate] = GETDATE()
-            FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]       AS POS
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_PREV WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST_PREV.[ID]
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST      WITH(NOLOCK) ON PST.[Sequence]     = PST_PREV.[Sequence] + 1 AND PST.[Status] = 1
-            INNER JOIN #TempScanMO                                 AS TSM                   ON TSM.[AddressID]     = PST.[PPMOperatorID]
-                                                                                           AND TSM.[ManufactureID] = POS.[ManufactureID]
-            WHERE PST.[Sequence] > 1
-
-            -- Actualizando Bin de ManufactureOrders
-
-            UPDATE MO SET
-                [Numeric1] = TSM.[BinID]
-            FROM #TempScanMO AS TSM
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1 AND PST.[Sequence] = 4
-            INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
-
-            END
-
-            SET @Error = 0
-            SET @Component = '[Completed]'
-            SELECT TOP 1 @message = PST.[Task] + ' scanned successfully'
-            FROM #TempScanMO AS TSM
-            INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-
-            SET @result = (
-                SELECT 
-                     [Task]     = PST.[Task]
-                    ,[Style]    = ST.[StyleNumber]
-                    ,[Color]    = SC.[StyleColorName]
-                FROM #TempScanMO AS TSM
-                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
-                INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
-                INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
-                INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
-                INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
-                GROUP BY
-                     PST.[Task]
-                    ,ST.[StyleNumber]
-                    ,SC.[StyleColorName]
-                FOR JSON PATH
-            )
-
-        END
-
-        IF @process = 'bins-list'
-        BEGIN
-
-            SET @result = (
+                DROP TABLE IF EXISTS #TempScanMO;
                 SELECT
-                     [ID]
-                    ,[Bin]
-                FROM [AppsLCA].[dbo].[TB_Prepress_Bins] WITH(NOLOCK)
-                WHERE [Status] = 1
-                FOR JSON PATH
-            )
-            SET @Error = 0
-            SET @Component = '[200]'
-            SET @message = 'Datos generados correctamente'
+                    [PPAD]              = outer_j.[PPAD]
+                    ,[WO]               = inner_j.[WO]
+                    ,[AddressID]        = (CAST(SUBSTRING(outer_j.[PPAD], 5, LEN(outer_j.[PPAD])) AS INT) - 10000)
+                    ,[ManufactureID]    = CAST(NULL AS INT)
+                    ,[MO]               = CAST(NULL AS VARCHAR(200))
+                    ,[WorkOrder]        = CAST(NULL AS VARCHAR(200))
+                    ,[Assignment]       = CAST(NULL AS VARCHAR(200))
+                    ,[BinID]            = outer_j.[Bin]
+                INTO #TempScanMO
+                FROM OPENJSON(@data, '$.scannedValues')
+                WITH (
+                    PPAD  VARCHAR(200) '$.PPAD'
+                    ,MO    NVARCHAR(MAX) '$.MO' AS JSON
+                    ,Bin    VARCHAR(100) '$.Bin'
+                ) AS outer_j
+                CROSS APPLY OPENJSON(outer_j.[MO])
+                WITH (
+                    WO VARCHAR(200) '$.WO'
+                ) AS inner_j;
 
-        END
+                UPDATE TSM SET
+                    [ManufactureID] = MO.[ManufactureID]
+                FROM #TempScanMO                            AS TSM
+                INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO  WITH(NOLOCK) ON MO.[ManufactureNumber] LIKE '%' + TSM.[WO] + '%' AND MO.[StatusID] < 90
 
-        IF @process = 'orders-list'
+                -- Si la WO tiene más de 1 ManufactureID, insertar los registros faltantes en #TempScanMO
+                INSERT INTO #TempScanMO ([PPAD], [WO], [AddressID], [ManufactureID], [BinID])
+                SELECT DISTINCT
+                    TSM.[PPAD]
+                    ,TSM.[WO]
+                    ,TSM.[AddressID]
+                    ,MO.[ManufactureID]
+                    ,TSM.[BinID]
+                FROM #TempScanMO                           AS TSM
+                INNER JOIN [LCA].[dbo].[ManufactureOrders] AS MO WITH(NOLOCK) ON MO.[ManufactureNumber] LIKE '%' + TSM.[WO] + '%'
+                                                                            AND MO.[StatusID] < 90
+                                                                            AND MO.[ManufactureID] <> TSM.[ManufactureID]
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM #TempScanMO AS TSM2
+                    WHERE TSM2.[ManufactureID] = MO.[ManufactureID]
+                    AND TSM2.[WO]            = TSM.[WO]
+                );
+
+                UPDATE TSM SET
+                    [MO]        = MO.[ManufactureNumber]
+                    ,[WorkOrder]  = OD.[PONumber]
+                    ,[Assignment] = MO.[Comments7]
+                FROM #TempScanMO                           AS TSM
+                INNER JOIN [LCA].[dbo].[ManufactureOrders] AS MO WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
+                INNER JOIN [LCA].[dbo].[Orders]            AS OD WITH(NOLOCK) ON MO.[OrderID]        = OD.[OrderID]
+
+                -- Validar que el PPAD escaneado exista en TB_Prepress_SequenceTasks
+                DECLARE @ErrorPPAD NVARCHAR(MAX) = NULL;
+
+                SELECT TOP 1
+                    @ErrorPPAD = 'El PPAD: ' + TSM.[PPAD] + ' no es válido para este proceso'
+                FROM #TempScanMO AS TSM
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK)
+                    WHERE PST.[PPMOperatorID] = TSM.[AddressID] AND PST.[Status] = 1
+                );
+
+                IF @ErrorPPAD IS NOT NULL
+                BEGIN
+                    SET @Error     = 1
+                    SET @Component = '[PPAD]'
+                    SET @message   = @ErrorPPAD
+                    SET @result    = '[]'
+                    GOTO SELECTFINAL
+                END
+
+                -- DECLARE @ValidateBin BIT = 0
+                -- DECLARE @SequenceValidateBin INT = 0
+
+                -- SELECT TOP 1
+                --     @ValidateBin = PST.[RequiresBin]
+                -- FROM #TempScanMO AS TSM
+                -- INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID]
+                -- ORDER BY PST.[Sequence] DESC
+
+                -- IF @ValidateBin = 1
+                -- BEGIN
+
+                --     SELECT TOP 1
+                --         @SequenceValidateBin = PST.[Sequence]
+                --     FROM #TempScanMO AS TSM
+                --     INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID]
+                --     ORDER BY PST.[Sequence] DESC
+
+                --     SELECT
+                --          [Prepress_Bins_ID] = POS.[ID_prepress_bins]
+                --         ,[MaxScreens]       = PPB.[MaxScreens]
+                --         ,[BinScreens]       = SUM(POS.[ScreensByLocations])
+                --     FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]        AS POS WITH(NOLOCK)
+                --     INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST.[ID]
+                --     LEFT  JOIN [AppsLCA].[dbo].[TB_Prepress_Bins]           AS PPB WITH(NOLOCK) ON POS.[Prepress_Bins_ID] = PPB.[ID] 
+                --     WHERE PPB.[Bin] IN (SELECT [Bin] FROM #TempScanMO)
+                --     GROUP BY
+                --          POS.[Prepress_Bins_ID]
+                --         ,PPB.[MaxScreens]
+                --     HAVING MAX(PST.[Sequence]) = @SequenceValidateBin
+
+                    
+                -- END
+                -- RETURN
+
+                -- Validar que la MO + tarea no haya sido escaneada previamente
+                DECLARE @ErrorDuplicate NVARCHAR(MAX) = NULL;
+
+                SELECT TOP 1
+                    @ErrorDuplicate = 'La WO: ' + TSM.[WorkOrder] + ' ya fue escaneada para la tarea: ' + PST.[Task]
+                FROM #TempScanMO                                        AS TSM
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned] AS POS WITH(NOLOCK)
+                    WHERE POS.[ManufactureID]             = TSM.[ManufactureID]
+                    AND POS.[Prepress_SequenceTasks_ID] = PST.[ID]
+                );
+
+                -- Validar que la secuencia anterior esté completada antes de permitir el scan
+                DECLARE @ErrorSequence NVARCHAR(MAX) = NULL;
+
+                SELECT TOP 1
+                    @ErrorSequence = 'La tarea anterior (' + PST_PREV.[Task] + ') no ha sido completada para la WO: ' + TSM.[WorkOrder]
+                FROM #TempScanMO                                            AS TSM
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]     AS PST      WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]     AS PST_PREV WITH(NOLOCK) ON PST_PREV.[Sequence] = PST.[Sequence] - 1
+                WHERE PST.[Sequence] > 1
+                AND NOT EXISTS (
+                        SELECT 1
+                        FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]      AS POS       WITH(NOLOCK)
+                        INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_PREV2 WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST_PREV2.[ID]
+                        WHERE POS.[ManufactureID] = TSM.[ManufactureID]
+                        AND PST_PREV2.[Sequence] = PST.[Sequence] - 1
+                );
+
+                IF @ErrorDuplicate IS NOT NULL
+                BEGIN
+                    SET @Error     = 0
+                    SET @Component = '[Barcode]'
+                    SET @message   = @ErrorDuplicate
+                    SET @result = (
+                        SELECT 
+                            [Task]     = PST.[Task]
+                            ,[Style]    = ST.[StyleNumber]
+                            ,[Color]    = SC.[StyleColorName]
+                        FROM #TempScanMO AS TSM
+                        INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+                        INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
+                        INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
+                        INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
+                        INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
+                        GROUP BY
+                            PST.[Task]
+                            ,ST.[StyleNumber]
+                            ,SC.[StyleColorName]
+                        FOR JSON PATH
+                    )
+                    GOTO SELECTFINAL
+                END
+
+                IF @ErrorSequence IS NOT NULL
+                BEGIN
+                    SET @Error     = 1
+                    SET @Component = '[NextTask]'
+                    SET @message   = @ErrorSequence
+                    SET @result = (
+                        SELECT 
+                            [Task]     = PST.[Task]
+                            ,[Style]    = ST.[StyleNumber]
+                            ,[Color]    = SC.[StyleColorName]
+                        FROM #TempScanMO AS TSM
+                        INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+                        INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
+                        INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
+                        INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
+                        INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
+                        GROUP BY
+                            PST.[Task]
+                            ,ST.[StyleNumber]
+                            ,SC.[StyleColorName]
+                        FOR JSON PATH
+                    )
+                    GOTO SELECTFINAL
+                END
+                
+                BEGIN
+
+                INSERT INTO [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]
+                (
+                    [Prepress_SequenceTasks_ID]
+                    ,[ManufactureID]
+                    ,[MO]
+                    ,[WorkOrder]
+                    ,[Assignment]
+                    ,[Prepress_Bins_ID]
+                    ,[StartDate]
+                    ,[FinishDate]
+                    ,[created_at]
+                )
+                SELECT
+                    [TaskID]           = PST.[ID]
+                    ,[ManufactureID]    = TSM.[ManufactureID]
+                    ,[MO]               = TSM.[MO]
+                    ,[WorkOrder]        = TSM.[WorkOrder]
+                    ,[Assignment]       = TSM.[Assignment]
+                    ,[ID_prepress_bins] = TSM.[BinID]
+                    ,[StartDate]        = GETDATE()
+                    ,[FinishDate]       = IIF(NOT EXISTS (
+                                            SELECT 1
+                                            FROM [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_NEXT WITH(NOLOCK)
+                                            WHERE PST_NEXT.[Sequence] > PST.[Sequence] AND PST_NEXT.[Status] = 1
+                                        ), GETDATE(), NULL)
+                    ,[created_at]       = GETDATE()
+                FROM #TempScanMO                                        AS TSM
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+
+                -- Si la tarea actual tiene secuencia anterior, marcar ese registro como finalizado
+                UPDATE POS SET
+                    [FinishDate] = GETDATE()
+                FROM [AppsLCA].[dbo].[TB_Prepress_OrdersScanned]       AS POS
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST_PREV WITH(NOLOCK) ON POS.[Prepress_SequenceTasks_ID] = PST_PREV.[ID]
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST      WITH(NOLOCK) ON PST.[Sequence]     = PST_PREV.[Sequence] + 1 AND PST.[Status] = 1
+                INNER JOIN #TempScanMO                                 AS TSM                   ON TSM.[AddressID]     = PST.[PPMOperatorID]
+                                                                                            AND TSM.[ManufactureID] = POS.[ManufactureID]
+                WHERE PST.[Sequence] > 1
+
+                -- Actualizando Bin de ManufactureOrders
+
+                UPDATE MO SET
+                    [Numeric1] = TSM.[BinID]
+                FROM #TempScanMO AS TSM
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1 AND PST.[Sequence] = 4
+                INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
+
+                END
+
+                SET @Error = 0
+                SET @Component = '[Completed]'
+                SELECT TOP 1 @message = PST.[Task] + ' scanned successfully'
+                FROM #TempScanMO AS TSM
+                INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks] AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+
+                SET @result = (
+                    SELECT 
+                        [Task]     = PST.[Task]
+                        ,[Style]    = ST.[StyleNumber]
+                        ,[Color]    = SC.[StyleColorName]
+                    FROM #TempScanMO AS TSM
+                    INNER JOIN [AppsLCA].[dbo].[TB_Prepress_SequenceTasks]  AS PST WITH(NOLOCK) ON TSM.[AddressID] = PST.[PPMOperatorID] AND PST.[Status] = 1
+                    INNER JOIN [LCA].[dbo].[ManufactureOrders]              AS MO  WITH(NOLOCK) ON TSM.[ManufactureID] = MO.[ManufactureID]
+                    INNER JOIN [LCA].[dbo].[OrderItems]                     AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
+                    INNER JOIN [LCA].[dbo].[Styles]                         AS ST  WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
+                    INNER JOIN [LCA].[dbo].[StyleColors]                    AS SC  WITH(NOLOCK) ON OI.[StyleColorID] = SC.[StyleColorID]
+                    GROUP BY
+                        PST.[Task]
+                        ,ST.[StyleNumber]
+                        ,SC.[StyleColorName]
+                    FOR JSON PATH
+                )
+
+            END
+
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+            -- 1. Datos escaneados por el usuario
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+            -- 2. Lista de bines para asignar a preprensa
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+            IF @process = 'bins-list'
+            BEGIN
+
+                SET @result = (
+                    SELECT
+                        [ID]
+                        ,[Bin]
+                    FROM [AppsLCA].[dbo].[TB_Prepress_Bins] WITH(NOLOCK)
+                    WHERE [Status] = 1
+                    FOR JSON PATH
+                )
+                SET @Error = 0
+                SET @Component = '[200]'
+                SET @message = 'Datos generados correctamente'
+
+            END
+
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+            -- 2. Lista de bines para asignar a Preprensa
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+            -- 3. Órdenes que no han entrado a Preprensa
+        -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+        IF @process = 'orders-list' OR @process = 'orders-picking'
         BEGIN
 
             DROP TABLE IF EXISTS #TB_MO_FILTER
@@ -419,7 +439,7 @@ BEGIN
                                         cast(REPLACE ( od.[PONumber],'ORD-','') AS BIGINT)
                                     ELSE
                                         NULL
-                                    END IS NOT NULL AND MO.[Comments7] IS NOT NULL
+                                    END IS NOT NULL AND MO.[Comments7] IS NOT NULL AND MO.[Comments7] <> '' AND POS.[ManufactureID] IS NULL
             
             UPDATE MF SET
                  [Design]       = DC.[DesignNo]
@@ -486,9 +506,15 @@ BEGIN
                      Design
             ) AS A ON MF.[Design] = A.[Design]
 
-            select * FROM #TB_MO_FILTER
-            ORDER BY MinReqShip, Design, [Req Ship], StatusPrePress
-            return
+            -- select * FROM #TB_MO_FILTER
+            -- ORDER BY MinReqShip, Design, [Req Ship], StatusPrePress
+            -- return
+
+            -- orders-picking: mismo listado que orders-list, pero solo WO ya entregadas a Picking (OperatorPicking con dato)
+            IF @process = 'orders-picking'
+            BEGIN
+                DELETE FROM #TB_MO_FILTER WHERE [OperatorPicking] IS NULL OR [OperatorPicking] = ''
+            END
 
             SET @result = (
                 SELECT 
@@ -519,9 +545,9 @@ BEGIN
         END
         
         -------------------------------------------------------------------------------------------------------------------------------------------------------
-            -- 1. Datos escaneados por el usuario
+            -- 3. Órdenes que no han entrado a Preprensa
         -------------------------------------------------------------------------------------------------------------------------------------------------------
-    
+        
     END TRY
     BEGIN CATCH
 
