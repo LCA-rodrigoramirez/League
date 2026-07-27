@@ -273,26 +273,24 @@ SET NOCOUNT ON;
 				--- INSERT PARA INFO DE DIGITIZING ---
 				
 				SELECT
-					*
+					D.*
 				INTO #L2_DigitizingInfo
-				FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Digitizing AS D WITH(NOLOCK)
+				FROM #TB_MO AS TMO
+				INNER JOIN [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_Digitizing AS D WITH(NOLOCK) ON TMO.[ItemDetailID] = D.[ItemDetailID]
 				
-				DELETE FROM #L2_DigitizingInfo
-				WHERE ItemDetailID NOT IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
-
 				--- INFORMACION DE HILOS EN TABLA AppsLCA.legacycaps.VW_view_LCA_DesignColors EN EL SERVER 93, SE ACTUALIZA CADA 6 HORAS ---
 
 				SELECT DISTINCT
 					DC.ItemDetailID
-					,SKUID
-					,EmbType
-					,[Location]
-					,LogoStyle
-					,LogoStyleName
-					,StitchCount
-					,ColorSpoolID
-					,ColorName
-					,IIF(CHARINDEX('Poly',ColorName) > 0, RTRIM(SUBSTRING(ColorName,1,CHARINDEX('Poly',ColorName) -1)), ColorName) AS ColorShort --- EXTRAIGO SOLO UNA PARTE DEL COLOR, NECESARIO PARA LOS UPDATE
+					,DC.SKUID
+					,DC.EmbType
+					,DC.[Location]
+					,DC.LogoStyle
+					,DC.LogoStyleName
+					,DC.StitchCount
+					,DC.ColorSpoolID
+					,DC.ColorName
+					,IIF(CHARINDEX('Poly',DC.ColorName) > 0, RTRIM(SUBSTRING(DC.ColorName,1,CHARINDEX('Poly',DC.ColorName) -1)), DC.ColorName) AS ColorShort --- EXTRAIGO SOLO UNA PARTE DEL COLOR, NECESARIO PARA LOS UPDATE
 					,CAST(NULL AS INT)				AS StitchCountPerThread
 					,CAST(NULL AS INT)				AS CountApplique
 					,CAST(NULL AS INT)				AS CountSpoolID
@@ -300,8 +298,8 @@ SET NOCOUNT ON;
 					,CAST(NULL AS decimal(10,2))	AS TotalYardsNeedle
 					,CAST(NULL AS decimal(10,2))	AS TotalYardsBobine
 				INTO #L2_ThreadInfo
-				FROM [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_DesignColors AS DC WITH(NOLOCK)
-				WHERE ItemDetailID IN (SELECT DISTINCT ItemDetailID FROM #TB_MO)
+				FROM #TB_MO AS TMO
+				INNER JOIN [192.168.1.93].AppsLCA.legacycaps.VW_view_LCA_DesignColors AS DC WITH(NOLOCK) ON TMO.[ItemDetailID] = DC.[ItemDetailID]
 
 				--- INFORMACION DEL TOTAL DE HILOS EN SEQUENCIA POR ORDEN Y LOCALIDAD ---
 
