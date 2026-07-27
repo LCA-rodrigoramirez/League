@@ -39,56 +39,26 @@ BEGIN
 
 --     SET @process = 'download.reports'
 --     SET @data = '{
---       "selectedOptions":[
---                         {
---                             "DM": "3-3580",
---                             "Container_Tracking": "810-42711572",
---                             "Waybills": "AIR-HW-20260714-1,AIR-BND-20260714-1,AIR-APP-20260714-1",
---                             "TypeShip": "Air",
---                             "ShipDate": "2026-07-14",
---                             "Total": 37322.81,
---                             "FlagDownload": true
---                         },
---                         {
---                             "DM": "3-3580",
---                             "Container_Tracking": "SALE-TRIMS20260713",
---                             "Waybills": "SALE-TRIMS20260713",
---                             "TypeShip": "Trim",
---                             "ShipDate": "2026-07-14",
---                             "Total": 2450,
---                             "FlagDownload": true
---                         }
---                         ,
---                         {
---                             "DM": "3-5609",
---                             "Container_Tracking": "KOSU451278 6",
---                             "Waybills": "HW-20260714,APP-20260714",
---                             "TypeShip": "Container",
---                             "ShipDate": "2026-07-14",
---                             "Total": 176135.42,
---                             "FlagDownload": true
---                         }
---                         ]
---    }'
---     SET @data = '{
---       "selectedOptions":[
---                         {
---                             "DM":"3-5358",
---                             "Container_Tracking":"KOSU4512425",
---                             "Waybills": "HW-20260706-1",
---                             "TypeShip":"Container",
---                             "ShipDate":"2026-07-06",
---                             "Total":8735.34
---                         },
---                         {
---                             "DM":"3-5358",
---                             "Container_Tracking":"KOSU4512425",
---                             "Waybills": "APP-20260706-1",
---                             "TypeShip":"Container",
---                             "ShipDate":"2026-07-07",
---                             "Total":211863.81
---                         }
---                         ]
+--       "selectedOptions": [
+-- 			{
+-- 				"Container_Tracking": "810-42711653",
+-- 				"DM": "3-3679",
+-- 				"FlagDownload": true,
+-- 				"ShipDate": "2026-07-20",
+-- 				"Total": 53522.74,
+-- 				"TypeShip": "Air",
+-- 				"Waybills": "AIR-HW-20260720,AIR-APP-20260720"
+-- 			},
+-- 			{
+-- 				"Container_Tracking": "SMLU851793 3",
+-- 				"DM": "3-5796",
+-- 				"FlagDownload": true,
+-- 				"ShipDate": "2026-07-20",
+-- 				"Total": 222754.66,
+-- 				"TypeShip": "Container",
+-- 				"Waybills": "APP-20260720,HW-20260720"
+-- 			}
+-- 		]
 --    }'
 
 
@@ -455,6 +425,7 @@ BEGIN
                     FROM #TB_DATA_SHIPMENTS AS DS
                 END
 
+
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.1.1. Asignando SheetName según agrupación por Contenedor o por fecha (solo aéreos)
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -488,6 +459,7 @@ BEGIN
                     ,DS.[SheetName]
                     ,AF.[Waybill]
                     ,CASE WHEN AF.[StyleNumber] IN ('-','Fabric','Trim','Supplies','SWATCH') THEN AF.[Waybill] ELSE AF.[Container] END
+
             -------------------------------------------------------------------------------------------------------------------------------------------------------
             -- 3.2. Cruzando #TB_DATA_SHIPMENTS con Shipments + AnexoFacturacion para obtener Waybills → #TB_ALL_SHIPMENTS
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -703,8 +675,18 @@ BEGIN
                                ELSE '-' + CAST(ROW_NUMBER() OVER (PARTITION BY [ShipDate] ORDER BY [RowNum]) - 1 AS VARCHAR(5))
                           END
                     ,[ShipDate]
-                FROM #TB_DATA_SHIPMENTS
-                WHERE [TypeShip] = 'Container'
+                FROM 
+                (
+                    SELECT
+                         [Container_Tracking]
+                        ,[ShipDate]
+                        ,[RowNum] = ROW_NUMBER() OVER(ORDER BY [ShipDate], [Container_Tracking])
+                    FROM #TB_DATA_SHIPMENTS
+                    WHERE [TypeShip] = 'Container'
+                    GROUP BY
+                         [Container_Tracking]
+                        ,[ShipDate]
+                ) AS A
 
                 SELECT
                      [ShipDateText] = CK.[ShipDateText]
