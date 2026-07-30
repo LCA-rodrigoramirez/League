@@ -1,10 +1,5 @@
 USE [AppsLCA]
 GO
-/****** Object:  StoredProcedure [dbo].[SP_L2Brands_Units_Invoiced_WithTariffs]    Script Date: 30/07/2026 02:39:36 p. m. ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ----------SP PARA L2B INVOICE LCA WITH TARIFFS-----------------------------------------------------------------------------------------------------------------------------------
@@ -21,7 +16,7 @@ GO
 ------5) Construye el resultado final y lo guarda en AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-ALTER   PROCEDURE [dbo].[SP_L2Brands_Units_Invoiced_WithTariffs]
+CREATE OR ALTER PROCEDURE [dbo].[SP_L2Brands_Units_Invoiced_WithTariffs_Ver2]
 (
     @Waybill NVARCHAR(200)
 )
@@ -69,63 +64,69 @@ BEGIN
     --    SeasonName y RO_ID se incluyen como helpers internos para los UPDATEs (no son output).
     -----------------------------------------------------------------------------------------
     SELECT
-         [ID]               = AF.[ID]
-        ,[ShipDate]         = AF.[ShipDate]
-        ,[Waybill]          = AF.[Waybill]
-        ,[ManufactureID]    = AF.[ManufactureID]
-        ,[RO_ID]            = AF.[RO_ID]          -- helper interno para UPDATEs de TariffCategory
-        ,[RO]               = AF.[RO]
-        ,[SeasonName]       = AF.[SeasonName]      -- helper interno para UPDATEs de TariffCategory/CountryOfOrigin
-        ,[OrderID]          = AF.[OrderID]
-        ,[StyleNumber]      = AF.[StyleNumber]
-        ,[StyleColor]       = AF.[StyleColor]
-        ,[Size]             = AF.[Size]
-        ,[BasePrice]        = IIF(AF.[Price] - AF.[BasePrice] = 0,AF.[BasePrice] - 0.08, AF.[BasePrice])
-        ,[TotalDecoration]  = IIF(AF.[Price] - AF.[BasePrice] = 0,0.08, AF.[Price] - AF.[BasePrice])
-        ,[UnitPrice]        = AF.[Price]
-        ,[StyleOption]      = AF.[StyleOptionName]
-        ,[Quantity]         = AF.[Qty]
-        ,[FOBTotal]         = IIF(AF.[ShipDate] >= '2025-11-21' AND AF.[Waybill] LIKE '%AIR%' AND CHARINDEX('FG', AF.[SeasonName]) > 0
-                                 ,AF.[Total$] - (AF.[Qty] * 0.64)
-                                 ,AF.[Total$] - (AF.[Qty] * 0.25))
+         [ID]                   = AF.[ID]
+        ,[ShipDate]             = AF.[ShipDate]
+        ,[Waybill]              = AF.[Waybill]
+        ,[ManufactureID]        = AF.[ManufactureID]
+        ,[RO_ID]                = AF.[RO_ID]          -- helper interno para UPDATEs de TariffCategory
+        ,[RO]                   = AF.[RO]
+        ,[SeasonName]           = AF.[SeasonName]      -- helper interno para UPDATEs de TariffCategory/CountryOfOrigin
+        ,[OrderID]              = AF.[OrderID]
+        ,[StyleNumber]          = AF.[StyleNumber]
+        ,[StyleColor]           = AF.[StyleColor]
+        ,[Size]                 = AF.[Size]
+        ,[BasePrice]            = AF.[BasePrice]
+        ,[TotalDecoration]      = AF.[Price] - AF.[BasePrice] - AF.[OutboundFreight]
+        ,[UnitPrice]            = AF.[Price]
+        ,[StyleOption]          = AF.[StyleOptionName]
+        ,[Quantity]             = AF.[Qty]
+        ,[FOBTotal]             = AF.[Total$] - ((AF.[Price]  - AF.[OutboundFreight]) * AF.[Qty]) 
+        -- ,[FOBTotal]         = IIF(AF.[ShipDate] >= '2025-11-21' AND AF.[Waybill] LIKE '%AIR%' AND CHARINDEX('FG', AF.[SeasonName]) > 0
+        --                          ,AF.[Total$] - (AF.[Qty] * 0.64)
+        --                          ,AF.[Total$] - (AF.[Qty] * 0.25))
+        ,[NorthBoundFreight]    = AF.[Price_AirFreight] + AF.[Price_OceanFreight]
+        ,[InlandFreight]        = AF.[InlandFreight]
+        ,[OutboundFreight]      = AF.[OutboundFreight]
+        ,[InboundFreight]       = AF.[InboundFreight]
+        ,[ShipTo Port]          = COALESCE(AF.[ShipTo],AF.[PuertoDestino])
         ----Campos calculados por UPDATE A
-        ,[TariffCategory]   = CAST(NULL AS NVARCHAR(50))
-        ,[CountryOfOrigin]  = AF.[CountryOfOrigin]
+        ,[TariffCategory]       = CAST(NULL AS NVARCHAR(50))
+        ,[CountryOfOrigin]      = AF.[CountryOfOrigin]
         ----Campos calculados por UPDATE B
-        ,[MO]               = CAST(NULL AS NVARCHAR(100))
-        ,[US_HTSCode]       = CAST(NULL AS NVARCHAR(50))
-        ,[ProductDivision]  = CAST(NULL AS NVARCHAR(100))
+        ,[MO]                   = CAST(NULL AS NVARCHAR(100))
+        ,[US_HTSCode]           = CAST(NULL AS NVARCHAR(50))
+        ,[ProductDivision]      = CAST(NULL AS NVARCHAR(100))
         ----Campos calculados por UPDATE C
-        ,[Entry #]          = CAST(NULL AS NVARCHAR(100))
-        ,[EntryDate]        = CAST(NULL AS DATE)
-        ,[ExportDate]       = CAST(NULL AS DATE)
-        ,[TypeExport]       = CAST(NULL AS NVARCHAR(50))
+        ,[Entry #]              = CAST(NULL AS NVARCHAR(100))
+        ,[EntryDate]            = CAST(NULL AS DATE)
+        ,[ExportDate]           = CAST(NULL AS DATE)
+        ,[TypeExport]           = CAST(NULL AS NVARCHAR(50))
         ----Campos calculados por UPDATE D (tarifas)
-        ,[301China_%]       = CAST(NULL AS DECIMAL(18,6))
-        ,[Fenta_%]          = CAST(NULL AS DECIMAL(18,6))
-        ,[Recip_%]          = CAST(NULL AS DECIMAL(18,6))
-        ,[Tariff122_%]      = CAST(NULL AS DECIMAL(18,6))
-        ,[Tariff301_%]      = CAST(NULL AS DECIMAL(18,6))
-        ,[HTS_%]            = CAST(NULL AS DECIMAL(18,6))
-        ,[HTS_Spec_%]       = CAST(NULL AS DECIMAL(18,6))
-        ,[MPF_%]            = CAST(NULL AS DECIMAL(18,6))
-        ,[HMF_%]            = CAST(NULL AS DECIMAL(18,5))
-        ,[301China_Tariff]  = CAST(NULL AS DECIMAL(18,4))
-        ,[Fenta_Tariff]     = CAST(NULL AS DECIMAL(18,4))
-        ,[Recip_Tariff]     = CAST(NULL AS DECIMAL(18,4))
-        ,[HTS_Tariff]       = CAST(NULL AS DECIMAL(18,4))
-        ,[Tariff122_Tariff] = CAST(NULL AS DECIMAL(18,4))
-        ,[Tariff301_Tariff] = CAST(NULL AS DECIMAL(18,4))
-        ,[MPF_Tariff]       = CAST(NULL AS DECIMAL(18,4))
-        ,[HMF_Tariff]       = CAST(NULL AS DECIMAL(18,4))
-        ,[TotalTariff]      = CAST(NULL AS DECIMAL(18,4))
+        ,[301China_%]           = CAST(NULL AS DECIMAL(18,6))
+        ,[Fenta_%]              = CAST(NULL AS DECIMAL(18,6))
+        ,[Recip_%]              = CAST(NULL AS DECIMAL(18,6))
+        ,[Tariff122_%]          = CAST(NULL AS DECIMAL(18,6))
+        ,[Tariff301_%]          = CAST(NULL AS DECIMAL(18,6))
+        ,[HTS_%]                = CAST(NULL AS DECIMAL(18,6))
+        ,[HTS_Spec_%]           = CAST(NULL AS DECIMAL(18,6))
+        ,[MPF_%]                = CAST(NULL AS DECIMAL(18,6))
+        ,[HMF_%]                = CAST(NULL AS DECIMAL(18,5))
+        ,[301China_Tariff]      = CAST(NULL AS DECIMAL(18,4))
+        ,[Fenta_Tariff]         = CAST(NULL AS DECIMAL(18,4))
+        ,[Recip_Tariff]         = CAST(NULL AS DECIMAL(18,4))
+        ,[HTS_Tariff]           = CAST(NULL AS DECIMAL(18,4))
+        ,[Tariff122_Tariff]     = CAST(NULL AS DECIMAL(18,4))
+        ,[Tariff301_Tariff]     = CAST(NULL AS DECIMAL(18,4))
+        ,[MPF_Tariff]           = CAST(NULL AS DECIMAL(18,4))
+        ,[HMF_Tariff]           = CAST(NULL AS DECIMAL(18,4))
+        ,[TotalTariff]          = CAST(NULL AS DECIMAL(18,4))
         ----Campos calculados por UPDATE B (estilo en blanco y StyleID)
-        ,[BlankStyle]       = CAST(NULL AS NVARCHAR(100))
-        ,[StyleID]          = CAST(NULL AS INT)
+        ,[BlankStyle]           = CAST(NULL AS NVARCHAR(100))
+        ,[StyleID]              = CAST(NULL AS INT)
         ----Helpers internos para UPDATE A (keys de busqueda en #TB_FAMO_SUMMARY)
-        ,[Key1]             = CAST(NULL AS NVARCHAR(200))
-        ,[Key2]             = CAST(NULL AS NVARCHAR(200))
-        ,[Key3]             = CAST(NULL AS NVARCHAR(200))
+        ,[Key1]                 = CAST(NULL AS NVARCHAR(200))
+        ,[Key2]                 = CAST(NULL AS NVARCHAR(200))
+        ,[Key3]                 = CAST(NULL AS NVARCHAR(200))
     INTO #TB_Bill
     FROM #TB_Prices AS CP
     INNER JOIN AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH (NOLOCK)
@@ -648,10 +649,11 @@ BEGIN
     PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] Paso 5: Construyendo resultado final...';
     -----------------------------------------------------------------------------------------
     -- TRUNCATE TABLE AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs;
+
     DELETE FROM AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs WHERE Waybill = @Waybill
     INSERT INTO AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs
     (
-         [IDExport]
+        [IDExport]
         ,[Size]
         ,[StyleColor]
         ,[Quantity]
@@ -683,6 +685,11 @@ BEGIN
         ,[TotalTariff]
         ,[Entry #]  
         ,[EntryDate]
+        ,[ShipToPort]
+        ,[InlandFreight]
+        ,[NorthBoundFreight]
+        ,[OutboundFreight]
+        ,[InboundFreight]
     )
 
     SELECT
@@ -700,7 +707,7 @@ BEGIN
         ,[Item #]                    = L2BInv.[InvItemID]
         ,[Blank_InvoicedPrice]       = CASE
                                            WHEN SCP.[ShipDate] < '2026-02-10' THEN AF.[BasePrice]
-                                           ELSE IIF(SCPD.[TotalBlank] <> AF.[BasePrice], AF.[BasePrice], SCPD.[TotalBlank])
+                                           ELSE SCPD.[TotalBlank]
                                        END
         ,[CustomerPO]                = OD.[CustomerPO_Calc]
         ,[StyleOption]               = AF.[StyleOption]
@@ -728,7 +735,13 @@ BEGIN
         ,[TotalTariff]               = AF.[TotalTariff]
         ,[Entry #]                   = AF.[Entry #]
         ,[EntryDate]                 = AF.[EntryDate]
+        ,[ShipTo Port]               = AF.[ShipTo Port]
+        ,[InlandFreight]             = AF.[InlandFreight]
+        ,[NorthBoundFreight]         = AF.[NorthBoundFreight]
+        ,[OutboundFreight]           = AF.[OutboundFreight]
+        ,[InboundFreight]            = AF.[InboundFreight]
         -- ,[TypeExport]                = AF.[TypeExport]
+    -- INTO AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs
     FROM #TB_Prices AS SCP
     INNER JOIN #TB_Bill AS AF
             ON SCP.[Waybill]  = AF.[Waybill]
@@ -747,3 +760,4 @@ BEGIN
 
     PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] SP finalizado.';
 END
+GO
