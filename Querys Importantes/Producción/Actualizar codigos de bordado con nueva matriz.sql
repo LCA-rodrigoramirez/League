@@ -162,7 +162,7 @@ INNER JOIN
 						WHEN AppliqueMaterial = 'Direct' AND Num_Applique = 0 THEN 
 							CASE 
 								WHEN [Location] LIKE 'Left Chest%' OR [Location] LIKE 'Right Chest%' 
-							OR [Location] LIKE '%Sleeve%' OR [Location] LIKE '%Leg%' OR [Location] LIKE '%HIP%' OR [Location] LIKE '%POCKET%' OR [Location] LIKE '%SHOULDER%' OR [Location] LIKE '%ADULT CENTER CHEST%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'S',CodeStitches)
+							OR [Location] LIKE '%Sleeve%' OR [Location] LIKE '%Leg%' OR [Location] LIKE '%HIP%' OR [Location] LIKE '%POCKET%' OR [Location] LIKE '%SHOULDER%' OR [Location] LIKE '%ADULT CENTER CHEST%' OR [Location] LIKE '%COLLAR%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'S',CodeStitches)
 						WHEN [Location] like '%Front%' or [Location] like '%Back%' or [Location] like '%Rear%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'L',CodeStitches)
 							END
 						WHEN AppliqueMaterial = 'Jersey' AND Num_Applique > 0 THEN CONCAT(CAST(Num_Applique as VARCHAR),CodeStitches)							
@@ -283,7 +283,7 @@ INNER JOIN
 						) AS App_Mat ON VVLA.ItemDetailID = App_Mat.ItemDetailID AND VVLA.[Location] = App_Mat.[Location]
 						LEFT JOIN [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial] AS LAM WITH(NOLOCK) ON VVLA.LogoStyle = LAM.LogoStyle
 						where (LogoStyleName NOT LIKE '%Screen Print%' AND LogoStyleName NOT LIKE '%Over Print%' AND LogoStyleName <> 'Sublimation' AND LogoStyleName NOT LIKE '%High Definition Print%' AND LogoStyleName <> 'Direct White Label') 
-						-- AND VVLA.ItemDetailID = 5534057
+						-- AND VVLA.ItemDetailID = 5974893
 						
 					) TB_Ini
 				
@@ -439,11 +439,11 @@ SELECT
 	,CE.StitchCount
 	,CE.LogoStyle
 -- UPDATE OD SET
-	-- Comments26 = CE.Codes
+-- 	Comments26 = 'MIS2'
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (5867977)
+WHERE ItemDetailID in (5974893,5974909,5974907)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
@@ -478,7 +478,7 @@ WHERE ItemDetailID = 5631957
 -- SELECT *
 -- FROM AppsLCA.legacycaps.VW_view_LCA_Applique VVLA WITH (NOLOCK)
 -- WHERE DesignNo = 'DTG069764'
---SELECT
---*
---FROM [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial]
---WHERE LogoStyle IN ('ELA','PX','MIS','CA','ELVE','MISL')
+SELECT
+*
+FROM [AppsLCA].[dbo].[PBI_EMB_LogoApliqueMaterial]
+WHERE LogoStyle IN ('SVO','EM')
