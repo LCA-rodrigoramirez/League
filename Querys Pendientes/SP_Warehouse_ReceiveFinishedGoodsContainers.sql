@@ -1721,6 +1721,8 @@ BEGIN
                                     Style: ' + TDF.[Style] + ' and Color: ' + TDF.[Color] + ' are not the same'
                                     WHEN [SKUNumber] IS NULL AND [PartNumber_RC] = [PartNumber_ST] THEN 'SKUNumber cannot be empty, please check SKU for
                                     Style: ' + TDF.[Style] + ', Color: ' + TDF.[Color] + ' and Size: ' + TDF.[Size]
+                                    WHEN [SKUNumber] IS NULL THEN 'SKUNumber cannot be empty please check SKU for
+                                    Style: ' + TDF.[Style] + ', Color: ' + TDF.[Color] + ' and Size: ' + TDF.[Size]
                                   END
             FROM #TB_DataFinal AS TDF
             LEFT JOIN #TB_BoxesCreated AS TBC ON TDF.[ManufactureID] = TBC.[ManufactureID] AND TDF.[Size] = TBC.[Size]
