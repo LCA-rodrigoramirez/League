@@ -518,9 +518,25 @@ BEGIN
         ,[Invoice]                                
     FROM #AnexoFacturacion ORDER BY ShipDate DESC
 
+    SELECT 
+     AF.*
+    ,SE.SeasonName AS SeasonMO
+    ,SE2.SeasonName AS SeasonRO
+    FROM #AnexoFacturacion AS AF
+    LEFT JOIN LCA.dbo.ManufactureOrders AS MO WITH(NOLOCK) ON AF.ManufactureID = MO.ManufactureID AND AF.SeasonName = 'EMB FG'
+    LEFT JOIN LCA.dbo.OrderItems        AS OI WITH(NOLOCK) ON MO.FirstOrderItemID = OI.OrderItemID
+    LEFT JOIN LCA.dbo.Styles            AS ST WITH(NOLOCK) ON OI.StyleID = ST.StyleID
+    LEFT JOIN LCA.dbo.Styles            AS BS WITH(NOLOCK) ON ST.BlankStyleID = BS.StyleID
+    LEFT JOIN LCA.dbo.Seasons           AS SE WITH(NOLOCK) ON BS.SeasonID = SE.SeasonID
+    LEFT JOIN LCA.dbo.ManufactureOrders AS MO2 WITH(NOLOCK) ON AF.RO_ID = MO2.ManufactureID
+    LEFT JOIN LCA.dbo.OrderItems        AS OI2 WITH(NOLOCK) ON MO2.FirstOrderItemID = OI2.OrderItemID
+    LEFT JOIN LCA.dbo.Styles            AS ST2 WITH(NOLOCK) ON OI2.StyleID = ST2.StyleID
+    LEFT JOIN LCA.dbo.Seasons           AS SE2 WITH(NOLOCK) ON ST2.SeasonID = SE2.SeasonID
+    WHERE SE.SeasonName <> SE2.SeasonName
+
 		
     SELECT 
-         S.ManufactureID
+         [ManufactureID]            = S.RO_ID
         ,[ManufactureCostID]	    = B.MO_A_ID
         ,[MOCost]				    = B.MO_A	
     INTO #TB_EORO_ChangeCost
@@ -537,15 +553,75 @@ BEGIN
                         
     ---Actualizacion de MOs que debe traer su costo. Por problema de cambio de manufactureID en Julio 2024
     UPDATE S SET
-         [ROID_Cost]	= B.ManufactureCostID
-        ,[RO_Cost]	    = B.MOCost	
+         [ROID_Cost]	= ISNULL(B.ManufactureCostID, S.RO_ID)
+        ,[RO_Cost]	    = ISNULL(B.MOCost	, S.RO)
     FROM		#AnexoFacturacion				AS S
-    INNER JOIN #TB_EORO_ChangeCost	AS B  ON B.[ManufactureID] = S.[ManufactureID]
+    LEFT JOIN #TB_EORO_ChangeCost	AS B  ON B.[ManufactureID] = S.[RO_ID]
     AND S.[ROID_Cost] IS NULL AND S.[SeasonName] = 'EMB FG'
 
+UPDATE AF SET
+    Receiving_Cost = A.CostoPonderado
+    ,Total_Receiving_Cost = A.CostoPonderado * Qty
+FROM #AnexoFacturacion AS AF
+INNER JOIN
+(
+    select 
+        sum(PurchaseOrderUnitPrice * iif(Consumption is null or Consumption=0,1,Consumption )) / 
+        iif(sum(iif(Consumption is null or Consumption=0,1,Consumption ))=0,1,
+        sum(iif(Consumption is null or Consumption=0,1,Consumption )))
+            as CostoPonderado, ManufactureID
+        from appslca.dbo.TB_MO_PartNumber_IM with (nolock)
+        --where mo='TO0315O82176-HWTROH' and category='Contracts'
+        where  category in ('Contracts','Fabric')
+        group by ManufactureID
+) AS A ON AF.ROID_Cost = A.ManufactureID
+AND AF.ManufactureID IN
+(
+    978873
+,978875
+,978885
+,978889
+,978891
+,978897
+,978899
+,978902
+,978904
+,980251
+,940639
+,940645
+,947243
+,947244
+,947245
+,947246
+,947267
+,947507
+,947594
+,947599
+,947601
+,947603
+,947626
+,948912
+,948918
+,949077
+,949082
+,949461
+,949464
+,954124
+,954128
+,954132
+,954139
+,1018361
+,956406
+,956411
+,959418
+,962904
 
-	SELECT 
-     AF.Waybill
+) --AND AF.ManufactureID = 978897
+
+return
+
+SELECT 
+    AF.Waybill
     ,af.ShipDate
     ,AF.MO
     ,AF.ManufactureID 
@@ -556,10 +632,56 @@ BEGIN
     ,AF.ID
     ,AF.RO_Cost
     ,AF.ROID_Cost
-  FROM #AnexoFacturacion AS AF WITH(NOLOCK)
-  WHERE ManufactureID = 978897 AND MONTH(ShipDate) = 7
+    ,AF.Receiving_Cost + af.UnitFreightCost_Ponderado
+    ,Qty
+    ,(AF.Receiving_Cost + af.UnitFreightCost_Ponderado) * Qty AS TotalReceiving
+FROM #AnexoFacturacion AS AF WITH(NOLOCK)
+WHERE MONTH(ShipDate) = 7 AND ManufactureID = 978897
 
-  
+SELECT 
+    AF.Waybill
+    ,af.ShipDate
+    ,AF.MO
+    ,AF.ManufactureID 
+    ,AF.RO
+    ,AF.RO_ID
+    ,[Size]
+    ,AF.BoxNumber
+    ,AF.ID
+    -- ,AF.RO_Cost
+    -- ,AF.ROID_Cost
+    ,AF.Receiving_Cost 
+    ,Qty
+    -- ,(AF.Receiving_Cost + af.UnitFreightCost_Ponderado) * Qty AS TotalReceiving
+FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH(NOLOCK)
+WHERE MONTH(ShipDate) = 7 AND ManufactureID = 978897
+
+SELECT
+    SUM((AF.Receiving_Cost + af.UnitFreightCost_Ponderado) * Qty) AS TotalReceiving
+FROM #AnexoFacturacion AS AF WITH(NOLOCK)
+WHERE MONTH(ShipDate) = 7
 
 
+ select 
+        sum(PurchaseOrderUnitPrice * iif(Consumption is null or Consumption=0,1,Consumption )) / 
+        iif(sum(iif(Consumption is null or Consumption=0,1,Consumption ))=0,1,
+        sum(iif(Consumption is null or Consumption=0,1,Consumption )))
+            as CostoPonderado, ManufactureID
+        from appslca.dbo.TB_MO_PartNumber_IM with (nolock)
+        --where mo='TO0315O82176-HWTROH' and category='Contracts'
+        where  category in ('Contracts','Fabric') AND ManufactureID = 978897
+        group by ManufactureID
+
+select *         from appslca.dbo.TB_MO_PartNumber_IM with (nolock)
+        --where mo='TO0315O82176-HWTROH' and category='Contracts'
+        where  category in ('Contracts','Fabric') AND ManufactureID = 978897
+
+        select *         from appslca.dbo.TB_MO_PartNumber_IM_Materials with (nolock)
+        --where mo='TO0315O82176-HWTROH' and category='Contracts'
+        where ManufactureID = 978897
+
+-- select
+-- *
+-- into AppsLCA.dbo.ImportExport_AnexoFacturacion_NewReceivingCost
+-- from #AnexoFacturacion
 END
