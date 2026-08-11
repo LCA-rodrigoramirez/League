@@ -162,7 +162,8 @@ INNER JOIN
 						WHEN AppliqueMaterial = 'Direct' AND Num_Applique = 0 THEN 
 							CASE 
 								WHEN [Location] LIKE 'Left Chest%' OR [Location] LIKE 'Right Chest%' 
-							OR [Location] LIKE '%Sleeve%' OR [Location] LIKE '%Leg%' OR [Location] LIKE '%HIP%' OR [Location] LIKE '%POCKET%' OR [Location] LIKE '%SHOULDER%' OR [Location] LIKE '%ADULT CENTER CHEST%' OR [Location] LIKE '%COLLAR%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'S',CodeStitches)
+							OR [Location] LIKE '%Sleeve%' OR [Location] LIKE '%Leg%' OR [Location] LIKE '%HIP%' OR [Location] LIKE '%POCKET%' OR [Location] LIKE '%SHOULDER%'
+							OR [Location] LIKE '%ADULT CENTER CHEST%' OR [Location] LIKE '%COLLAR%' OR [Location] LIKE '%Cuff%' OR [Location] LIKE '%Back Neck%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'S',CodeStitches)
 						WHEN [Location] like '%Front%' or [Location] like '%Back%' or [Location] like '%Rear%' THEN CONCAT(CAST(Num_Applique as VARCHAR),'L',CodeStitches)
 							END
 						WHEN AppliqueMaterial = 'Jersey' AND Num_Applique > 0 THEN CONCAT(CAST(Num_Applique as VARCHAR),CodeStitches)							
@@ -438,12 +439,13 @@ SELECT
 	,CE.Codes
 	,CE.StitchCount
 	,CE.LogoStyle
+	,CE.[Location]
 -- UPDATE OD SET
 -- 	Comments26 = 'MIS2'
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (5974893,5974909,5974907)
+WHERE ItemDetailID in (6000911)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
