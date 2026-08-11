@@ -46,7 +46,12 @@ BEGIN
                 ,el.htsus
                 ,CAST(line_num as INT) as line_num
                 ,CAST(NULL as INT) as [line]
-                ,COALESCE(tc.Tarifa,'HTS') AS Tarifa
+                ,CASE
+                    WHEN [description] = 'COTTON FEE' THEN 'Cotton Fee'
+                    WHEN [description] = 'MERCHANDISE PROCESSING FEE' THEN 'MPF'
+                    WHEN [description] = 'HARBOR MAINTENANCE FEE' THEN 'HMF'
+                    ELSE COALESCE(tc.Tarifa,'HTS')
+                 END AS Tarifa
                 ,el.[description]
                 ,el.rate
                 ,ed.entry_number
@@ -79,6 +84,12 @@ BEGIN
                 ,CAST(ed.entry_date AS DATE)
                 -- ,el.entered_value
             ORDER BY invoice
+
+            -- select * from #TB_Entry_Kelly where invoice = 'APP-20260608.NC'
+
+            -- select * from AppsLCA.dbo.entry_invoices WHERE invoice_code LIKE '%APP-20260608.NC%'
+            -- SELECT * FROM AppsLCA.dbo.entry_lines WHERE invoice_id = 148
+            -- return
         
         -------------------------------------------------------------------------------------------------------------------------------------------------------
         -- 2.1. Llenando tabla general obteniendo Entry, Invoice, clasificación de tarifas y valores ingresados por KGL
@@ -94,11 +105,20 @@ BEGIN
             INNER JOIN
             (
                 SELECT
-                    [invoice]  = [invoice]
-                    ,[line_num] = [line_num]
-                    ,[line]     = ROW_NUMBER() OVER(PARTITION BY [invoice] ORDER BY [invoice], [line_num])
-                FROM #TB_Entry_Kelly
-                WHERE Tarifa = 'HTS'
+                *
+                ,[line]     = ROW_NUMBER() OVER(PARTITION BY [invoice] ORDER BY [invoice], [line_num])
+                FROM
+                (
+                    SELECT
+                        [invoice]   = [invoice]
+                        ,[line_num] = [line_num]
+                    FROM #TB_Entry_Kelly
+                    WHERE Tarifa IN ('HTS','Cotton Fee')
+                    AND line_num IS NOT NULL
+                    GROUP BY
+                         [invoice]
+                        ,[line_num]
+                ) AS A
             ) AS LI ON TEK.[invoice] = LI.[invoice] AND TEK.[line_num] = LI.[line_num]
 
         -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -117,6 +137,8 @@ BEGIN
                 ,[Reciprocal]
                 ,[Fentanylo]
                 ,[HTS]
+                ,[Cotton Fee]
+                ,[MPF]
             INTO #PIV_EntryKelly
             FROM
             (
@@ -127,11 +149,11 @@ BEGIN
             PIVOT
             (
                 SUM(Duty_Entry)
-                FOR Tarifa IN ([Tariff 122], [301 China], [Reciprocal], [Fentanylo], [HTS])
+                FOR Tarifa IN ([Tariff 122], [301 China], [Reciprocal], [Fentanylo], [HTS], [Cotton Fee], [MPF])
             ) AS pivote;
 
-            SELECT * FROM #PIV_EntryKelly WHERE invoice = 'APP-20260529.NC'
-            RETURN
+            -- SELECT * FROM #PIV_EntryKelly WHERE invoice = 'APP-20260608.NC'
+            -- RETURN
         -------------------------------------------------------------------------------------------------------------------------------------------------------
         -- 2.3. Creacion de Pivote por cada tarifa distinta que tenemos hasta el momento (122, 301 China, Recip, Fenta y HTS)
         -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -258,11 +280,15 @@ BEGIN
                 ,[Calc_Rate_Reciprocal] = CAST(0 AS DECIMAL(18,4))
                 ,[Calc_Rate_Fentanylo]  = CAST(0 AS DECIMAL(18,4))
                 ,[Calc_Rate_HTS]        = CAST(0 AS DECIMAL(18,4))
-                ,[$_KGLTariff122]       = CAST(0 AS DECIMAL(18,2))
-                ,[$_KGL301China]        = CAST(0 AS DECIMAL(18,2))
-                ,[$_KGLReciprocal]      = CAST(0 AS DECIMAL(18,2))
-                ,[$_KGLFentanylo]       = CAST(0 AS DECIMAL(18,2))
-                ,[$_KGLHTS]             = CAST(0 AS DECIMAL(18,2))
+                ,[Calc_Rate_CottonFee]  = CAST(0 AS DECIMAL(18,7))
+                ,[Calc_Rate_MPF]        = CAST(0 AS DECIMAL(18,6))
+                ,[$_KGLTariff122]       = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGL301China]        = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGLReciprocal]      = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGLFentanylo]       = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGLHTS]             = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGLCottonFee]       = CAST(0 AS DECIMAL(18,4))
+                ,[$_KGLMPF]             = CAST(0 AS DECIMAL(18,4))
             INTO #TB_Units_Invoiced
             FROM (SELECT DISTINCT Waybill  FROM #TB_CommercialInvoice) AS CI
             INNER JOIN [AppsLCA].[legacycaps].[TB_L2Brands_Units_Invoiced_WithTariffs] AS IWT WITH(NOLOCK) ON CI.[Waybill] = IWT.[Waybill]
@@ -446,6 +472,9 @@ BEGIN
                     ,[Calc_Rate_301China]  = IIF(A.[CountryOfOrigin] = 'China',ISNULL(B.[301 China], 0.0000) / C.[QuantityChina],0.0000)
                     ,[Calc_Rate_Reciprocal] = ISNULL(B.[Reciprocal],0.0000) / C.[Quantity]
                     ,[Calc_Rate_Fentanylo]  = IIF(A.[CountryOfOrigin] = 'China',ISNULL(B.[Fentanylo], 0.0000) / C.[QuantityChina],0.0000)
+                    -- ,[Calc_Rate_CottonFee]  = ISNULL(B.[Cotton Fee],0.0000) / C.[Quantity]
+                    ,[Calc_Rate_MPF]        = IIF(A.[TariffCategory] = 'NO CAFTA',ISNULL(B.[MPF],0.0000) / C.[Quantity], 0)
+                    -- ,[Calc_Rate_MPF]        = IIF(A.[TariffCategory] = 'NO CAFTA',0.003464, 0)
                 FROM #TB_Units_Invoiced AS A
                 INNER JOIN
                 (
@@ -455,6 +484,8 @@ BEGIN
                         ,[301 China]    = SUM([301 China])
                         ,[Reciprocal]   = SUM([Reciprocal])
                         ,[Fentanylo]    = SUM([Fentanylo])
+                        -- ,[Cotton Fee]   = SUM([Cotton Fee])
+                        ,[MPF]          = SUM([MPF])
                     FROM #PIV_EntryKelly 
                     GROUP BY
                         invoice
@@ -486,7 +517,9 @@ BEGIN
 
                 UPDATE A SET
                 -- select *,
-                    [Calc_Rate_HTS] = ISNULL(B.[HTS],0.0000) / C.[Quantity]
+                     [Calc_Rate_HTS] = ISNULL(B.[HTS],0.0000) / C.[Quantity]
+                    ,[Calc_Rate_CottonFee] = ISNULL(B.[Cotton Fee],0.0000) / C.[Quantity]
+                    -- ,(ISNULL(B.[Cotton Fee],0.0000) / C.[Quantity]) * A.Quantity
                 FROM #TB_Units_Invoiced AS A
                 INNER JOIN
                 (
@@ -494,7 +527,9 @@ BEGIN
                         invoice        = invoice
                         ,line_num       = [line]
                         ,[HTS]          = SUM([HTS])
+                        ,[Cotton Fee]   = SUM([Cotton Fee])
                     FROM #PIV_EntryKelly 
+                    -- WHERE invoice = 'AIR-APP-20260504.C'
                     GROUP BY
                         invoice
                         ,[line]
@@ -508,7 +543,7 @@ BEGIN
                         ,SUM(Quantity) AS Quantity
                         ,ROUND(SUM(CASE WHEN TariffCategory = 'NO CAFTA RULE 9802' THEN (Decoration_Invoiced_Price * Quantity) ELSE FOBTotal END),0) AS Entered_Value
                     FROM #TB_Units_Invoiced 
-                    -- WHERE DocumentID = 'AIR-APP-20260513.9802'
+                    -- WHERE DocumentID = 'AIR-APP-20260504.C'
                     GROUP BY
                         DocumentID
                         -- ,US_HTSCode
@@ -538,6 +573,8 @@ BEGIN
                     ,[$_KGLReciprocal]  = [Quantity] * COALESCE([Calc_Rate_Reciprocal],0.00)
                     ,[$_KGLFentanylo]   = [Quantity] * COALESCE([Calc_Rate_Fentanylo],0.00)
                     ,[$_KGLHTS]         = [Quantity] * COALESCE([Calc_Rate_HTS],0.00)
+                    ,[$_KGLCottonFee]   = [Quantity] * COALESCE([Calc_Rate_CottonFee],0.00)
+                    ,[$_KGLMPF]         = [Quantity] * COALESCE([Calc_Rate_MPF],0.00)
                 FROM #TB_Units_Invoiced AS TC
 
             -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -560,68 +597,83 @@ BEGIN
         -------------------------------------------------------------------------------------------------------------------------------------------------------
 
             
-            -- SELECT
-            --     CI.[DocumentID]
-            --     ,ek.[invoice]
-            --     ,CI.[$_Calc_Tariff122]
-            --     ,CI.[Tariff122_Estimated]
-            --     ,ISNULL(EK.[Tariff 122],0) AS [Tariff 122]
-            --     ,CI.[$_Calc_301China]
-            --     ,CI.[301China_Estimated]
-            --     ,ISNULL(EK.[301 China],0) AS [301 China]
-            --     ,CI.[$_Calc_Reciprocal]
-            --     ,CI.[Reciprocal_Estimated]
-            --     ,ISNULL(EK.[Reciprocal],0) AS [Reciprocal]
-            --     ,CI.[$_Calc_Fentanylo]
-            --     ,CI.[Fentanylo_Estimated]
-            --     ,ISNULL(EK.[Fentanylo],0) AS [Fentanylo]
-            --     ,CI.[$_Calc_HTS]
-            --     ,CI.[HTS_Estimated]
-            --     ,ISNULL(EK.[HTS],0) AS [HTS]
-            --     -- ,CI.[$_Calc_Tariff122] - ISNULL(EK.[Tariff 122],0) diff_122_CalcVSReal
-            --     -- ,CI.[$_Calc_301China] - ISNULL(EK.[301 China],0) diff_301_CalcVSReal
-            --     ,CI.[Tariff122_Estimated] - ISNULL(EK.[Tariff 122],0) diff_122_EstimVSReal
-            --     ,CI.[301China_Estimated] - ISNULL(EK.[301 China],0) diff_301_EstimVSReal
-            --     ,CI.[Reciprocal_Estimated] - ISNULL(EK.[Reciprocal],0) diff_Recip_EstimVSReal
-            --     ,CI.[Fentanylo_Estimated] - ISNULL(EK.[Fentanylo],0) diff_Fenta_EstimVSReal
-            --     ,CI.[$_Calc_HTS] - ISNULL(EK.[HTS],0) diff_hts_EstimVSReal
-            -- FROM
-            -- (
-            --     SELECT 
-            --         [DocumentID]
-            --         ,[TotalFobValue]        = SUM(IIF(TariffCategory = 'NO CAFTA RULE 9802', (Decoration_Invoiced_Price * Quantity), FOBTotal)) 
-            --         ,[$_Calc_Tariff122]     = SUM([$_KGLTariff122])
-            --         ,[$_Calc_301China]      = SUM([$_KGL301China])
-            --         ,[$_Calc_Reciprocal]    = SUM([$_KGLReciprocal])
-            --         ,[$_Calc_Fentanylo]     = SUM([$_KGLFentanylo])
-            --         ,[$_Calc_HTS]           = SUM([$_KGLHTS])
-            --         ,[Tariff122_Estimated]  = SUM([Tariff122_Tariff])
-            --         ,[301China_Estimated]   = SUM([301China_Tariff])
-            --         ,[Reciprocal_Estimated] = SUM([Recip_Tariff])
-            --         ,[Fentanylo_Estimated]  = SUM([Fenta_Tariff])
-            --         ,[HTS_Estimated]        = SUM([HTS_Tariff])
-            --     FROM #TB_Units_Invoiced AS CI
-            --     -- WHERE DocumentID = 'HW-20260608.NC'
-            --     GROUP BY
-            --         [DocumentID]
-            -- ) AS CI
-            -- FULL JOIN 
-            -- (
-            --     SELECT
-            --         [invoice]      = [invoice]
-            --         ,[Tariff 122]   = SUM([Tariff 122])
-            --         ,[301 China]    = SUM([301 China])
-            --         ,[Reciprocal]   = SUM([Reciprocal])
-            --         ,[Fentanylo]    = SUM([Fentanylo])
-            --         ,[HTS]          = SUM([HTS])
-            --     FROM #PIV_EntryKelly
-            --     GROUP BY
-            --         [invoice]
-            -- ) AS EK ON CI.[DocumentID] = EK.[invoice]
-            -- WHERE ci.[DocumentID] IS NOT NULL
-            -- ORDER BY [DocumentID]
+            SELECT
+                CI.[DocumentID]
+                ,ek.[invoice]
+                ,CI.[$_Calc_Tariff122]
+                ,CI.[Tariff122_Estimated]
+                ,ISNULL(EK.[Tariff 122],0) AS [Tariff 122]
+                ,CI.[$_Calc_301China]
+                ,CI.[301China_Estimated]
+                ,ISNULL(EK.[301 China],0) AS [301 China]
+                ,CI.[$_Calc_Reciprocal]
+                ,CI.[Reciprocal_Estimated]
+                ,ISNULL(EK.[Reciprocal],0) AS [Reciprocal]
+                ,CI.[$_Calc_Fentanylo]
+                ,CI.[Fentanylo_Estimated]
+                ,ISNULL(EK.[Fentanylo],0) AS [Fentanylo]
+                ,CI.[$_Calc_HTS]
+                ,CI.[HTS_Estimated]
+                ,ISNULL(EK.[HTS],0) AS [HTS]
+                ,CI.[$_Calc_MPF]
+                ,CI.[MPF_Estimated]
+                ,ISNULL(EK.[MPF],0) AS [MPF]
+                ,CI.[$_Calc_CottonFee]
+                ,CI.[CottonFee_Estimated]
+                ,ISNULL(EK.[Cotton Fee],0) AS [Cotton Fee]
+                -- ,CI.[$_Calc_Tariff122] - ISNULL(EK.[Tariff 122],0) diff_122_CalcVSReal
+                -- ,CI.[$_Calc_301China] - ISNULL(EK.[301 China],0) diff_301_CalcVSReal
+                ,CI.[Tariff122_Estimated] - ISNULL(EK.[Tariff 122],0) diff_122_EstimVSReal
+                ,CI.[301China_Estimated] - ISNULL(EK.[301 China],0) diff_301_EstimVSReal
+                ,CI.[Reciprocal_Estimated] - ISNULL(EK.[Reciprocal],0) diff_Recip_EstimVSReal
+                ,CI.[Fentanylo_Estimated] - ISNULL(EK.[Fentanylo],0) diff_Fenta_EstimVSReal
+                ,CI.[HTS_Estimated] - ISNULL(EK.[HTS],0) diff_hts_EstimVSReal
+                ,CI.[MPF_Estimated]- ISNULL(EK.[MPF],0) diff_mpf_EstimVSReal
+                ,CI.[CottonFee_Estimated]- ISNULL(EK.[Cotton Fee],0) diff_CF_EstimVSReal
+            FROM
+            (
+                SELECT 
+                    [DocumentID]
+                    ,[TotalFobValue]        = SUM(IIF(TariffCategory = 'NO CAFTA RULE 9802', (Decoration_Invoiced_Price * Quantity), FOBTotal)) 
+                    ,[$_Calc_Tariff122]     = SUM([$_KGLTariff122])
+                    ,[$_Calc_301China]      = SUM([$_KGL301China])
+                    ,[$_Calc_Reciprocal]    = SUM([$_KGLReciprocal])
+                    ,[$_Calc_Fentanylo]     = SUM([$_KGLFentanylo])
+                    ,[$_Calc_HTS]           = SUM([$_KGLHTS])
+                    ,[$_Calc_MPF]           = SUM([$_KGLMPF])
+                    ,[$_Calc_CottonFee]     = SUM([$_KGLCottonFee])
+                    ,[Tariff122_Estimated]  = SUM([Tariff122_Tariff])
+                    ,[301China_Estimated]   = SUM([301China_Tariff])
+                    ,[Reciprocal_Estimated] = SUM([Recip_Tariff])
+                    ,[Fentanylo_Estimated]  = SUM([Fenta_Tariff])
+                    ,[HTS_Estimated]        = SUM([HTS_Tariff])
+                    ,[MPF_Estimated]        = SUM([MPF_Tariff])
+                    ,[CottonFee_Estimated]  = SUM([CottonFee_Tariff])
+                FROM #TB_Units_Invoiced AS CI
+                -- WHERE DocumentID = 'HW-20260608.NC'
+                GROUP BY
+                    [DocumentID]
+            ) AS CI
+            FULL JOIN 
+            (
+                SELECT
+                    [invoice]      = [invoice]
+                    ,[Tariff 122]   = SUM([Tariff 122])
+                    ,[301 China]    = SUM([301 China])
+                    ,[Reciprocal]   = SUM([Reciprocal])
+                    ,[Fentanylo]    = SUM([Fentanylo])
+                    ,[HTS]          = SUM([HTS])
+                    ,[MPF]          = SUM([MPF])
+                    ,[Cotton Fee]   = SUM([Cotton Fee])
+                FROM #PIV_EntryKelly
+                GROUP BY
+                    [invoice]
+            ) AS EK ON CI.[DocumentID] = EK.[invoice]
+            WHERE ci.[DocumentID] IS NOT NULL
+            ORDER BY [DocumentID]
             
-
+            return
+        -- SELECT * FROM #TB_Entry_Kelly WHERE invoice = 'APP-20260519.9802'
         -------------------------------------------------------------------------------------------------------------------------------------------------------
         -- 5.1. Compartiva por Invoice
         -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -664,11 +716,13 @@ BEGIN
     -------------------------------------------------------------------------------------------------------------------------------------------------------
     -- 5. (Sección Comentada)!!!! Consultas para hacer comparativas por Línea y por Invoice para todas las tarifas
     -------------------------------------------------------------------------------------------------------------------------------------------------------
-
+-- SELECT * FROM #PIV_EntryKelly WHERE invoice in ('APP-20260521-1.C')
+-- SELECT * FROM #TB_Entry_Kelly WHERE invoice in ('APP-20260521-1.C') --AND line_num = 2
+-- SELECT * FROM #TB_Units_Invoiced WHERE DocumentID = 'AIR-APP-20260504.C' AND Line = 2
     -------------------------------------------------------------------------------------------------------------------------------------------------------
     -- 6. Update Final a [AppsLCA].[legacycaps].[TB_L2Brands_Units_Invoiced_WithTariffs] guardando Factor unitario de cada tarifa y el total
     -------------------------------------------------------------------------------------------------------------------------------------------------------
-
+return
         UPDATE UIW SET
              [Entry #]              = TUI.[Entry #] 
             ,[EntryDate]            = TUI.[EntryDate]
@@ -678,16 +732,22 @@ BEGIN
             ,[Rate_Reciprocal]      = TUI.[Calc_Rate_Reciprocal]
             ,[Rate_Fentanylo]       = TUI.[Calc_Rate_Fentanylo]
             ,[Rate_HTS]             = TUI.[Calc_Rate_HTS]
+            ,[Rate_MPF]             = TUI.[Calc_Rate_MPF]
+            ,[Rate_CottonFee]       = TUI.[Calc_Rate_CottonFee]
             ,[Real_Tariff122]       = TUI.[$_KGLTariff122]
             ,[Real_301China]        = TUI.[$_KGL301China]
             ,[Real_Reciprocal]      = TUI.[$_KGLReciprocal]
             ,[Real_Fentanylo]       = TUI.[$_KGLFentanylo]
             ,[Real_HTS]             = TUI.[$_KGLHTS]
+            ,[Real_MPF]             = TUI.[$_KGLMPF]
+            ,[Real_CottonFee]       = TUI.[$_KGLCottonFee]
             ,[Real_TotalTariffs]    = TUI.[$_KGLTariff122]
                                     + TUI.[$_KGL301China]
                                     + TUI.[$_KGLReciprocal]
                                     + TUI.[$_KGLFentanylo]
                                     + TUI.[$_KGLHTS]
+                                    + TUI.[$_KGLMPF]
+                                    + TUI.[$_KGLCottonFee]
         FROM #TB_Units_Invoiced AS TUI
         INNER JOIN [AppsLCA].[legacycaps].[TB_L2Brands_Units_Invoiced_WithTariffs] AS UIW ON TUI.[IDExport] = UIW.[IDExport]
         
