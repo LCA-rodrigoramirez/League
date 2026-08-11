@@ -88,6 +88,12 @@ BEGIN
         ,[FOBTotal]         = IIF(AF.[ShipDate] >= '2025-11-21' AND AF.[Waybill] LIKE '%AIR%' AND CHARINDEX('FG', AF.[SeasonName]) > 0
                                  ,AF.[Total$] - (AF.[Qty] * 0.64)
                                  ,AF.[Total$] - (AF.[Qty] * 0.25))
+        ,[NorthBoundFreight]    = AF.[Price_AirFreight] + AF.[Price_OceanFreight]
+        ,[InlandFreight]        = AF.[InlandFreight]
+        ,[OutboundFreight]      = AF.[OutboundFreight]
+        ,[InboundFreight]       = AF.[InboundFreight]
+        ,[ShipTo Port]          = COALESCE(AF.[ShipTo],AF.[PuertoDestino])
+        ,[Gross_Weight]         = AF.[Gross_Weight_kgs]
         ----Campos calculados por UPDATE A
         ,[TariffCategory]   = CAST(NULL AS NVARCHAR(50))
         ,[CountryOfOrigin]  = AF.[CountryOfOrigin]
@@ -591,6 +597,8 @@ BEGIN
                                                     WHEN [TariffCategory] = 'NO CAFTA RULE 9802' AND [Waybill] NOT LIKE '%AIR%' THEN (([TotalDecoration] + [BasePrice]) * Quantity)
                                                     WHEN [TariffCategory] = 'NO CAFTA'           AND [Waybill] NOT LIKE '%AIR%' THEN [FOBTotal]
                                               END
+
+        ,[CottonFee_Tariff] = [CottonFee_%] * [Gross_Weight]
     WHERE ExportDate >= '2025-12-12'
 
     UPDATE B SET
@@ -699,6 +707,11 @@ BEGIN
         ,[TotalTariff]
         ,[Entry #]  
         ,[EntryDate]
+        ,[ShipToPort]
+        ,[InlandFreight]
+        ,[NorthBoundFreight]
+        ,[OutboundFreight]
+        ,[InboundFreight]
     )
 
     SELECT
@@ -745,6 +758,11 @@ BEGIN
         ,[TotalTariff]               = AF.[TotalTariff]
         ,[Entry #]                   = AF.[Entry #]
         ,[EntryDate]                 = AF.[EntryDate]
+        ,[ShipTo Port]               = AF.[ShipTo Port]
+        ,[InlandFreight]             = AF.[InlandFreight]
+        ,[NorthBoundFreight]         = AF.[NorthBoundFreight]
+        ,[OutboundFreight]           = AF.[OutboundFreight]
+        ,[InboundFreight]            = AF.[InboundFreight]
         -- ,[TypeExport]                = AF.[TypeExport]
     FROM #TB_Prices AS SCP
     INNER JOIN #TB_Bill AS AF
