@@ -134,7 +134,7 @@ BEGIN
 
 -----------PRUEBA PARA CREAR CAJAS
     -- SET @process = 'create-boxes'
-    -- SET @data = '{"selectedOptions":[{"MO":"23626-CCW115-404-1","ManufactureID":1010218,"UsePONumber":"True"}]}'
+    -- SET @data = '{"selectedOptions":[{"MO":"22858-FLOW-C588","ManufactureID":840933,"UsePONumber":"False"}]}'
 
 -----------PRUEBA PARA CARGAR BINS CAJAS DE MO
     -- SET @process = 'boxes-list'
@@ -177,7 +177,7 @@ BEGIN
     --                 }]
     --              }'
 
-    BEGIN TRY
+    -- BEGIN TRY
 
         IF @process = 'category-items'
         BEGIN
@@ -1045,7 +1045,8 @@ BEGIN
                     WHERE Active = 1
                 ) AS L2  ON TUI.[InventoryID] = L2.[InvItemId]
             INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON TUI.[PONumber] = POD.[PONumber] 
-                                                                                         AND COALESCE(L2.[PartNumberLCA],TUI.[InventoryID]) = POD.[PartNumber]
+                                                                                         AND (COALESCE(L2.[PartNumberLCA],TUI.[InventoryID]) = POD.[PartNumber]
+                                                                                         OR TUI.[InventoryID] = POD.[PartNumber])
 
             UPDATE TUI SET
                  [MaxBoxID]      = COALESCE(BC.[IDCaja], 0) + TUI.[R]
@@ -1231,8 +1232,8 @@ BEGIN
             --SELECT *
             FROM #TB_MOs                                    AS TMO
             INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO  WITH(NOLOCK) ON MO.[ManufactureID] = TMO.[ManufactureID]
-            LEFT  JOIN [LCA].[dbo].[RawAllocations]         AS RA  WITH(NOLOCK) ON MO.[ManufactureID] = RA.[ManufactureID]  --- CAMBIAR A RAWALLOCATION DESPUES DEL DESARROLLO
-            LEFT  JOIN [LCA].[dbo].[RawAllocationHistory]   AS RAH WITH(NOLOCK) ON MO.[ManufactureID] = RAH.[ManufactureID]
+            LEFT  JOIN [LCA].[dbo].[RawAllocations]         AS RA  WITH(NOLOCK) ON MO.[ManufactureID] = RA.[ManufactureID] AND RA.[QuantityRequired] > 0  --- CAMBIAR A RAWALLOCATION DESPUES DEL DESARROLLO
+            LEFT  JOIN [LCA].[dbo].[RawAllocationHistory]   AS RAH WITH(NOLOCK) ON MO.[ManufactureID] = RAH.[ManufactureID] AND RAH.[QuantityRequired] > 0
             INNER JOIN [LCA].[dbo].[RawMaterials]           AS RM  WITH(NOLOCK) ON RA.[RawMaterialID] = RM.[RawMaterialID]
                                                                                  OR RAH.[RawMaterialID] = RM.[RawMaterialID]
             INNER JOIN [LCA].[dbo].[OrderItems]             AS OI  WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
@@ -1427,6 +1428,11 @@ BEGIN
                     AND POD.[PONumber] = TMC.[PO]
                 GROUP BY TMC.[ManufactureID]
             ) AS POD ON MCP.[ManufactureID] = POD.[ManufactureID]
+
+            UPDATE MCP SET
+                [CanPack] = 1
+            FROM #TB_MOCanPack AS MCP
+            WHERE ManufactureID = 1019677
 
             SET @result = (
                 SELECT
@@ -1676,7 +1682,7 @@ BEGIN
             INNER JOIN [LCA].[dbo].[RawContainers]      AS RC   WITH(NOLOCK) ON CT.[RawContainerID] = RC.[RawContainerID] AND RC.[RawMaterialID] = RT.[RawMaterialID]
             INNER JOIN [LCA].[dbo].[RawMaterials]       AS RMC  WITH(NOLOCK) ON RC.[RawMaterialID] = RMC.[RawMaterialID]
             INNER JOIN [LCA].[dbo].[OrderItems]         AS OI   WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
-            INNER JOIN [LCA].[dbo].[OrderDetails]       AS ODT  WITH(NOLOCK) ON ODT.[OrderItemID] = OI.[OrderItemID] AND ODT.GarmentSize = case when (len(RMC.PartNumber) - len(replace(RMC.PartNumber, '-', ''))) / len('-')=2
+            LEFT  JOIN [LCA].[dbo].[OrderDetails]       AS ODT  WITH(NOLOCK) ON ODT.[OrderItemID] = OI.[OrderItemID] AND ODT.GarmentSize = case when (len(RMC.PartNumber) - len(replace(RMC.PartNumber, '-', ''))) / len('-')=2
 									then substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,5)
 								when (len(RMC.PartNumber) - len(replace(RMC.PartNumber, '-', ''))) / len('-')=3
 									then  substring( substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,6) , charindex('-', substring(RMC.PartNumber,charindex('-',RMC.PartNumber,charindex('-',RMC.PartNumber)+1)+1,5) )+1,5  )
@@ -1704,6 +1710,25 @@ BEGIN
                 ,MO.[QuantityOrdered]
                 ,RMC.[PartNumber]
                 ,RMC.[RawMaterialID]
+            
+            UPDATE TDF SET
+                 [Size] = ODT.[GarmentSize]
+                ,[SKUNumber] = FG.[SKUNumber]
+            FROM #TB_DataFinal AS TDF
+            INNER JOIN [LCA].[dbo].[ManufactureOrders]  AS MO   WITH(NOLOCK) ON TDF.[ManufactureID] = MO.[ManufactureID]
+            INNER JOIN [LCA].[dbo].[Orders]             AS OD   WITH(NOLOCK) ON OD.[OrderID] = MO.[OrderID]
+            INNER JOIN [LCA].[dbo].[OrderDetails]       AS ODT  WITH(NOLOCK) ON ODT.[OrderID] = OD.[OrderID] AND ODT.GarmentSize = case when (len(TDF.[PartNumber_RC]) - len(replace(TDF.[PartNumber_RC], '-', ''))) / len('-')=2
+									then substring(TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC])+1)+1,5)
+								when (len(TDF.[PartNumber_RC]) - len(replace(TDF.[PartNumber_RC], '-', ''))) / len('-')=3
+									then  substring( substring(TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC])+1)+1,6) , charindex('-', substring(TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC],charindex('-',TDF.[PartNumber_RC])+1)+1,5) )+1,5  )
+								else ''
+								end AND ODT.[StyleID] = TDF.[StyleID] AND ODT.[StyleColorID] = TDF.[ColorID]
+            LEFT  JOIN [LCA].[dbo].[OrderItems]         AS OI   WITH(NOLOCK) ON ODT.[OrderItemID] = OI.[OrderItemID]
+            INNER JOIN [LCA].[dbo].[Styles]             AS ST   WITH(NOLOCK) ON OI.[StyleID] = ST.[StyleID]
+            INNER JOIN [LCA].[dbo].[StyleColors]        AS STC  WITH(NOLOCK) ON OI.[StyleColorID] = STC.[StyleColorID]
+            LEFT  JOIN [LCA].[dbo].[FinishedGoods]      AS FG   WITH(NOLOCK) ON ODT.[FinishedGoodsID] = FG.[FinishedGoodsID]
+            WHERE TDF.[Size] IS NULL
+
 
             UPDATE TDF SET
                  [RawMaterialID_ST] = RMS.[RawMaterialID]
@@ -2167,17 +2192,17 @@ BEGIN
 
         END
 
-    END TRY
-    BEGIN CATCH
+    -- END TRY
+    -- BEGIN CATCH
 
-        SET @Error = 1
-        SET @result = '[]'
-        SET @Component = '[404]'
-        SET @message = 'Error in Database'
+    --     SET @Error = 1
+    --     SET @result = '[]'
+    --     SET @Component = '[404]'
+    --     SET @message = 'Error in Database'
 
-        GOTO SELECTFINAL
+    --     GOTO SELECTFINAL
 
-    END CATCH
+    -- END CATCH
 
     SELECTFINAL:
 
