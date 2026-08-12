@@ -475,36 +475,99 @@ BEGIN
                 CREATE CLUSTERED INDEX IX_WB_FILTER ON #TB_Date_FILTER ([ShipDate])
 
 
-                -- Paso 2: Extraer SOLO las filas necesarias de la vista, sin JOIN todavía
+                -- Paso 2: Extraer los datos directamente de las tablas base (reemplaza la vista), filtrando por las fechas de #TB_Date_FILTER
                 SELECT
-                     [Waybill]
-                    -- ,[Barcode]
-                    ,[Skid]
-                    ,[ItemCode]
-                    ,[Style]
-                    ,[Color]
-                    ,[ColorGreatPlain]
-                    ,[Size]
-                    ,[Qty]
-                    ,[XX]
-                    ,[OrderNo]
-                    ,[L2Order]
-                    ,[Box]
-                    ,[Fact]
-                    ,[Gender]
-                    ,[Location]
-                    ,[Note]
-                    ,[TrackingNumber]
-                    ,[BoxNo]
-                    ,[ColorPolyPM]
-                    ,[Price]
-                    ,[TotalPrices]
-                    ,[InvoiceDate]
+                     [Waybill]            = sh.[WayBill]
+                    ,[Skid]               = COALESCE(gb.[Bin],'0')
+                    ,[ItemCode]           = CASE
+                                                WHEN L2B_LCA.InvItemNo IS NOT NULL THEN L2B_LCA.InvItemID
+                                                WHEN fg.[garmentsize] = 'XS'  THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'A' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = 'S'   THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'B' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = 'M'   THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'C' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = 'QTY' THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'C-M'
+                                                WHEN fg.[garmentsize] = 'L'   THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'D' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = 'XL'  THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'E' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = '2XL' THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'F' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = '3XL' THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'G' + '-' + fg.[garmentsize]
+                                                WHEN fg.[garmentsize] = '4XL' THEN sti.[stylenumber] + '-' + stc.[stylecolorname] + 'H' + '-' + fg.[garmentsize]
+                                            END
+                    ,[Style]              = sti.[stylenumber]
+                    ,[Color]              = stc.[StyleColorDescription]
+                    ,[ColorGreatPlain]    = stc.[stylecolorname]
+                    ,[Size]               = CASE WHEN fg.[garmentsize] = 'QTY' THEN 'M' ELSE fg.[garmentsize] END
+                    ,[Qty]                = pbi.[quantity]
+                    ,[XX]                 = ''
+                    ,[OrderNo]            = od.[ponumber]
+                    ,[L2Order]            = od.[Comments6]
+                    ,[Box]                = CAST(NULL AS INT)
+                    ,[Fact]               = RIGHT(inb.[invoicebatch],4)
+                    ,[Gender]             = hts.[ca_htsdescription]
+                    ,[Location]           = CASE
+                                                WHEN ddv2ot.[DropDownValue] = 'Miami, FL 33182' THEN 'Account'
+                                                WHEN ddv2ot.[DropDownValue] = 'Hanover' AND LEFT(od.[ponumber], 3) = 'ORD' THEN 'Printed to Hanover'
+                                                ELSE ddv2ot.[DropDownValue]
+                                            END
+                    ,[Note]               = ''
+                    ,[TrackingNumber]     = CASE
+                                                WHEN ddv2ot.[DropDownValue] = 'Miami, FL 33182' THEN pb.[BoxComments6]
+                                                WHEN ddv2ot.[DropDownValue] = 'Hanover' AND LEFT(od.[ponumber], 3) = 'ORD' THEN ''
+                                                ELSE ''
+                                            END
+                    ,[BoxNo]              = IIF(pp.[PalletTypeID] <> 1 AND pp.[PalletTypeID] IS NOT NULL AND bxt.[DropDownValue] IS NOT NULL
+                                                ,CONCAT('PPPA'+LTRIM(STR(pb.[packedpalletid]+1000000)),'-',RIGHT(bxt.[DropDownValue],3))
+                                                ,pb.[boxnumber]
+                                            )
+                    ,[ColorPolyPM]        = stc.[stylecolorname]
+                    ,[Price]              = CASE
+                                                WHEN SCPD.[id] IS NOT NULL	THEN (SCPD.[TotalBlank] + SCPD.[TotalDecoration])
+                                                ELSE oi2.[unitprice]
+                                            END
+                    ,[TotalPrices]        = CAST(pbi.[quantity] AS DECIMAL(10,2)) * CAST((
+                                                CASE
+                                                    WHEN SCPD.[id] IS NOT NULL	THEN (SCPD.[TotalBlank] + SCPD.[TotalDecoration])
+                                                    ELSE oi2.[unitprice]
+                                                END
+                                            ) AS DECIMAL(10,2))
+                    ,[InvoiceDate]        = sc.[ShipDate]
                 INTO #TB_PL_RAW
-                FROM [LCA].[dboReaders].[VW_ImpExp_ShippingPackingSlip] WITH(NOLOCK)
-                WHERE [InvoiceDate] IN (SELECT [ShipDate] FROM #TB_Date_FILTER)
+                FROM		LCA.dbo.packedboxes						AS pb	WITH(NOLOCK)
+                INNER JOIN	LCA.dbo.shipments						AS sh	WITH(NOLOCK)	ON pb.shipmentid			= sh.shipmentid
+                INNER JOIN	LCA.dbo.ShippingContainers				AS sc	WITH(NOLOCK)	ON sc.ShippingContainerID	= sh.ShippingContainerID
+                AND sc.ShipDate IN (SELECT [ShipDate] FROM #TB_Date_FILTER)
+                INNER JOIN	LCA.dbo.packeditems						AS pbi	WITH(NOLOCK)	ON pbi.packedboxid			= pb.packedboxid	AND pbi.quantity > 0
+                INNER JOIN	LCA.dbo.finishedgoods					AS fg	WITH(NOLOCK)	ON pbi.finishedgoodsid		= fg.finishedgoodsid
+                INNER JOIN	LCA.dbo.styles							AS sti	WITH(NOLOCK)	ON fg.styleid				= sti.styleid
+                LEFT JOIN	LCA.dbo.stylecolors						AS stc	WITH(NOLOCK)	ON fg.stylecolorid			= stc.stylecolorid
+                LEFT JOIN	LCA.dbo.htsstylecodes					AS hts	WITH(NOLOCK)	ON sti.htsstylecodeid		= hts.htsstylecodeid
+                LEFT JOIN	LCA.dbo.orders							AS od	WITH(NOLOCK)	ON pb.orderid				= od.orderid
+                LEFT JOIN	LCA.dbo.invoicebatches					AS inb	WITH(NOLOCK)	ON sh.invoicebatchid		= inb.invoicebatchid
+                LEFT JOIN	LCA.dbo.goodsbins						AS gb	WITH(NOLOCK)	ON pb.goodsbinid			= gb.goodsbinid
+                LEFT JOIN	LCA.dbo.packedpallets					AS pp	WITH(NOLOCK)	ON pb.packedpalletid		= pp.packedpalletid
+                LEFT JOIN	LCA.dbo.DropDownValues3					AS bxt	WITH(NOLOCK)	ON bxt.DropDownValueID		= pb.BoxTagID
+                LEFT JOIN	LCA.dbo.DropDownValues2					AS ddv2ot WITH(NOLOCK)	ON ddv2ot.DropDownValueID	= od.OrderTypeID3
+                LEFT JOIN	LCA.dbo.ManufactureOrders				AS MO	WITH(NOLOCK)	ON MO.ManufactureID			= pbi.ManufactureID
+                LEFT JOIN	LCA.dbo.orderdetails					AS odd	WITH(NOLOCK)	ON pbi.orderdetailsid		= odd.orderdetailsid
+                LEFT JOIN	LCA.dbo.orderitems						AS oi2	WITH(NOLOCK)	ON odd.orderitemid			= oi2.orderitemid
+                LEFT JOIN	LCA.dbo.orderitems						AS oi	WITH(NOLOCK)	ON oi.OrderItemID			= MO.FirstOrderItemID
+                LEFT JOIN	AppsLCA.dbo.TB_ShipmentCheckPricesDetail AS SCPD WITH(NOLOCK) ON oi.OrderItemID		= SCPD.OrderItemID
+                                                                                            AND pbi.ManufactureID	= SCPD.ManufactureID
+                                                                                            AND sh.WayBill			= SCPD.Waybill
+                LEFT JOIN	AppsLCA.legacycaps.VW_LCA_L2B_InventoryID AS L2B_LCA WITH(NOLOCK) ON sti.stylenumber	= L2B_LCA.style
+                                                                                            AND stc.stylecolorname	= L2B_LCA.Color
+                                                                                            AND fg.garmentsize		= L2B_LCA.SIZE
+                WHERE pb.statusid = 75			-- reemplaza el join a statusnames: BoxStatusName no se usa en el reporte
+                AND pb.orderid IS NOT NULL
 
                 CREATE CLUSTERED INDEX IX_PL_RAW ON #TB_PL_RAW ([Waybill])
+
+                -- Correlativo de Box por Waybill (misma lógica que SP_Shipping_PackingSlip)
+                ;WITH CTE_Box AS (
+                    SELECT
+                        [Box]
+                        ,[BoxCorrelativo] = DENSE_RANK() OVER (PARTITION BY [Waybill] ORDER BY [BoxNo])
+                    FROM #TB_PL_RAW
+                )
+                UPDATE CTE_Box SET [Box] = [BoxCorrelativo]
 
 
                 -- Paso 3: JOIN entre la vista ya materializada y #TB_ALL_SHIPMENTS
