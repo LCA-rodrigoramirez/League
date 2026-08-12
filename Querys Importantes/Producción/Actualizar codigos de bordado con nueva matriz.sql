@@ -203,7 +203,7 @@ INNER JOIN
 										WHEN StitchCount >= 30001 AND StitchCount <= 35000 THEN 'GJS'
 										WHEN StitchCount >= 35001 AND StitchCount <= 40000 THEN 'HJS'
 										WHEN StitchCount >= 40001 AND StitchCount <= 45000 THEN 'IJS'
-										WHEN StitchCount >= 45001 AND StitchCount <= 50000 THEN 'JJS'
+										WHEN StitchCount >= 45001 THEN 'JJS'
 									END
 								WHEN LAM.AppliqueMaterial = 'Canvas' THEN
 									CASE
@@ -445,7 +445,7 @@ SELECT
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (6000911)
+WHERE ItemDetailID in (6058114,6058120)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
