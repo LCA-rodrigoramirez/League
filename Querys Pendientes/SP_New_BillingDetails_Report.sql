@@ -5,7 +5,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
--- CREATE OR ALTER PROCEDURE [dbo].[SP_New_BillingDetails_Report]
+-- CREATE OR ALTER PROCEDURE [dbo].[SP_BillingDetails_Report]
 --     @process AS NVARCHAR(50)
 --     ,@data AS NVARCHAR(MAX)
 -- AS
