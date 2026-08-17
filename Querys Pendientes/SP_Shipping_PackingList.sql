@@ -351,6 +351,7 @@ BEGIN
             SET @messageData = (
                 SELECT
                     [Waybill]
+                    ,[Comment]
                     ,[Skid]
                     ,[ItemCode]
                     ,[Style]
@@ -375,11 +376,11 @@ BEGIN
                     ,[TotalPrices]  = SUM([TotalPrices])
                     ,[InvoiceDate]
                     ,[HasTracking]
-                    ,[Comment]
                 FROM #TB_PL_RAW
                 WHERE [Comment] <> ''
                 GROUP BY
                     [Waybill]
+                    ,[Comment]
                     ,[Skid]
                     ,[ItemCode]
                     ,[Style]
@@ -400,7 +401,6 @@ BEGIN
                     ,[Price]
                     ,[InvoiceDate]
                     ,[HasTracking]
-                    ,[Comment]
                 ORDER BY [InvoiceDate] DESC, [Waybill]
                 FOR JSON PATH, INCLUDE_NULL_VALUES
             )
