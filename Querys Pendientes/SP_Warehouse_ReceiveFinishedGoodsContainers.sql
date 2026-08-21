@@ -177,6 +177,21 @@ BEGIN
     --                 }]
     --              }'
 
+------------PRUEBA PARA TRAER LISTA DE PO
+
+    -- SET @process = 'PO-list'
+    -- SET @data = '[]'
+
+------------PRUEBA PARA VALIDAR PARTNUMBER DE PO Y MO
+
+    -- SET @process = 'partnumber-validate'
+    -- SET @data  = '{
+    --                 "selectedOptions":[
+    --                     {"PONumber":"LCA23069"},
+    --                     {"PONumber":"LCA23342"}
+    --                 ]
+    --             }'
+
     -- BEGIN TRY
 
         IF @process = 'category-items'
@@ -2187,6 +2202,302 @@ BEGIN
                 )
 
             END
+
+            GOTO SELECTFINAL
+
+        END
+
+        IF @process = 'PO-list'
+        BEGIN
+
+            SET @result = (
+
+                SELECT
+                    PO.[PurchaseID]
+                    ,PO.[PONumber]
+                FROM [LCA].[dbo].[PurchaseOrders] AS PO WITH(NOLOCK)
+                WHERE PO.[StatusID] = 83 AND YEAR(PO.[OrderDate]) = 2026
+                FOR JSON PATH
+            )
+
+            SET @Error = 0
+            SET @Component = '[200]'
+            SET @message = 'Datos generados correctamente'
+
+            GOTO SELECTFINAL
+
+        END
+
+        IF @process = 'partnumber-validate'
+        BEGIN
+            DROP TABLE IF EXISTS #TB_MO
+            DROP TABLE IF EXISTS #TB_PO_Details
+            DROP TABLE IF EXISTS #TempPOVal
+            DROP TABLE IF EXISTS #TB_MO_FIL
+            DROP TABLE IF EXISTS #TB_INV_UNIVERSE
+            DROP TABLE IF EXISTS #TB_INV_BATCH
+            DROP TABLE IF EXISTS #TB_RemoteInventory
+
+            SELECT
+                    [PO] = j.[PO]
+            INTO #TempPOVal
+            FROM OPENJSON(@data, '$.selectedOptions')
+            WITH (PO NVARCHAR(200) '$.PONumber') AS j;
+
+            CREATE TABLE #TB_MO_FIL (
+                [PO]                   VARCHAR(200)
+                ,[PurchaseID]           INT
+                ,[PONumber]             VARCHAR(200)
+                ,[ManufactureNumber]    VARCHAR(200)
+                ,[ManufactureID]        INT
+            )
+            INSERT INTO #TB_MO_FIL
+            SELECT
+                TPO.[PO]
+                ,PO.[PurchaseID]
+                ,OD.[PONumber]
+                ,MO.[ManufactureNumber]
+                ,MO.[ManufactureID]
+                --select *
+            FROM #TempPOVal                                 AS TPO
+            INNER JOIN [LCA].[dbo].[PurchaseOrders]         AS PO   WITH(NOLOCK) ON TPO.[PO] = PO.[PONumber]
+            INNER JOIN [LCA].[dbo].[Orders]                 AS OD WITH(NOLOCK) ON OD.[PONumber] LIKE '%' + IIF(CHARINDEX('-',TPO.[PO]) > 0,SUBSTRING(TPO.[PO],1,CHARINDEX('-',TPO.[PO])-1),TPO.[PO]) + '%'
+            INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO WITH(NOLOCK) ON OD.[OrderID] = MO.[OrderID] AND MO.[StatusID] < 90 --OR MO.ManufactureNumber = '23701-RVF400-632-3'
+            GROUP BY
+                TPO.[PO]
+                ,PO.[PurchaseID]
+                ,OD.[PONumber]
+                ,MO.[ManufactureNumber]
+                ,MO.[ManufactureID]
+
+            -- #TB_PO_Details ya no filtra ni resuelve InvItemNoL2 aqui: se necesita el universo
+            -- completo de Style/Color/Size (PO + MO) antes de tocar el linked server remoto.
+            SELECT
+                [PO]               = TPO.[PO]
+                ,[PurchaseID]       = PO.[PurchaseID]
+                ,[PurchaseDetailID] = PD.[PurchaseDetailID]
+                ,[PartNumber]       = RM.[PartNumber]
+                ,[Style]            = CAST(NULL AS VARCHAR(100))
+                ,[Color]            = CAST(NULL AS VARCHAR(100))
+                ,[Size]             = CAST(NULL AS VARCHAR(100))
+                ,[InvItemNoL2]      = CAST(NULL AS NVARCHAR(200))
+                ,[InvItemNoL2Val]   = CAST(NULL AS NVARCHAR(200))
+            INTO #TB_PO_Details
+            FROM #TempPOVal                             AS TPO
+            INNER JOIN [LCA].[dbo].[PurchaseOrders]     AS PO   WITH(NOLOCK) ON TPO.[PO] = PO.[PONumber]
+            INNER JOIN [LCA].[dbo].[PurchaseDetails]    AS PD   WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
+            INNER JOIN [LCA].[dbo].[RawMaterials]       AS RM   WITH(NOLOCK) ON PD.[RawMaterialID] = RM.[RawMaterialID]
+
+            UPDATE TPD SET
+                [Style] = case when charindex('-',TPD.PartNumber)>0
+                                                        then substring( TPD.PartNumber ,1, charindex('-',TPD.PartNumber)-1)
+                                                    else NULL end
+                ,[Color] = case when CHARINDEX('-', TPD.PartNumber, CHARINDEX('-', TPD.PartNumber) + 1) > 0
+                                                        then	substring(TPD.PartNumber,charindex('-',TPD.PartNumber)+1,
+                                                                charindex('-',TPD.PartNumber,charindex('-',TPD.PartNumber)+1) -
+                                                                len(substring(TPD.PartNumber,1, charindex('-',TPD.PartNumber)-1)) -2)
+                                                        else NULL
+                                                        end
+                ,[Size]  = SizeValue.[value]
+            FROM #TB_PO_Details AS TPD
+            LEFT JOIN (select  distinct * from (select  PurchaseDetailID,PartNumber, [value]
+                                                                            from  (select PurchaseDetailID, PartNumber from #TB_PO_Details AS TPO
+                                                                            ) abc234
+                                                                            cross apply string_split(PartNumber,'-')) abcrty
+                                                                            where [value] in (
+                                                                            '0X','1X','2T','2X','2XB','2XL','2XT','3T','3X','3XL','3XT','4T','4XB','4XL','4XT','5T','5XL','6T','3XB','6XL','7T',
+                                                                            '8T','ADJ','L','L/XL','L_XL','LT','LXL','M','ML','ONE','QTY','S','S/M','S_M','SM','XL','XLT','XS','XXL','YDS'
+                                                                            )
+                                                                            --where [value] in ('L_XL','L/XL',
+                                                                            -- '2XL','3XL','4XL','5XL','6XL','XXL','S_M','ADJ','S/M',
+                                                                            -- 'XS','XL','2T','3T','4T','5T','6T','7T','8T',
+                                                                            --'S','M','L')
+                                                                ) SizeValue ON TPD.[PurchaseDetailID] = SizeValue.[PurchaseDetailID]
+
+            -- Resolucion 1: el PartNumber ya es directamente un InvItemNo valido en AppsLCA
+            -- InvItemNo es numerico (bigint) en LCA_L2B_InventoryID, se castea a varchar para
+            -- poder compararlo contra PartNumber sin que SQL intente convertir PartNumber a bigint
+            UPDATE TPD SET
+                InvItemNoL2 = CAST(L2.[InvItemNo] AS NVARCHAR(200))
+            FROM #TB_PO_Details AS TPD
+            LEFT  JOIN AppsLCA.legacycaps.LCA_L2B_InventoryID AS L2 WITH(NOLOCK) ON TPD.[PartNumber] = CAST(L2.[InvItemNo] AS NVARCHAR(200))
+
+            -- Resolucion 2: por Style/Color/Size, solo para lo que la resolucion 1 no encontro
+            UPDATE TPD SET
+                InvItemNoL2 = CAST(L2.[InvItemNo] AS NVARCHAR(200))
+            FROM #TB_PO_Details AS TPD
+            LEFT  JOIN AppsLCA.legacycaps.LCA_L2B_InventoryID AS L2 WITH(NOLOCK) ON TPD.[Style] = L2.[Style] AND TPD.[Color] = L2.[Color] AND TPD.[Size] = L2.[GarmentSize]
+            WHERE TPD.[InvItemNoL2] IS NULL
+
+            -- #TB_MO: igual que antes, pero sin tocar el linked server remoto aqui;
+            -- InvItemNoL2Val se llena mas abajo desde la tabla remota ya cacheada localmente
+            SELECT
+                PO                 = FIL_MO.PO
+                ,PurchaseID         = FIL_MO.PurchaseID
+                ,MO					= MO.ManufactureNumber
+                ,StatusMO			= SN.StatusName
+                ,Style				= ST.StyleNumber
+                ,Color				= SC.StyleColorName
+                ,Size				= FG.GarmentSize
+                ,PartNumberMO		= RM.PartNumber
+                ,SeasonName			= SE.SeasonName
+                ,InvItemNoL2		= CAST(NULL AS NVARCHAR(200))
+                ,InvItemNoL2Val     = CAST(NULL AS NVARCHAR(200))
+                ,ProductionComments = MO.Comments2
+            INTO #TB_MO
+            FROM #TB_MO_FIL                         AS FIL_MO
+            INNER JOIN LCA.dbo.ManufactureOrders	AS MO WITH(NOLOCK) ON MO.ManufactureID = FIL_MO.[ManufactureID]
+            INNER JOIN LCA.dbo.StatusNames	        AS SN WITH(NOLOCK) ON MO.StatusID = SN.StatusID
+            INNER JOIN LCA.dbo.ManufactureDetails	AS MD WITH(NOLOCK) ON MD.ManufactureID = MO.ManufactureID AND MD.QuantityOrdered > 0
+            INNER JOIN LCA.dbo.OrderItems			AS OI WITH(NOLOCK) ON MO.FirstOrderItemID = OI.OrderItemID
+            INNER JOIN LCA.dbo.Styles				AS ST WITH(NOLOCK) ON OI.StyleID = ST.StyleID AND ST.Comments9 = 'Headwear'
+            INNER JOIN LCA.dbo.StyleColors			AS SC WITH(NOLOCK) ON OI.StyleColorID = SC.StyleColorID
+            INNER JOIN LCA.dbo.FinishedGoods		AS FG WITH(NOLOCK) ON MD.FinishedGoodsID = FG.FinishedGoodsID
+            INNER JOIN LCA.dbo.Seasons				AS SE WITH(NOLOCK) ON ST.SeasonID = SE.SeasonID AND SeasonName = 'BLANK FG'
+            LEFT  JOIN LCA.dbo.RawAllocations		AS RA WITH(NOLOCK) ON MO.ManufactureID = RA.ManufactureID
+            LEFT  JOIN LCA.dbo.RawMaterials			AS RM WITH(NOLOCK) ON RA.RawMaterialID = RM.RawMaterialID
+
+            UPDATE TM SET
+                InvItemNoL2 = CAST(L2.InvItemNo AS NVARCHAR(200))
+            FROM #TB_MO AS TM
+            LEFT  JOIN AppsLCA.legacycaps.LCA_L2B_InventoryID AS L2 WITH(NOLOCK) ON TM.Style = L2.Style AND TM.Color = L2.Color AND TM.Size = L2.GarmentSize
+
+            -- ============================================================
+            -- Universo de InvItemNo (PO + MO) para traer de
+            -- [db1.legacycaps.com].[Production].[dbo].[view_LCA_StyleColorInventory]
+            -- SOLO lo necesario, via OPENQUERY por lotes (mismo patron de batching
+            -- por texto que usa SP_Planning_BacklogUnits.sql contra este mismo linked server).
+            -- Se filtra por InvItemNo (no por Style/Color/Size) porque hay varios Style/Color
+            -- que no coinciden entre la PO/MO y AppsLCA.legacycaps.LCA_L2B_InventoryID.
+            -- ============================================================
+            SELECT DISTINCT [InvItemNoL2] AS [InvItemNo]
+            INTO #TB_INV_UNIVERSE
+            FROM
+            (
+                SELECT [InvItemNoL2] FROM #TB_PO_Details WHERE [InvItemNoL2] IS NOT NULL
+                UNION
+                SELECT [InvItemNoL2] FROM #TB_MO         WHERE [InvItemNoL2] IS NOT NULL
+            ) AS U
+
+            CREATE TABLE #TB_RemoteInventory
+            (
+                 [StyleID]   NVARCHAR(200) NULL
+                ,[ColorAbbr] NVARCHAR(200) NULL
+                ,[InvItemNo] NVARCHAR(200) NULL
+                ,[InvItemId] NVARCHAR(200) NULL
+                ,[ItemSize]  NVARCHAR(200) NULL
+            )
+
+            -- ~300 InvItemNo * (2 comillas + valor + coma) ~= 3900 caracteres, margen bajo 8000
+            DECLARE @BatchSize_SCS    INT = 300
+            DECLARE @BatchCount_SCS   INT
+            DECLARE @CurrentBatch_SCS INT = 1
+            DECLARE @TupleList_SCS    NVARCHAR(MAX)
+            DECLARE @SQL_FILTER_SCS   NVARCHAR(MAX)
+
+            SELECT
+                 [InvItemNo]
+                ,[BatchNo] = ((ROW_NUMBER() OVER (ORDER BY [InvItemNo]) - 1) / @BatchSize_SCS) + 1
+            INTO #TB_INV_BATCH
+            FROM #TB_INV_UNIVERSE
+
+            SELECT @BatchCount_SCS = MAX([BatchNo]) FROM #TB_INV_BATCH
+
+            WHILE @CurrentBatch_SCS <= ISNULL(@BatchCount_SCS, 0)
+            BEGIN
+                SELECT @TupleList_SCS = STRING_AGG(
+                       CAST('''''' + REPLACE([InvItemNo], '''', '') + '''''' AS NVARCHAR(MAX))
+                   , ',')
+                FROM #TB_INV_BATCH
+                WHERE [BatchNo] = @CurrentBatch_SCS
+
+                SET @SQL_FILTER_SCS = N'
+            SELECT
+                 StyleID
+                ,ColorAbbr
+                ,InvItemNo
+                ,InvItemId
+                ,ItemSize
+            FROM OPENQUERY([db1.legacycaps.com], ''
+                SELECT
+                     StyleID
+                    ,TRIM(REPLACE(REPLACE(REPLACE(ColorAbbr, CHAR(10), ''''''''), CHAR(9), ''''''''), CHAR(13), '''''''')) AS ColorAbbr
+                    ,InvItemNo
+                    ,InvItemId
+                    ,ItemSize
+                FROM Production.dbo.view_LCA_StyleColorInventory WITH(NOLOCK)
+                WHERE InvItemNo IN (' + @TupleList_SCS + N')
+            '')'
+
+                INSERT INTO #TB_RemoteInventory (StyleID, ColorAbbr, InvItemNo, InvItemId, ItemSize)
+                EXEC sp_executesql @SQL_FILTER_SCS
+
+                SET @CurrentBatch_SCS = @CurrentBatch_SCS + 1
+            END
+
+            -- InvItemNoL2Val: lo que realmente existe hoy en el sistema remoto para ese InvItemNoL2
+            UPDATE TPD SET
+                InvItemNoL2Val = RI.[InvItemNo]
+            FROM #TB_PO_Details AS TPD
+            LEFT JOIN #TB_RemoteInventory AS RI ON TPD.[InvItemNoL2] = RI.[InvItemNo]
+
+            -- SELECT * FROM #TB_RemoteInventory WHERE StyleID = 'LPS'
+            -- SELECT * FROM #TB_PO_Details
+
+            UPDATE TM SET
+                InvItemNoL2Val = RI.[InvItemNo]
+            FROM #TB_MO AS TM
+            LEFT JOIN #TB_RemoteInventory AS RI ON TM.[InvItemNoL2] = RI.[InvItemNo]
+
+            -- Solo se dejan las discrepancias; si alguno de los dos es NULL, tambien se reporta
+            -- (NULL = NULL / NULL = valor no son verdaderos en SQL, por eso el DELETE no los borra)
+            DELETE FROM #TB_PO_Details
+            WHERE [InvItemNoL2] = [InvItemNoL2Val]
+
+            DELETE FROM #TB_MO
+            WHERE [InvItemNoL2] = [InvItemNoL2Val]
+
+            SET @result =
+            (
+                SELECT
+                *
+                FROM
+                (
+                    SELECT
+                        [PO Data] = (
+                                        SELECT
+                                             PO
+                                            ,[PartNumberPO] = PartNumber
+                                            ,[InvItemNoL2]
+                                            ,[InvItemNoL2Val]
+                                            ,[Style]
+                                            ,[Color]
+                                            ,[Size]
+                                        FROM #TB_PO_Details FOR JSON PATH, INCLUDE_NULL_VALUES
+                                    )
+                        ,[MO Data] = (
+                                        SELECT
+                                             PO
+                                            ,[MO]
+                                            ,[StatusMO]
+                                            ,[PartNumberMO]
+                                            ,[InvItemNoL2]
+                                            ,[InvItemNoL2Val]
+                                            ,[Style]
+                                            ,[Color]
+                                            ,[Size]
+                                            ,[SeasonName]
+                                            ,[ProductionComments]
+                                        FROM #TB_MO FOR JSON PATH, INCLUDE_NULL_VALUES
+                                    )
+
+                ) AS TB_FINAL
+                FOR JSON PATH, INCLUDE_NULL_VALUES
+            )
+
+            SET @Error = 0
+            SET @Component = '[200]'
+            SET @message = 'Datos generados correctamente'
 
             GOTO SELECTFINAL
 
