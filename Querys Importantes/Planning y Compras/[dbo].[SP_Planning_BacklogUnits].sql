@@ -1,6 +1,6 @@
 ﻿USE [AppsLCA]
 GO
-/****** Object:  StoredProcedure [dbo].[SP_Planning_BacklogUnits]    Script Date: 21/07/2026 07:31:54 a. m. ******/
+/****** Object:  StoredProcedure [dbo].[SP_Planning_BacklogUnits]    Script Date: 17/08/2026 08:44:44 a. m. ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -22,23 +22,27 @@ BEGIN
     -- DECLARE @data      NVARCHAR(MAX)
     -- DECLARE @NoSelect  BIT = 0
     -- DECLARE @otherData NVARCHAR(MAX)
-    
-    
+
     -- SET @process = 'dispatchinventory.run'
-    
     -- SET @data = '{
-    --   "key":"PRUEBA20260715_001",
-    --   "flag":true,
-    --   "reserveUnits":true,
-    --   "runDate":"ReqShip"
+    --   "key":"TEST-20260817_0001"
+    --   ,"reserveUnits":true
+    --   ,"runDate":"ReqShip"
     -- }'
     
     
+    -- SET @data = '{
+    --   "key":"PRUEBA20260811_001",
+    --   "reserveUnits":true,
+    --   "runDate":"ReqShip"
+    -- }'
+    -- {"process":"dispatchinventory.run","data":{"key":"f0dc0a79-547d-429b-8301-cf9aea104b14","reserveUnits":true,"runDate":"ReqShip"}}
+
     
     -- {"process":"dispatchinventory.run","data":{"key":"c9180ccf-75de-4aab-b669-18fe9c6c96e3","reserveUnits":true,"runDate":"ReqShip"}}
     -- SET @data = '{
-    --   "key":"BARN_Urgentes20260720"
-    --   ,"flag":true
+    --   "key":"TEST-20260817_0001"
+    --   ,"reserveUnits":true
     --   ,"runDate":"ReqShip"
     --   ,"flagDispatchSamples":true
     -- }'
@@ -76,6 +80,10 @@ BEGIN
     DECLARE @result             NVARCHAR(MAX)
     DECLARE @version            VARCHAR(100) = 'v20260715.0.0.1'
     DECLARE @ProcessName        VARCHAR(150) = 'dispatchinventory.run'
+    DECLARE @ProcessNameUploadLastBU VARCHAR(150) = 'backlogparameters.lastbucket.upload'
+    DECLARE @ProcessNameListLastBU   VARCHAR(150) = 'backlogparameters.lastbucket.list'
+    DECLARE @ProcessNameValidateUserLastBU VARCHAR(150) = 'backlogparameters.lastbucket.validateuser'
+    DECLARE @ProcessNameLookupUserLastBU   VARCHAR(150) = 'backlogparameters.lastbucket.lookupuser'
     DECLARE @KeyGenerated       VARCHAR(200)
     DECLARE @TestData           BIT = 0
     DECLARE @FlagBacklog         BIT = 0
@@ -89,12 +97,176 @@ BEGIN
 
     BEGIN TRY
         -- DROP TABLE #TB_FINAL_PROC_ORDENES_DEMAND
-        IF ISNULL(@process,'') <> @ProcessName
+        IF ISNULL(@process,'') NOT IN (@ProcessName, @ProcessNameUploadLastBU, @ProcessNameListLastBU, @ProcessNameValidateUserLastBU, @ProcessNameLookupUserLastBU)
         BEGIN
             SET @error = 1
             SET @message = CONCAT('Proceso no soportado: ',ISNULL(@process,''))
             GOTO EndProcedureDispatchInventory
         END
+
+        -- ====================================================================================================================
+        -- PROCESOS INDEPENDIENTES: mantenimiento de [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]
+        -- (parametro "ultimo bucket conocido" por ItemDetailID, cargado por el usuario via Tool Settings).
+        -- No dependen de @KeyGenerated/TB_Global_Process -- responden sincrono y salen antes del flujo principal.
+        -- ====================================================================================================================
+        IF @process IN (@ProcessNameUploadLastBU, @ProcessNameListLastBU)
+           AND OBJECT_ID('[AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]','U') IS NULL
+        BEGIN
+            SET @error = 1
+            SET @message = 'No existe [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]. Ejecuta primero el script de creacion de tabla.'
+            GOTO EndProcedureDispatchInventory
+        END
+
+        IF @process IN (@ProcessNameUploadLastBU, @ProcessNameValidateUserLastBU, @ProcessNameLookupUserLastBU)
+           AND OBJECT_ID('[AppsLCA].[dbo].[PID_InventoryUsers]','U') IS NULL
+        BEGIN
+            SET @error = 1
+            SET @message = 'No existe [AppsLCA].[dbo].[PID_InventoryUsers].'
+            GOTO EndProcedureDispatchInventory
+        END
+
+        -- Solo-nombre: consulta liviana SIN PIN, unicamente para mostrarle al usuario "encontrado" en
+        -- vivo mientras escribe el codigo en el Tool Settings. NO es autenticacion -- el upload real
+        -- siempre re-valida con PIN mas abajo (backlogparameters.lastbucket.validateuser / .upload).
+        IF @process = @ProcessNameLookupUserLastBU
+        BEGIN
+            DECLARE @vUserCodeLookup VARCHAR(10)  = NULLIF(LTRIM(RTRIM(JSON_VALUE(@data,'$.userCode'))),'')
+            DECLARE @vUserNameLookup VARCHAR(200) = NULL
+
+            IF @vUserCodeLookup IS NOT NULL
+            BEGIN
+                SELECT @vUserNameLookup = [userName]
+                FROM [AppsLCA].[dbo].[PID_InventoryUsers] WITH (NOLOCK)
+                WHERE [status]        = 1
+                  AND [backlogLastBU] = 1
+                  AND [user]          = @vUserCodeLookup
+            END
+
+            SET @message = 'OK'
+            SET @result = (SELECT [UserCode] = @vUserCodeLookup, [UserName] = @vUserNameLookup FOR JSON PATH)
+            GOTO EndProcedureDispatchInventory
+        END
+
+        IF @process = @ProcessNameListLastBU
+        BEGIN
+            SET @result = (
+                SELECT [ID],[ItemDetailID],[LastBucket],[UpdatedBy],[UpdatedAt]
+                FROM [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket] WITH (NOLOCK)
+                ORDER BY [ItemDetailID]
+                FOR JSON PATH
+            )
+            SET @message = 'OK'
+            GOTO EndProcedureDispatchInventory
+        END
+
+        -- Validacion de acceso (codigo de usuario + PIN) contra [AppsLCA].[dbo].[PID_InventoryUsers]:
+        -- el usuario debe existir, estar activo (status = 1) y tener permiso (backlogLastBU = 1).
+        -- Se usa tanto para el boton "Validar" del Tool Settings (validateuser) como, de nuevo, dentro
+        -- del propio upload (defensa en profundidad: no confiar solo en la validacion del cliente).
+        IF @process IN (@ProcessNameValidateUserLastBU, @ProcessNameUploadLastBU)
+        BEGIN
+            DECLARE @vUserCode VARCHAR(10)  = NULLIF(LTRIM(RTRIM(JSON_VALUE(@data,'$.userCode'))),'')
+            DECLARE @vPin      VARCHAR(200) = NULLIF(LTRIM(RTRIM(JSON_VALUE(@data,'$.pin'))),'')
+
+            IF @vUserCode IS NULL OR @vPin IS NULL
+            BEGIN
+                SET @error = 1
+                SET @message = 'Se requiere codigo de usuario y PIN.'
+                GOTO EndProcedureDispatchInventory
+            END
+
+            DECLARE @vUserName VARCHAR(200) = (
+                SELECT [userName]
+                FROM [AppsLCA].[dbo].[PID_InventoryUsers] WITH (NOLOCK)
+                WHERE [status]         = 1
+                  AND [backlogLastBU]  = 1
+                  AND [user]           = @vUserCode
+                  AND [pin]            = @vPin
+            )
+
+            IF @vUserName IS NULL
+            BEGIN
+                SET @error = 1
+                SET @message = 'Codigo de usuario o PIN incorrecto, o usuario sin permiso para actualizar Last Bucket.'
+                GOTO EndProcedureDispatchInventory
+            END
+        END
+
+        IF @process = @ProcessNameValidateUserLastBU
+        BEGIN
+            SET @message = CONCAT('Usuario valido: ', @vUserName)
+            SET @result = (SELECT [UserCode] = @vUserCode, [UserName] = @vUserName FOR JSON PATH)
+            GOTO EndProcedureDispatchInventory
+        END
+
+        IF @process = @ProcessNameUploadLastBU
+        BEGIN
+            DECLARE @itemsLastBU NVARCHAR(MAX) = JSON_QUERY(@data,'$.items')
+            IF @itemsLastBU IS NULL OR ISJSON(@itemsLastBU) = 0
+            BEGIN
+                SET @error = 1
+                SET @message = 'No se recibio un arreglo valido en data.items.'
+                GOTO EndProcedureDispatchInventory
+            END
+
+            DROP TABLE IF EXISTS #TB_STG_LastBucket
+            CREATE TABLE #TB_STG_LastBucket
+            (
+                 [RowOrder]     INT IDENTITY(1,1)
+                ,[ItemDetailID] BIGINT        NULL
+                ,[LastBucket]   NVARCHAR(200) NULL
+            )
+
+            -- ItemDetailID se lee como VARCHAR y se convierte via DECIMAL para tolerar valores
+            -- que Excel/JS puedan enviar con decimales (ej. "5516523.0").
+            INSERT INTO #TB_STG_LastBucket ([ItemDetailID],[LastBucket])
+            SELECT
+                 TRY_CAST(TRY_CONVERT(DECIMAL(18,2), J.[ItemDetailID]) AS BIGINT)
+                ,NULLIF(LTRIM(RTRIM(J.[LastBucket])),'')
+            FROM OPENJSON(@itemsLastBU)
+                WITH (
+                     [ItemDetailID] VARCHAR(50)    '$.ItemDetailID'
+                    ,[LastBucket]   NVARCHAR(200)  '$.LastBucket'
+                ) AS J
+
+            DECLARE @vRowsReceived INT = (SELECT COUNT(*) FROM #TB_STG_LastBucket)
+
+            -- Deduplica por ItemDetailID conservando la ULTIMA ocurrencia del Excel (orden de llegada).
+            DROP TABLE IF EXISTS #TB_STG_LastBucket_DEDUP
+            SELECT [ItemDetailID],[LastBucket]
+            INTO #TB_STG_LastBucket_DEDUP
+            FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY [ItemDetailID] ORDER BY [RowOrder] DESC) AS RN
+                FROM #TB_STG_LastBucket
+                WHERE [ItemDetailID] IS NOT NULL
+            ) X
+            WHERE RN = 1
+
+            DECLARE @vRowsValid INT = (SELECT COUNT(*) FROM #TB_STG_LastBucket_DEDUP)
+
+            IF @vRowsValid = 0
+            BEGIN
+                SET @error = 1
+                SET @message = 'El archivo no contiene ItemDetailID validos.'
+                GOTO EndProcedureDispatchInventory
+            END
+
+            DECLARE @vUploadedAt DATETIME2 = SYSDATETIME() -- misma marca de tiempo para todas las filas de esta carga
+
+            BEGIN TRAN
+                TRUNCATE TABLE [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]
+                INSERT INTO [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket] ([ItemDetailID],[LastBucket],[UpdatedBy],[UpdatedAt])
+                SELECT [ItemDetailID],[LastBucket],@vUserName,@vUploadedAt FROM #TB_STG_LastBucket_DEDUP
+                DECLARE @vRowsInserted INT = @@ROWCOUNT
+            COMMIT TRAN
+
+            SET @message = CONCAT('Carga completada por ',@vUserName,'. Recibidos: ',@vRowsReceived,', Validos: ',@vRowsValid,', Insertados: ',@vRowsInserted,'.')
+            SET @result = (SELECT [RowsReceived]=@vRowsReceived,[RowsValid]=@vRowsValid,[RowsInserted]=@vRowsInserted,[UpdatedBy]=@vUserName,[UpdatedAt]=@vUploadedAt FOR JSON PATH)
+            GOTO EndProcedureDispatchInventory
+        END
+        -- ====================================================================================================================
+        -- FIN PROCESOS INDEPENDIENTES TB_Backlog_Parameters_LastBucket -- continua el flujo principal 'dispatchinventory.run'
+        -- ====================================================================================================================
 
         SET @KeyGenerated = COALESCE(
              NULLIF(JSON_VALUE(@data,'$.key'),'')
@@ -102,10 +274,13 @@ BEGIN
             ,NULLIF(JSON_VALUE(@data,'$.keyGenerated'),'')
         )
         SET @TestData    = ISNULL(TRY_CONVERT(BIT, JSON_VALUE(@data,'$.testData')),0)
-        SET @FlagBacklog = ISNULL(TRY_CONVERT(BIT, JSON_VALUE(@data,'$.flag')),0)--------MEMIIN1194
+        SET @FlagBacklog = ISNULL(TRY_CONVERT(BIT, JSON_VALUE(@data,'$.reserveUnits')),0)--------MEMIIN1194
+        -- SET @FlagBacklog = ISNULL(TRY_CONVERT(BIT, JSON_VALUE(@data,'$.flag')),0)--------MEMIIN1194
         SET @RunDate             = ISNULL(NULLIF(LTRIM(RTRIM(JSON_VALUE(@data,'$.runDate'))),  ''), 'ReqShip')
         SET @flagDispatchSamples = ISNULL(TRY_CONVERT(BIT, JSON_VALUE(@data,'$.flagDispatchSamples')), 0)
 
+        -- SELECT @FlagBacklog AS FLAGBACKLOG 
+        -- RETURN
         IF ISNULL(@KeyGenerated,'') = ''
         BEGIN
             SET @error = 1
@@ -571,13 +746,15 @@ BEGIN
     						,mo.[Comments7]
                     ) AS TB2
 		    ) AS TB_T
-
+		    -- WHERE TB_T.[Style] = 'OR190' AND TB_T.[Color] = '600' ---REV_ELISA_MAURICIO quitar
+            
             
             SELECT DISTINCT [MO_ID]         INTO #TB_GROUP_MOS_ORDENES_DEMAND           FROM #TB_MOS_ORDENES_DEMAND_BY_SIZE
             SELECT DISTINCT [ItemDetailID]  INTO #TB_GROUP_ITEMDETAILID_ORDENES_DEMAND  FROM #TB_MOS_ORDENES_DEMAND_BY_SIZE
             
             
-            -- SELECT * FROM #TB_GROUP_MOS_ORDENES_DEMAND
+            -- SELECT * FROM #TB_MOS_ORDENES_DEMAND_BY_SIZE
+            -- return ---REV_ELISA_MAURICIO
             
             
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -824,6 +1001,9 @@ BEGIN
             INTO #TB_FINAL_PROC_ORDENES_DEMAND
             FROM #TB_MOS_ORDENES_DEMAND_PIVOT AS TB_ALL_PIVOT
 
+
+            -- SELECT * FROM #TB_FINAL_PROC_ORDENES_DEMAND
+            -- RETURN ---REV_ELISA_MAURICIO
             -----------SELECT PARA TRAER EN TABLAS TEMPORALES LOS DATOS NECESARIOS PARA PLANIFICACION DE DESPACHO DE PRENDAS
                 
                 PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA ORDENES ACTIVAS PARA DESPACHO. TABLA TB_LOOKUP_L2')
@@ -1252,6 +1432,49 @@ BEGIN
         ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         
         ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        ----------LOOKUP COMPARTIDO: VENDOR ORIGINAL Y HANGTAG (una sola vez, reusado por Warehouse y MOS WIP)---------------------------------------------------------------------------
+        ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+            -- Estas 2 vistas (VW_Planning_DispatchRO_OriginalVendor / VW_Planning_DispatchRO_RawMaterialHangtagYesNo)
+            -- NO se pueden filtrar por ManufactureID de forma eficiente: internamente hacen GROUP BY/DISTINCT
+            -- + UNION ALL + ROW_NUMBER, lo que le impide a SQL Server empujar el filtro hacia adentro. Es decir,
+            -- se calculan COMPLETAS sin importar cuantos ManufactureID se pidan despues. Antes se consultaban
+            -- 2 veces cada una (seccion Warehouse + seccion MOS WIP), pagando el costo completo cada vez
+            -- (~10.5s combinados). Aqui se materializan UNA SOLA VEZ y ambas secciones reusan esta tabla.
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         LOOKUP COMPARTIDO. VENDOR ORIGINAL Y HANGTAG (una sola vez)')
+            DROP TABLE IF EXISTS #TB_SHARED_LOOKUP_VENDOR
+            DROP TABLE IF EXISTS #TB_SHARED_LOOKUP_TAG
+
+            SELECT
+                 [ManufactureID]
+                ,[OrigFabricVendorName]
+            INTO #TB_SHARED_LOOKUP_VENDOR
+            FROM (
+                SELECT
+                     VND.[ManufactureID]
+                    ,VND.[OrigFabricVendorName]
+                    ,[R] = ROW_NUMBER() OVER (PARTITION BY VND.[ManufactureID] ORDER BY VND.[ManufactureID])
+                FROM [LCA].[dboReaders].[VW_Planning_DispatchRO_OriginalVendor] AS VND WITH(NOLOCK)
+            ) AS TB
+            WHERE TB.[R] = 1
+
+            CREATE UNIQUE CLUSTERED INDEX IX_TB_SHARED_LOOKUP_VENDOR ON #TB_SHARED_LOOKUP_VENDOR([ManufactureID])
+
+            SELECT
+                 [ManufactureID]
+                ,[DAT]
+            INTO #TB_SHARED_LOOKUP_TAG
+            FROM (
+                SELECT
+                     TAG.[ManufactureID]
+                    ,TAG.[DAT]
+                    ,[R] = ROW_NUMBER() OVER (PARTITION BY TAG.[ManufactureID] ORDER BY TAG.[ManufactureID])
+                FROM [LCA].[dboReaders].[VW_Planning_DispatchRO_RawMaterialHangtagYesNo] AS TAG WITH(NOLOCK)
+            ) AS TB
+            WHERE TB.[R] = 1
+
+            CREATE UNIQUE CLUSTERED INDEX IX_TB_SHARED_LOOKUP_TAG ON #TB_SHARED_LOOKUP_TAG([ManufactureID])
+
+        ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         ----------PROCEDIMIENTO PARA INVENTARIO ACTIVO-----------------------------------------------------------------------------------------------------------------------------------
         ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'  INICIO PROCEDIMIENTO PARA INVENTARIO ACTIVO WAREHOUSE')
@@ -1349,7 +1572,13 @@ BEGIN
 				LEFT JOIN	[LCA].[dbo].[OrderItems]			AS OI		WITH(NOLOCK) ON OI.[OrderItemID]      = MO.[FirstOrderItemID]
 				LEFT JOIN	[LCA].[dbo].[Orders]				AS OD		WITH(NOLOCK) ON OD.[OrderID]          = OI.[OrderID]
 				LEFT JOIN	[LCA].[dbo].[GoodsBins]				AS GB		WITH(NOLOCK) ON PB.[GoodsBinID]       = GB.[GoodsBinID]
-
+                -- WHERE ST.StyleNumber = 'OR190' AND STC.[StyleColorName] = '600'
+            
+            -- SELECT * FROM #TB_INV_WAREHOUSE_BASE
+            -- RETURN ---REV_ELISA_MAURICIO
+                    
+            
+            
 			PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA INVENTARIO ACTIVO WAREHOUSE. TABLA TB_INV_GROUP_MO')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
             SET [Percent] = 26,
@@ -1388,17 +1617,14 @@ BEGIN
                 [UpdatedAt] = SYSDATETIME()
             WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
 
-			SELECT TB.*
+			-- Reusa #TB_SHARED_LOOKUP_VENDOR (materializada una sola vez antes de esta seccion) en vez de
+			-- volver a consultar la vista remota -- ya viene deduplicada por ManufactureID.
+			SELECT
+				 [ManufactureID]       = VND.[ManufactureID]
+				,[OrigFabricVendorName] = VND.[OrigFabricVendorName]
 			INTO #TB_INV_LOOKUP_VENDOR
-			FROM (
-				SELECT
-					 [ManufactureID]       = VND.[ManufactureID]
-					,[OrigFabricVendorName] = VND.[OrigFabricVendorName]
-					,[R_Num]               = ROW_NUMBER() OVER (PARTITION BY VND.[ManufactureID] ORDER BY VND.[ManufactureID])
-				FROM        #TB_INV_GROUP_MO                                            AS G
-				INNER JOIN  [LCA].[dboReaders].[VW_Planning_DispatchRO_OriginalVendor]  AS VND WITH(NOLOCK)  ON G.[MO_ID] = VND.[ManufactureID]
-			) AS TB
-			WHERE TB.[R_Num] = 1
+			FROM        #TB_INV_GROUP_MO           AS G
+			INNER JOIN  #TB_SHARED_LOOKUP_VENDOR    AS VND ON G.[MO_ID] = VND.[ManufactureID]
 
 			PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA INVENTARIO ACTIVO WAREHOUSE. TABLA TB_INV_LOOKUP_TAG')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -1410,17 +1636,14 @@ BEGIN
                 [UpdatedAt] = SYSDATETIME()
             WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
 
-			SELECT TB.*
+			-- Reusa #TB_SHARED_LOOKUP_TAG (materializada una sola vez antes de esta seccion) en vez de
+			-- volver a consultar la vista remota -- ya viene deduplicada por ManufactureID.
+			SELECT
+				 [ManufactureID] = TAG.[ManufactureID]
+				,[DAT]          = TAG.[DAT]
 			INTO #TB_INV_LOOKUP_TAG
-			FROM (
-				SELECT
-					 [ManufactureID] = TAG.[ManufactureID]
-					,[DAT]          = TAG.[DAT]
-					,[R_Num]        = ROW_NUMBER() OVER (PARTITION BY TAG.[ManufactureID] ORDER BY TAG.[ManufactureID])
-				FROM        #TB_INV_GROUP_MO                                                    AS G
-				INNER JOIN  [LCA].[dboReaders].[VW_Planning_DispatchRO_RawMaterialHangtagYesNo] AS TAG WITH(NOLOCK) ON G.[MO_ID] = TAG.[ManufactureID]
-			) AS TB
-			WHERE TB.[R_Num] = 1
+			FROM        #TB_INV_GROUP_MO       AS G
+			INNER JOIN  #TB_SHARED_LOOKUP_TAG   AS TAG ON G.[MO_ID] = TAG.[ManufactureID]
 
 			PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA INVENTARIO ACTIVO WAREHOUSE. TABLA TB_INV_LOOKUP_BOM')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -2318,20 +2541,15 @@ BEGIN
                 [UpdatedAt] = SYSDATETIME()
             WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
 
+            -- Reusa #TB_SHARED_LOOKUP_VENDOR (materializada una sola vez al inicio) en vez de volver
+            -- a consultar la vista remota -- ya viene deduplicada por ManufactureID.
             SELECT
-                 [ManufactureID]       = TB.[ManufactureID]
-                ,[OrigFabricVendorName] = TB.[OrigFabricVendorName]
+                 [ManufactureID]       = VND.[ManufactureID]
+                ,[OrigFabricVendorName] = VND.[OrigFabricVendorName]
             INTO #TB_INV_WIP_LOOKUP_VENDOR
-            FROM (
-                SELECT
-                     VND.[ManufactureID]
-                    ,VND.[OrigFabricVendorName]
-                    ,[R] = ROW_NUMBER() OVER (PARTITION BY VND.[ManufactureID] ORDER BY VND.[ManufactureID])
-                FROM #TB_INV_WIP_GROUP_MO AS G
-                INNER JOIN [LCA].[dboReaders].[VW_Planning_DispatchRO_OriginalVendor] AS VND WITH(NOLOCK)
-                    ON G.[MO_ID] = VND.[ManufactureID]
-            ) AS TB
-            WHERE TB.[R] = 1
+            FROM #TB_INV_WIP_GROUP_MO AS G
+            INNER JOIN #TB_SHARED_LOOKUP_VENDOR AS VND
+                ON G.[MO_ID] = VND.[ManufactureID]
 
 
             
@@ -2345,20 +2563,24 @@ BEGIN
                 [UpdatedAt] = SYSDATETIME()
             WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
 
+            -- Reusa #TB_SHARED_LOOKUP_TAG (materializada una sola vez al inicio) en vez de volver a
+            -- consultar la vista remota -- ya viene deduplicada por ManufactureID.
             SELECT
-                 [ManufactureID] = SRC.[ManufactureID]
-                ,[DAT]           = SRC.[DAT]
+                 [ManufactureID] = TAG.[ManufactureID]
+                ,[DAT]           = TAG.[DAT]
             INTO #TB_INV_WIP_LOOKUP_TAG
-            FROM (
-                SELECT
-                     TAG.[ManufactureID]
-                    ,TAG.[DAT]
-                    ,[R] = ROW_NUMBER() OVER (PARTITION BY TAG.[ManufactureID] ORDER BY TAG.[ManufactureID])
-                FROM #TB_INV_WIP_GROUP_MO AS G
-                INNER JOIN [LCA].[dboReaders].[VW_Planning_DispatchRO_RawMaterialHangtagYesNo] AS TAG WITH(NOLOCK)
-                    ON G.[MO_ID] = TAG.[ManufactureID]
-            ) AS SRC
-            WHERE SRC.[R] = 1
+            FROM #TB_INV_WIP_GROUP_MO AS G
+            INNER JOIN #TB_SHARED_LOOKUP_TAG AS TAG
+                ON G.[MO_ID] = TAG.[ManufactureID]
+            -- (bloque original, ya no se usa)
+            -- FROM (
+            --     SELECT
+            --          TAG.[ManufactureID]
+            --         ,TAG.[DAT]
+            --         ,[R] = ROW_NUMBER() OVER (PARTITION BY TAG.[ManufactureID] ORDER BY TAG.[ManufactureID])
+            --     FROM #TB_INV_WIP_GROUP_MO AS G
+            --     INNER JOIN [LCA].[dboReaders].[VW_Planning_DispatchRO_RawMaterialHangtagYesNo] AS TAG WITH(NOLOCK)
+            --         ON G.[MO_ID] = TAG.[ManufactureID]
 
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA INVENTARIO ACTIVO MOS WIP Y CONSOLIDADO. TABLA TB_INV_WIP_LOOKUP_BOM')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -2615,6 +2837,11 @@ BEGIN
             )
             UPDATE CTE_RowData
             SET [RowData] = [RN]
+            
+            
+            -- SELECT * FROM #TB_FINAL_PROC_INVENTARIO_MOS_WIP
+            
+            -- RETURN ---REV_ELISA_MAURICIO
 
             -- UPDATE CountryOfOrigin: lookup filtrado por MO_IDs presentes en inventario activo
             DROP TABLE IF EXISTS #TB_LOOKUP_COUNTRY_OF_ORIGIN
@@ -2857,7 +3084,9 @@ BEGIN
             INTO #TB_DISPATCH_ORD_BASE
             FROM #TB_FINAL_PROC_ORDENES_DEMAND AS S
 
-
+            -- SELECT * FROM #TB_DISPATCH_ORD_BASE
+            -- RETURN ---REV_ELISA_MAURICIO
+            
             -- 2) Demanda por talla (unpivot con CROSS APPLY VALUES).
             --    Solo tallas con demanda > 0 y ordenes no bloqueadas.
             -- Tabla temporal: #TB_DISPATCH_ORD_SIZE
@@ -2907,6 +3136,15 @@ BEGIN
                 ON #TB_DISPATCH_ORD_SIZE([Style],[Color],[Size],[OrderRow])
                 INCLUDE([QtyRequired])
 
+            -- Sin este indice, el WHILE loop FIFO (PASO R2, modo reserva) hace un table
+            -- scan completo de #TB_DISPATCH_ORD_BASE en cada iteracion (MIN(OrderRow) WHERE
+            -- OrderRow > @LoopStart AND SuspendOrd = 0), volviendose O(n^2) con ~12,800+ ordenes.
+            CREATE UNIQUE CLUSTERED INDEX IX_TB_DISPATCH_ORD_BASE_OrderRow
+                ON #TB_DISPATCH_ORD_BASE([OrderRow])
+
+            CREATE NONCLUSTERED INDEX IX_TB_DISPATCH_ORD_BASE_Suspend_OrderRow
+                ON #TB_DISPATCH_ORD_BASE([SuspendOrd],[OrderRow])
+
             -- 3) Inventario base por talla.
             --    Es la bolsa de disponibilidad que se consumira durante la asignacion.
             -- Tabla temporal: #TB_DISPATCH_INV_POOL
@@ -2943,6 +3181,10 @@ BEGIN
             INTO #TB_DISPATCH_INV_POOL
             FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO AS S
             WHERE ISNULL(S.[QTY],0) > 0
+            -- AND S.[Style] = 'OR190' AND S.[Color] = '600'
+            
+            -- SELECT * FROM #TB_DISPATCH_INV_POOL
+            -- RETURN ---REV_ELISA_MAURICIO
 
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 3A INDEX INVENTARIO')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -3071,860 +3313,872 @@ BEGIN
 
             IF @FlagBacklog = 0
             BEGIN -- inicio modo FIFO con grupos y vendor (flag=false)
-
-            -- Tabla temporal: #TB_DISPATCH_GROUP_RANK_BASE
-            -- Minimos por grupo (Style-Color-Vendor-TypeQuery) para ordenar prioridad de uso.
-            SELECT
-                 [Style]                = I.[Style]
-                ,[Color]                = I.[Color]
-                ,[OrigFabricVendorName] = I.[OrigFabricVendorName]
-                ,[TypeQuery]            = I.[TypeQuery]
-                ,[MinOrderWIP]          = MIN(I.[OrderWIP])
-                ,[MinPackDate]          = MIN(I.[PackDate])
-            INTO #TB_DISPATCH_GROUP_RANK_BASE
-            FROM #TB_DISPATCH_INV_POOL AS I
-            GROUP BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery]
-
-           
-            -- Ranking de grupos por Style/Color:
-            -- primero TypeQuery y luego antiguedad (OrderWIP, PackDate).
-            -- Tabla temporal: #TB_DISPATCH_GROUP_RANK
-            -- Ranking final por Style/Color para escoger grupo candidato de abastecimiento.
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 4 RANKING GRUPOS')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 55,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Calculando ranking de grupos de abastecimiento.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 4 RANKING GRUPOS'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-
-            SELECT
-                 B.[Style]
-                ,B.[Color]
-                ,B.[OrigFabricVendorName]
-                ,B.[TypeQuery]
-                ,[GroupRank]            = ROW_NUMBER() OVER (
-                                            PARTITION BY B.[Style],B.[Color]
-                                            ORDER BY B.[TypeQuery] ASC, B.[MinOrderWIP] ASC, B.[MinPackDate] ASC, B.[OrigFabricVendorName] ASC
-                                          )
-            INTO #TB_DISPATCH_GROUP_RANK
-            FROM #TB_DISPATCH_GROUP_RANK_BASE AS B
-
-            CREATE NONCLUSTERED INDEX IX_TB_DISPATCH_GROUP_RANK
-                ON #TB_DISPATCH_GROUP_RANK([Style],[Color],[GroupRank],[OrigFabricVendorName],[TypeQuery])
-
-          
-            -- Tabla temporal: #TB_DISPATCH_GROUP_SIZE_AVAIL
-            -- Disponibilidad agregada por grupo y talla para validar cobertura completa.
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 5 DISPONIBLE POR GRUPO/TALLA')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 56,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Validando disponibilidad por grupo y talla.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 5 DISPONIBLE POR GRUPO/TALLA'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-
-            SELECT
-                 [Style]
-                ,[Color]
-                ,[OrigFabricVendorName]
-                ,[TypeQuery]
-                ,[Size]
-                ,[QtyAvailable] = SUM([QtyAvailable])
-            INTO #TB_DISPATCH_GROUP_SIZE_AVAIL
-            FROM #TB_DISPATCH_INV_POOL
-            GROUP BY [Style],[Color],[OrigFabricVendorName],[TypeQuery],[Size]
-
-            
-            
-            CREATE NONCLUSTERED INDEX IX_TB_DISPATCH_GROUP_SIZE_AVAIL
-                ON #TB_DISPATCH_GROUP_SIZE_AVAIL([Style],[Color],[OrigFabricVendorName],[TypeQuery],[Size])
-                INCLUDE([QtyAvailable])
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_GROUP_SIZE_AVAIL
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_GROUP_RANK
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 5 DISPONIBLE POR GRUPO/TALLA'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsGroupSizeAvail=',@TraceCountA
-                ,' | GroupsRank=',@TraceCountB
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 57,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Procesando candidatos de despacho.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - TRACE PASO 5 DISPONIBLE POR GRUPO/TALLA'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-
-
-            -- Grupo candidato por orden:
-            -- solo pasa el grupo que cubre TODAS las tallas requeridas de la orden.
-            -- Tabla temporal: #TB_DISPATCH_ORDER_GROUP_CAND
-            -- Candidatos OrderRow-Grupo que cumplen cobertura total por talla.
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6 CANDIDATOS POR ORDEN')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 58,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Seleccionando candidatos por orden.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6 CANDIDATOS POR ORDEN'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORD_SIZE
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_GROUP_RANK
-            SELECT
-                @TraceCountC = COUNT_BIG(*)
-            FROM #TB_DISPATCH_GROUP_SIZE_AVAIL
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 6 PREVIO'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsOrdSize=',@TraceCountA
-                ,' | RowsGroupRank=',@TraceCountB
-                ,' | RowsGroupSizeAvail=',@TraceCountC
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-            SELECT
-                 X.[OrderRow]
-                ,X.[Style]
-                ,X.[Color]
-                ,X.[OrigFabricVendorName]
-                ,X.[TypeQuery]
-                ,X.[GroupRank]
-                ,[Rnk] = ROW_NUMBER() OVER(PARTITION BY X.[OrderRow] ORDER BY X.[GroupRank] ASC)
-            INTO #TB_DISPATCH_ORDER_GROUP_CAND
-            FROM (
+    
+                
+                -- Tabla temporal: #TB_DISPATCH_GROUP_RANK_BASE
+                -- Minimos por grupo (Style-Color-Vendor-TypeQuery) para ordenar prioridad de uso.
                 SELECT
-                     OD.[OrderRow]
-                    ,G.[Style]
-                    ,G.[Color]
-                    ,G.[OrigFabricVendorName]
-                    ,G.[TypeQuery]
-                    ,G.[GroupRank]
-                    ,[CntNeeded]  = COUNT(*)
-                    ,[CntCovered] = SUM(CASE WHEN ISNULL(GA.[QtyAvailable],0) >= OD.[QtyRequired] THEN 1 ELSE 0 END)
-                FROM #TB_DISPATCH_ORD_SIZE AS OD
-                INNER JOIN #TB_DISPATCH_GROUP_RANK AS G
-                    ON G.[Style] = OD.[Style]
-                   AND G.[Color] = OD.[Color]
-                LEFT JOIN #TB_DISPATCH_GROUP_SIZE_AVAIL AS GA
-                    ON GA.[Style] = G.[Style]
-                   AND GA.[Color] = G.[Color]
-                   AND GA.[OrigFabricVendorName] = G.[OrigFabricVendorName]
-                   AND GA.[TypeQuery] = G.[TypeQuery]
-                   AND GA.[Size]  = OD.[Size]
-                GROUP BY
-                     OD.[OrderRow]
-                    ,G.[Style]
-                    ,G.[Color]
-                    ,G.[OrigFabricVendorName]
-                    ,G.[TypeQuery]
-                    ,G.[GroupRank]
-            ) AS X
-            WHERE X.[CntCovered] = X.[CntNeeded]
-            
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORDER_GROUP_CAND
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 6 POST CANDIDATOS'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsOrderGroupCand=',@TraceCountA
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-
-            -- Tabla temporal: #TB_DISPATCH_ORDER_GROUP
-            -- Grupo definitivo por orden (1 fila por OrderRow, priorizado por GroupRank).
-            INSERT INTO #TB_DISPATCH_ORDER_GROUP (
-                [OrderRow],[Style],[Color],[OrigFabricVendorName],[TypeQuery]
-            )
-            SELECT
-                 [OrderRow]
-                ,[Style]
-                ,[Color]
-                ,[OrigFabricVendorName]
-                ,[TypeQuery]
-            FROM #TB_DISPATCH_ORDER_GROUP_CAND
-            WHERE [Rnk] = 1
-
-            -- Grupo definitivo (1 grupo por orden).
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6A GRUPO DEFINITIVO')
-            CREATE UNIQUE CLUSTERED INDEX IX_TB_DISPATCH_ORDER_GROUP
-                ON #TB_DISPATCH_ORDER_GROUP([OrderRow])
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORDER_GROUP_CAND
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORDER_GROUP
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 6/6A GRUPO POR ORDEN'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsOrderGroupCand=',@TraceCountA
-                ,' | RowsOrderGroup=',@TraceCountB
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-            -- Demanda acumulada por talla dentro del grupo elegido.
-            -- Tabla temporal: #TB_DISPATCH_ORD_REQ_SEQ
-            -- Serie acumulada de demanda por talla para calcular traslape contra inventario.
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 7 ACUMULADO DEMANDA')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 59,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Calculando acumulado de demanda por talla.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 7 ACUMULADO DEMANDA'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            SELECT
-                 O.[OrderRow]
-                ,O.[Style]
-                ,O.[Color]
-                ,O.[Size]
-                ,O.[QtyRequired]
-                ,G.[OrigFabricVendorName]
-                ,G.[TypeQuery]
-                ,[CumReq]     = SUM(O.[QtyRequired]) OVER (
-                                    PARTITION BY O.[Style],O.[Color],G.[OrigFabricVendorName],G.[TypeQuery],O.[Size]
-                                    ORDER BY O.[OrderRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                                 )
-                ,[CumReqPrev] = SUM(O.[QtyRequired]) OVER (
-                                    PARTITION BY O.[Style],O.[Color],G.[OrigFabricVendorName],G.[TypeQuery],O.[Size]
-                                    ORDER BY O.[OrderRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                                 )
-            INTO #TB_DISPATCH_ORD_REQ_SEQ
-            FROM #TB_DISPATCH_ORD_SIZE AS O
-            INNER JOIN #TB_DISPATCH_ORDER_GROUP AS G
-                ON G.[OrderRow] = O.[OrderRow]
-
-            
-            
-            UPDATE S SET [CumReqPrev] = ISNULL([CumReqPrev],0)
-            FROM #TB_DISPATCH_ORD_REQ_SEQ AS S
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORD_REQ_SEQ
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 7 ACUMULADO DEMANDA'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsOrdReqSeq=',@TraceCountA
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-            -- Inventario acumulado por talla en secuencia FIFO de cajas.
-            -- Tabla temporal: #TB_DISPATCH_INV_SEQ
-            -- Serie acumulada de inventario por talla segun prioridad FIFO del grupo elegido.
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 8 ACUMULADO INVENTARIO')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 60,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Calculando acumulado de inventario FIFO.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 8 ACUMULADO INVENTARIO'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            
-            
-            
-            SELECT
-                 I.*
-                ,[CumInv]     = SUM(I.[QtyAvailable]) OVER (
-                                    PARTITION BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery],I.[Size]
-                                    ORDER BY I.[OrderWIP] ASC, I.[PackDate] ASC, I.[BoxNumber] ASC, I.[Season] DESC, I.[InvPoolRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                                 )
-                ,[CumInvPrev] = SUM(I.[QtyAvailable]) OVER (
-                                    PARTITION BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery],I.[Size]
-                                    ORDER BY I.[OrderWIP] ASC, I.[PackDate] ASC, I.[BoxNumber] ASC, I.[Season] DESC, I.[InvPoolRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                                 )
-            INTO #TB_DISPATCH_INV_SEQ
-            FROM #TB_DISPATCH_INV_POOL AS I
-            INNER JOIN (
-                SELECT DISTINCT [Style],[Color],[OrigFabricVendorName],[TypeQuery]
+                     [Style]                = I.[Style]
+                    ,[Color]                = I.[Color]
+                    ,[OrigFabricVendorName] = I.[OrigFabricVendorName]
+                    ,[TypeQuery]            = I.[TypeQuery]
+                    ,[MinOrderWIP]          = MIN(I.[OrderWIP])
+                    ,[MinPackDate]          = MIN(I.[PackDate])
+                INTO #TB_DISPATCH_GROUP_RANK_BASE
+                FROM #TB_DISPATCH_INV_POOL AS I
+                GROUP BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery]
+    
+            --    SELECT * FROM #TB_DISPATCH_GROUP_RANK_BASE
+            --    RETURN ---REV_ELISA_MAURICIO
+               
+                -- Ranking de grupos por Style/Color:
+                -- primero TypeQuery y luego antiguedad (OrderWIP, PackDate).
+                -- Tabla temporal: #TB_DISPATCH_GROUP_RANK
+                -- Ranking final por Style/Color para escoger grupo candidato de abastecimiento.
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 4 RANKING GRUPOS')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 55,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Calculando ranking de grupos de abastecimiento.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 4 RANKING GRUPOS'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+    
+                SELECT
+                     B.[Style]
+                    ,B.[Color]
+                    ,B.[OrigFabricVendorName]
+                    ,B.[TypeQuery]
+                    ,[GroupRank]            = ROW_NUMBER() OVER (
+                                                PARTITION BY B.[Style],B.[Color]
+                                                ORDER BY B.[TypeQuery] ASC, B.[MinOrderWIP] ASC, B.[MinPackDate] ASC, B.[OrigFabricVendorName] ASC
+                                              )
+                INTO #TB_DISPATCH_GROUP_RANK
+                FROM #TB_DISPATCH_GROUP_RANK_BASE AS B
+    
+            --      SELECT * FROM #TB_DISPATCH_GROUP_RANK
+            --    RETURN ---REV_ELISA_MAURICIO
+                
+                CREATE NONCLUSTERED INDEX IX_TB_DISPATCH_GROUP_RANK
+                    ON #TB_DISPATCH_GROUP_RANK([Style],[Color],[GroupRank],[OrigFabricVendorName],[TypeQuery])
+    
+              
+                -- Tabla temporal: #TB_DISPATCH_GROUP_SIZE_AVAIL
+                -- Disponibilidad agregada por grupo y talla para validar cobertura completa.
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 5 DISPONIBLE POR GRUPO/TALLA')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 56,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Validando disponibilidad por grupo y talla.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 5 DISPONIBLE POR GRUPO/TALLA'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+    
+                SELECT
+                     [Style]
+                    ,[Color]
+                    ,[OrigFabricVendorName]
+                    ,[TypeQuery]
+                    ,[Size]
+                    ,[QtyAvailable] = SUM([QtyAvailable])
+                INTO #TB_DISPATCH_GROUP_SIZE_AVAIL
+                FROM #TB_DISPATCH_INV_POOL
+                GROUP BY [Style],[Color],[OrigFabricVendorName],[TypeQuery],[Size]
+    
+                
+                
+                CREATE NONCLUSTERED INDEX IX_TB_DISPATCH_GROUP_SIZE_AVAIL
+                    ON #TB_DISPATCH_GROUP_SIZE_AVAIL([Style],[Color],[OrigFabricVendorName],[TypeQuery],[Size])
+                    INCLUDE([QtyAvailable])
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_GROUP_SIZE_AVAIL
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
+                FROM #TB_DISPATCH_GROUP_RANK
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 5 DISPONIBLE POR GRUPO/TALLA'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsGroupSizeAvail=',@TraceCountA
+                    ,' | GroupsRank=',@TraceCountB
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 57,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Procesando candidatos de despacho.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - TRACE PASO 5 DISPONIBLE POR GRUPO/TALLA'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+    
+    
+                -- Grupo candidato por orden:
+                -- solo pasa el grupo que cubre TODAS las tallas requeridas de la orden.
+                -- Tabla temporal: #TB_DISPATCH_ORDER_GROUP_CAND
+                -- Candidatos OrderRow-Grupo que cumplen cobertura total por talla.
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6 CANDIDATOS POR ORDEN')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 58,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Seleccionando candidatos por orden.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6 CANDIDATOS POR ORDEN'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORD_SIZE
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
+                FROM #TB_DISPATCH_GROUP_RANK
+                SELECT
+                    @TraceCountC = COUNT_BIG(*)
+                FROM #TB_DISPATCH_GROUP_SIZE_AVAIL
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 6 PREVIO'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsOrdSize=',@TraceCountA
+                    ,' | RowsGroupRank=',@TraceCountB
+                    ,' | RowsGroupSizeAvail=',@TraceCountC
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+                SELECT
+                     X.[OrderRow]
+                    ,X.[Style]
+                    ,X.[Color]
+                    ,X.[OrigFabricVendorName]
+                    ,X.[TypeQuery]
+                    ,X.[GroupRank]
+                    ,[Rnk] = ROW_NUMBER() OVER(PARTITION BY X.[OrderRow] ORDER BY X.[GroupRank] ASC)
+                INTO #TB_DISPATCH_ORDER_GROUP_CAND
+                FROM (
+                    SELECT
+                         OD.[OrderRow]
+                        ,G.[Style]
+                        ,G.[Color]
+                        ,G.[OrigFabricVendorName]
+                        ,G.[TypeQuery]
+                        ,G.[GroupRank]
+                        ,[CntNeeded]  = COUNT(*)
+                        ,[CntCovered] = SUM(CASE WHEN ISNULL(GA.[QtyAvailable],0) >= OD.[QtyRequired] THEN 1 ELSE 0 END)
+                    FROM #TB_DISPATCH_ORD_SIZE AS OD
+                    INNER JOIN #TB_DISPATCH_GROUP_RANK AS G
+                        ON G.[Style] = OD.[Style]
+                       AND G.[Color] = OD.[Color]
+                    LEFT JOIN #TB_DISPATCH_GROUP_SIZE_AVAIL AS GA
+                        ON GA.[Style] = G.[Style]
+                       AND GA.[Color] = G.[Color]
+                       AND GA.[OrigFabricVendorName] = G.[OrigFabricVendorName]
+                       AND GA.[TypeQuery] = G.[TypeQuery]
+                       AND GA.[Size]  = OD.[Size]
+                    GROUP BY
+                         OD.[OrderRow]
+                        ,G.[Style]
+                        ,G.[Color]
+                        ,G.[OrigFabricVendorName]
+                        ,G.[TypeQuery]
+                        ,G.[GroupRank]
+                ) AS X
+                WHERE X.[CntCovered] = X.[CntNeeded]
+                
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORDER_GROUP_CAND
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 6 POST CANDIDATOS'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsOrderGroupCand=',@TraceCountA
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+    
+                -- Tabla temporal: #TB_DISPATCH_ORDER_GROUP
+                -- Grupo definitivo por orden (1 fila por OrderRow, priorizado por GroupRank).
+                INSERT INTO #TB_DISPATCH_ORDER_GROUP (
+                    [OrderRow],[Style],[Color],[OrigFabricVendorName],[TypeQuery]
+                )
+                SELECT
+                     [OrderRow]
+                    ,[Style]
+                    ,[Color]
+                    ,[OrigFabricVendorName]
+                    ,[TypeQuery]
+                FROM #TB_DISPATCH_ORDER_GROUP_CAND
+                WHERE [Rnk] = 1
+    
+                -- Grupo definitivo (1 grupo por orden).
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 6A GRUPO DEFINITIVO')
+                CREATE UNIQUE CLUSTERED INDEX IX_TB_DISPATCH_ORDER_GROUP
+                    ON #TB_DISPATCH_ORDER_GROUP([OrderRow])
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORDER_GROUP_CAND
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
                 FROM #TB_DISPATCH_ORDER_GROUP
-            ) AS G
-                ON G.[Style] = I.[Style]
-               AND G.[Color] = I.[Color]
-               AND G.[OrigFabricVendorName] = I.[OrigFabricVendorName]
-               AND G.[TypeQuery] = I.[TypeQuery]
-
-            UPDATE S SET [CumInvPrev] = ISNULL([CumInvPrev],0)
-            FROM #TB_DISPATCH_INV_SEQ AS S
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_INV_SEQ
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 8 ACUMULADO INVENTARIO'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsInvSeq=',@TraceCountA
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-            -- Asignacion set-based por interseccion de rangos acumulados:
-            -- QtyAssigned = overlap([CumReqPrev,CumReq], [CumInvPrev,CumInv]).
-            -- Tabla temporal: #TB_DISPATCH_ALLOC_RAW
-            -- Asignacion detallada por OrderRow-Size-Inventario (linea a linea).
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 9 ASIGNACION FIFO')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 61,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Ejecutando asignacion FIFO orden por orden.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 9 ASIGNACION FIFO'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            INSERT INTO #TB_DISPATCH_ALLOC_RAW (
-                 [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber]
-                ,[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID]
-                ,[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder]
-                ,[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned]
-                ,[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG]
-                ,[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season]
-                ,[PromiseDate],[InventoryDate],[RunDate]
-            )
-            SELECT
-                 O.[OrderRow]
-                ,O.[Style]
-                ,O.[Color]
-                ,OB.[RequiredDate]
-                ,OB.[ordenEmb]
-                ,OB.[DocDate]
-                ,OB.[Cust Due Date]
-                ,OB.[Original Request Date]
-                ,OB.[OrderID]
-                ,OB.[PONumber]
-                ,OB.[CustomerOrder]
-                ,OB.[PWModulo]
-                ,OB.[QtyWithdraw]
-                ,OB.[FirstBlanksBoxNumber]
-                ,OB.[MO]
-                ,OB.[MO_ID]
-                ,OB.[StatusOrder]
-                ,OB.[SKUStatus]
-                ,OB.[Status]
-                ,OB.[Season]
-                ,OB.[OrderTypeDescription]
-                ,OB.[ApplicationOrder]
-                ,O.[TypeQuery]
-                ,O.[OrigFabricVendorName]
-                ,O.[Size]
-                ,[QtyRequired] = O.[QtyRequired]
-                ,[QtyAssigned] = CAST(X.[EndPoint] - X.[StartPoint] AS FLOAT)
-                ,I.[InvPoolRow]
-                ,I.[OrderWIP]
-                ,I.[PackDate]
-                ,I.[BoxNumber]
-                ,I.[CSVBoxNumber]
-                ,I.[PPFG]
-                ,I.[MO]
-                ,I.[MO_ID]
-                ,I.[BIN]
-                ,I.[PNHangtag]
-                ,I.[CountryOfOrigin]
-                ,I.[Style]
-                ,I.[Color]
-                ,I.[Season]
-                ,OB.[PromiseDate]
-                ,OB.[InventoryDate]
-                ,OB.[RunDate]
-            FROM #TB_DISPATCH_ORD_REQ_SEQ AS O
-            INNER JOIN #TB_DISPATCH_ORD_BASE AS OB
-                ON OB.[OrderRow] = O.[OrderRow]
-            INNER JOIN #TB_DISPATCH_INV_SEQ AS I
-                ON I.[Style] = O.[Style]
-               AND I.[Color] = O.[Color]
-               AND I.[OrigFabricVendorName] = O.[OrigFabricVendorName]
-               AND I.[TypeQuery] = O.[TypeQuery]
-               AND I.[Size] = O.[Size]
-            CROSS APPLY (
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 6/6A GRUPO POR ORDEN'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsOrderGroupCand=',@TraceCountA
+                    ,' | RowsOrderGroup=',@TraceCountB
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+                -- Demanda acumulada por talla dentro del grupo elegido.
+                -- Tabla temporal: #TB_DISPATCH_ORD_REQ_SEQ
+                -- Serie acumulada de demanda por talla para calcular traslape contra inventario.
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 7 ACUMULADO DEMANDA')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 59,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Calculando acumulado de demanda por talla.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 7 ACUMULADO DEMANDA'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
                 SELECT
-                     [StartPoint] = CASE WHEN O.[CumReqPrev] > I.[CumInvPrev] THEN O.[CumReqPrev] ELSE I.[CumInvPrev] END
-                    ,[EndPoint]   = CASE WHEN O.[CumReq] < I.[CumInv] THEN O.[CumReq] ELSE I.[CumInv] END
-            ) AS X
-            WHERE X.[EndPoint] > X.[StartPoint]
-
-            -- Tabla temporal: #TB_DISPATCH_ALLOC_SIZE
-            -- Resumen de asignacion por OrderRow-Size para validar cobertura completa.
-            SELECT
-                 [OrderRow]
-                ,[Size]
-                ,[QtyRequired] = MAX([QtyRequired])
-                ,[QtyAssigned] = SUM([QtyAssigned])
-            INTO #TB_DISPATCH_ALLOC_SIZE
-            FROM #TB_DISPATCH_ALLOC_RAW
-            GROUP BY [OrderRow],[Size]
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ALLOC_RAW
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ALLOC_SIZE
-            SELECT
-                @TraceQtyAssigned = CAST(ISNULL(SUM([QtyAssigned]),0) AS VARCHAR(30))
-            FROM #TB_DISPATCH_ALLOC_RAW
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 9 ASIGNACION FIFO'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsAllocRaw=',@TraceCountA
-                ,' | RowsAllocSize=',@TraceCountB
-                ,' | QtyAssignedRaw=',@TraceQtyAssigned
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10 VALIDAR ORDENES COMPLETAS (MODO ESTRICTO)')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 62,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Validando ordenes completamente cubiertas.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10 VALIDAR ORDENES COMPLETAS (MODO ESTRICTO)'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            -- Tabla temporal: #TB_DISPATCH_ORDER_OK
-            -- Ordenes con todas sus tallas cubiertas en modo estricto (vendor+typequery).
-            INSERT INTO #TB_DISPATCH_ORDER_OK ([OrderRow])
-            SELECT
-                 R.[OrderRow]
-            FROM #TB_DISPATCH_ORD_SIZE AS R
-            LEFT JOIN #TB_DISPATCH_ALLOC_SIZE AS A
-                ON A.[OrderRow] = R.[OrderRow]
-               AND A.[Size] = R.[Size]
-            GROUP BY R.[OrderRow]
-            HAVING SUM(CASE WHEN ISNULL(A.[QtyAssigned],0) >= R.[QtyRequired] THEN 1 ELSE 0 END) = COUNT(*)
-
-            -- Tabla temporal: #TB_DISPATCH_ORDER_OK_STRICT
-            -- Copia fija del set estricto para separarlo del fallback mixed.
-            SELECT
-                 [OrderRow]
-            INTO #TB_DISPATCH_ORDER_OK_STRICT
-            FROM #TB_DISPATCH_ORDER_OK
-
-            -- Mantener solo asignaciones del modo estricto para ordenes completas.
-            DELETE A
-            FROM #TB_DISPATCH_ALLOC_RAW AS A
-            LEFT JOIN #TB_DISPATCH_ORDER_OK_STRICT AS K
-                ON K.[OrderRow] = A.[OrderRow]
-            WHERE K.[OrderRow] IS NULL
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORDER_OK_STRICT
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ALLOC_RAW
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 10 MODO ESTRICTO'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | OrdersOKStrict=',@TraceCountA
-                ,' | RowsAllocRawAfterStrict=',@TraceCountB
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
-
-            -- Fallback: para ordenes no cubiertas por vendor unico, intentar por Style/Color (vendor mixed).
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10A FALLBACK STYLE/COLOR (VENDOR MIXED)')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 63,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Aplicando fallback vendor mixed para ordenes no cubiertas.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10A FALLBACK STYLE/COLOR (VENDOR MIXED)'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-            -- Tabla temporal: #TB_DISPATCH_INV_REMAIN
-            -- Remanente de inventario despues del modo estricto (disponible para mixed).
-            SELECT
-                 I.[InvPoolRow]
-                ,I.[Style]
-                ,I.[Color]
-                ,I.[Season]
-                ,I.[TypeQuery]
-                ,I.[OrderWIP]
-                ,I.[OrigFabricVendorName]
-                ,I.[PackDate]
-                ,I.[BoxNumber]
-                ,I.[CSVBoxNumber]
-                ,I.[PPFG]
-                ,I.[MO]
-                ,I.[MO_ID]
-                ,I.[Size]
-                ,[QtyAvailable] = CAST(I.[QtyAvailable] - ISNULL(A.[QtyAssigned],0) AS FLOAT)
-                ,I.[BIN]
-                ,I.[PNHangtag]
-                ,I.[CountryOfOrigin]
-            INTO #TB_DISPATCH_INV_REMAIN
-            FROM #TB_DISPATCH_INV_POOL AS I
-            LEFT JOIN (
+                     O.[OrderRow]
+                    ,O.[Style]
+                    ,O.[Color]
+                    ,O.[Size]
+                    ,O.[QtyRequired]
+                    ,G.[OrigFabricVendorName]
+                    ,G.[TypeQuery]
+                    ,[CumReq]     = SUM(O.[QtyRequired]) OVER (
+                                        PARTITION BY O.[Style],O.[Color],G.[OrigFabricVendorName],G.[TypeQuery],O.[Size]
+                                        ORDER BY O.[OrderRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                                     )
+                    ,[CumReqPrev] = SUM(O.[QtyRequired]) OVER (
+                                        PARTITION BY O.[Style],O.[Color],G.[OrigFabricVendorName],G.[TypeQuery],O.[Size]
+                                        ORDER BY O.[OrderRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                                     )
+                INTO #TB_DISPATCH_ORD_REQ_SEQ
+                FROM #TB_DISPATCH_ORD_SIZE AS O
+                INNER JOIN #TB_DISPATCH_ORDER_GROUP AS G
+                    ON G.[OrderRow] = O.[OrderRow]
+    
+                
+                -- SELECT * FROM #TB_DISPATCH_ORD_REQ_SEQ
+                -- RETURN ---REV_ELISA_MAURICIO
+                
+                
+                UPDATE S SET [CumReqPrev] = ISNULL([CumReqPrev],0)
+                FROM #TB_DISPATCH_ORD_REQ_SEQ AS S
+                SET @TraceNowDispatch = SYSDATETIME()
                 SELECT
-                     [InvPoolRow]
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORD_REQ_SEQ
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 7 ACUMULADO DEMANDA'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsOrdReqSeq=',@TraceCountA
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+                -- Inventario acumulado por talla en secuencia FIFO de cajas.
+                -- Tabla temporal: #TB_DISPATCH_INV_SEQ
+                -- Serie acumulada de inventario por talla segun prioridad FIFO del grupo elegido.
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 8 ACUMULADO INVENTARIO')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 60,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Calculando acumulado de inventario FIFO.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 8 ACUMULADO INVENTARIO'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+                
+                
+                
+                SELECT
+                     I.*
+                    ,[CumInv]     = SUM(I.[QtyAvailable]) OVER (
+                                        PARTITION BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery],I.[Size]
+                                        ORDER BY I.[OrderWIP] ASC, I.[PackDate] ASC, I.[BoxNumber] ASC, I.[Season] DESC, I.[InvPoolRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                                     )
+                    ,[CumInvPrev] = SUM(I.[QtyAvailable]) OVER (
+                                        PARTITION BY I.[Style],I.[Color],I.[OrigFabricVendorName],I.[TypeQuery],I.[Size]
+                                        ORDER BY I.[OrderWIP] ASC, I.[PackDate] ASC, I.[BoxNumber] ASC, I.[Season] DESC, I.[InvPoolRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                                     )
+                INTO #TB_DISPATCH_INV_SEQ
+                FROM #TB_DISPATCH_INV_POOL AS I
+                INNER JOIN (
+                    SELECT DISTINCT [Style],[Color],[OrigFabricVendorName],[TypeQuery]
+                    FROM #TB_DISPATCH_ORDER_GROUP
+                ) AS G
+                    ON G.[Style] = I.[Style]
+                   AND G.[Color] = I.[Color]
+                   AND G.[OrigFabricVendorName] = I.[OrigFabricVendorName]
+                   AND G.[TypeQuery] = I.[TypeQuery]
+    
+                UPDATE S SET [CumInvPrev] = ISNULL([CumInvPrev],0)
+                FROM #TB_DISPATCH_INV_SEQ AS S
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_INV_SEQ
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 8 ACUMULADO INVENTARIO'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsInvSeq=',@TraceCountA
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+                -- Asignacion set-based por interseccion de rangos acumulados:
+                -- QtyAssigned = overlap([CumReqPrev,CumReq], [CumInvPrev,CumInv]).
+                -- Tabla temporal: #TB_DISPATCH_ALLOC_RAW
+                -- Asignacion detallada por OrderRow-Size-Inventario (linea a linea).
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 9 ASIGNACION FIFO')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 61,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Ejecutando asignacion FIFO orden por orden.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 9 ASIGNACION FIFO'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+                INSERT INTO #TB_DISPATCH_ALLOC_RAW (
+                     [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber]
+                    ,[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID]
+                    ,[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder]
+                    ,[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned]
+                    ,[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG]
+                    ,[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season]
+                    ,[PromiseDate],[InventoryDate],[RunDate]
+                )
+                SELECT
+                     O.[OrderRow]
+                    ,O.[Style]
+                    ,O.[Color]
+                    ,OB.[RequiredDate]
+                    ,OB.[ordenEmb]
+                    ,OB.[DocDate]
+                    ,OB.[Cust Due Date]
+                    ,OB.[Original Request Date]
+                    ,OB.[OrderID]
+                    ,OB.[PONumber]
+                    ,OB.[CustomerOrder]
+                    ,OB.[PWModulo]
+                    ,OB.[QtyWithdraw]
+                    ,OB.[FirstBlanksBoxNumber]
+                    ,OB.[MO]
+                    ,OB.[MO_ID]
+                    ,OB.[StatusOrder]
+                    ,OB.[SKUStatus]
+                    ,OB.[Status]
+                    ,OB.[Season]
+                    ,OB.[OrderTypeDescription]
+                    ,OB.[ApplicationOrder]
+                    ,O.[TypeQuery]
+                    ,O.[OrigFabricVendorName]
+                    ,O.[Size]
+                    ,[QtyRequired] = O.[QtyRequired]
+                    ,[QtyAssigned] = CAST(X.[EndPoint] - X.[StartPoint] AS FLOAT)
+                    ,I.[InvPoolRow]
+                    ,I.[OrderWIP]
+                    ,I.[PackDate]
+                    ,I.[BoxNumber]
+                    ,I.[CSVBoxNumber]
+                    ,I.[PPFG]
+                    ,I.[MO]
+                    ,I.[MO_ID]
+                    ,I.[BIN]
+                    ,I.[PNHangtag]
+                    ,I.[CountryOfOrigin]
+                    ,I.[Style]
+                    ,I.[Color]
+                    ,I.[Season]
+                    ,OB.[PromiseDate]
+                    ,OB.[InventoryDate]
+                    ,OB.[RunDate]
+                FROM #TB_DISPATCH_ORD_REQ_SEQ AS O
+                INNER JOIN #TB_DISPATCH_ORD_BASE AS OB
+                    ON OB.[OrderRow] = O.[OrderRow]
+                INNER JOIN #TB_DISPATCH_INV_SEQ AS I
+                    ON I.[Style] = O.[Style]
+                   AND I.[Color] = O.[Color]
+                   AND I.[OrigFabricVendorName] = O.[OrigFabricVendorName]
+                   AND I.[TypeQuery] = O.[TypeQuery]
+                   AND I.[Size] = O.[Size]
+                CROSS APPLY (
+                    SELECT
+                         [StartPoint] = CASE WHEN O.[CumReqPrev] > I.[CumInvPrev] THEN O.[CumReqPrev] ELSE I.[CumInvPrev] END
+                        ,[EndPoint]   = CASE WHEN O.[CumReq] < I.[CumInv] THEN O.[CumReq] ELSE I.[CumInv] END
+                ) AS X
+                WHERE X.[EndPoint] > X.[StartPoint]
+    
+                -- Tabla temporal: #TB_DISPATCH_ALLOC_SIZE
+                -- Resumen de asignacion por OrderRow-Size para validar cobertura completa.
+                SELECT
+                     [OrderRow]
+                    ,[Size]
+                    ,[QtyRequired] = MAX([QtyRequired])
                     ,[QtyAssigned] = SUM([QtyAssigned])
+                INTO #TB_DISPATCH_ALLOC_SIZE
                 FROM #TB_DISPATCH_ALLOC_RAW
-                GROUP BY [InvPoolRow]
-            ) AS A
-                ON A.[InvPoolRow] = I.[InvPoolRow]
-            WHERE CAST(I.[QtyAvailable] - ISNULL(A.[QtyAssigned],0) AS FLOAT) > 0
-
-            -- Tabla temporal: #TB_DISPATCH_ORD_SIZE_PENDING
-            -- Demanda pendiente de ordenes no cubiertas por el modo estricto.
-            SELECT
-                 O.[OrderRow]
-                ,O.[Style]
-                ,O.[Color]
-                ,O.[Size]
-                ,O.[QtyRequired]
-            INTO #TB_DISPATCH_ORD_SIZE_PENDING
-            FROM #TB_DISPATCH_ORD_SIZE AS O
-            LEFT JOIN #TB_DISPATCH_ORDER_OK_STRICT AS K
-                ON K.[OrderRow] = O.[OrderRow]
-            WHERE K.[OrderRow] IS NULL
-
-            -- Tabla temporal: #TB_DISPATCH_ORD_REQ_SEQ_MIX
-            -- Demanda acumulada por talla para fallback mixed (sin vendor en particion).
-            SELECT
-                 O.[OrderRow]
-                ,O.[Style]
-                ,O.[Color]
-                ,O.[Size]
-                ,O.[QtyRequired]
-                ,[CumReq]     = SUM(O.[QtyRequired]) OVER (
-                                    PARTITION BY O.[Style],O.[Color],O.[Size]
-                                    ORDER BY O.[OrderRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                                 )
-                ,[CumReqPrev] = SUM(O.[QtyRequired]) OVER (
-                                    PARTITION BY O.[Style],O.[Color],O.[Size]
-                                    ORDER BY O.[OrderRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                                 )
-            INTO #TB_DISPATCH_ORD_REQ_SEQ_MIX
-            FROM #TB_DISPATCH_ORD_SIZE_PENDING AS O
-
-            UPDATE S SET [CumReqPrev] = ISNULL([CumReqPrev],0)
-            FROM #TB_DISPATCH_ORD_REQ_SEQ_MIX AS S
-
-            -- Tabla temporal: #TB_DISPATCH_INV_SEQ_MIX
-            -- Inventario acumulado por talla para mixed, priorizando TypeQuery y FIFO.
-            SELECT
-                 I.*
-                ,[CumInv]     = SUM(I.[QtyAvailable]) OVER (
-                                    PARTITION BY I.[Style],I.[Color],I.[Size]
-                                    ORDER BY I.[TypeQuery] ASC,I.[OrderWIP] ASC,I.[PackDate] ASC,I.[BoxNumber] ASC,I.[Season] DESC,I.[InvPoolRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                                 )
-                ,[CumInvPrev] = SUM(I.[QtyAvailable]) OVER (
-                                    PARTITION BY I.[Style],I.[Color],I.[Size]
-                                    ORDER BY I.[TypeQuery] ASC,I.[OrderWIP] ASC,I.[PackDate] ASC,I.[BoxNumber] ASC,I.[Season] DESC,I.[InvPoolRow] ASC
-                                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                                 )
-            INTO #TB_DISPATCH_INV_SEQ_MIX
-            FROM #TB_DISPATCH_INV_REMAIN AS I
-            INNER JOIN (
-                SELECT DISTINCT [Style],[Color]
-                FROM #TB_DISPATCH_ORD_SIZE_PENDING
-            ) AS G
-                ON G.[Style] = I.[Style]
-               AND G.[Color] = I.[Color]
-
-            UPDATE S SET [CumInvPrev] = ISNULL([CumInvPrev],0)
-            FROM #TB_DISPATCH_INV_SEQ_MIX AS S
-
-            -- Tabla temporal: #TB_DISPATCH_ALLOC_RAW_MIX
-            -- Asignacion detallada candidata en fallback mixed por Style/Color.
-            INSERT INTO #TB_DISPATCH_ALLOC_RAW_MIX (
-                 [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber]
-                ,[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID]
-                ,[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder]
-                ,[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned]
-                ,[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG]
-                ,[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season]
-                ,[PromiseDate],[InventoryDate],[RunDate]
-            )
-            SELECT
-                 O.[OrderRow]
-                ,O.[Style]
-                ,O.[Color]
-                ,OB.[RequiredDate]
-                ,OB.[ordenEmb]
-                ,OB.[DocDate]
-                ,OB.[Cust Due Date]
-                ,OB.[Original Request Date]
-                ,OB.[OrderID]
-                ,OB.[PONumber]
-                ,OB.[CustomerOrder]
-                ,OB.[PWModulo]
-                ,OB.[QtyWithdraw]
-                ,OB.[FirstBlanksBoxNumber]
-                ,OB.[MO]
-                ,OB.[MO_ID]
-                ,OB.[StatusOrder]
-                ,OB.[SKUStatus]
-                ,OB.[Status]
-                ,OB.[Season]
-                ,OB.[OrderTypeDescription]
-                ,OB.[ApplicationOrder]
-                ,I.[TypeQuery]
-                ,I.[OrigFabricVendorName]
-                ,O.[Size]
-                ,[QtyRequired] = O.[QtyRequired]
-                ,[QtyAssigned] = CAST(X.[EndPoint] - X.[StartPoint] AS FLOAT)
-                ,I.[InvPoolRow]
-                ,I.[OrderWIP]
-                ,I.[PackDate]
-                ,I.[BoxNumber]
-                ,I.[CSVBoxNumber]
-                ,I.[PPFG]
-                ,I.[MO]
-                ,I.[MO_ID]
-                ,I.[BIN]
-                ,I.[PNHangtag]
-                ,I.[CountryOfOrigin]
-                ,I.[Style]
-                ,I.[Color]
-                ,I.[Season]
-                ,OB.[PromiseDate]
-                ,OB.[InventoryDate]
-                ,OB.[RunDate]
-            FROM #TB_DISPATCH_ORD_REQ_SEQ_MIX AS O
-            INNER JOIN #TB_DISPATCH_ORD_BASE AS OB
-                ON OB.[OrderRow] = O.[OrderRow]
-            INNER JOIN #TB_DISPATCH_INV_SEQ_MIX AS I
-                ON I.[Style] = O.[Style]
-               AND I.[Color] = O.[Color]
-               AND I.[Size] = O.[Size]
-            CROSS APPLY (
+                GROUP BY [OrderRow],[Size]
+                SET @TraceNowDispatch = SYSDATETIME()
                 SELECT
-                     [StartPoint] = CASE WHEN O.[CumReqPrev] > I.[CumInvPrev] THEN O.[CumReqPrev] ELSE I.[CumInvPrev] END
-                    ,[EndPoint]   = CASE WHEN O.[CumReq] < I.[CumInv] THEN O.[CumReq] ELSE I.[CumInv] END
-            ) AS X
-            WHERE X.[EndPoint] > X.[StartPoint]
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ALLOC_RAW
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ALLOC_SIZE
+                SELECT
+                    @TraceQtyAssigned = CAST(ISNULL(SUM([QtyAssigned]),0) AS VARCHAR(30))
+                FROM #TB_DISPATCH_ALLOC_RAW
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 9 ASIGNACION FIFO'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsAllocRaw=',@TraceCountA
+                    ,' | RowsAllocSize=',@TraceCountB
+                    ,' | QtyAssignedRaw=',@TraceQtyAssigned
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10 VALIDAR ORDENES COMPLETAS (MODO ESTRICTO)')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 62,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Validando ordenes completamente cubiertas.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10 VALIDAR ORDENES COMPLETAS (MODO ESTRICTO)'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+                -- Tabla temporal: #TB_DISPATCH_ORDER_OK
+                -- Ordenes con todas sus tallas cubiertas en modo estricto (vendor+typequery).
+                INSERT INTO #TB_DISPATCH_ORDER_OK ([OrderRow])
+                SELECT
+                     R.[OrderRow]
+                FROM #TB_DISPATCH_ORD_SIZE AS R
+                LEFT JOIN #TB_DISPATCH_ALLOC_SIZE AS A
+                    ON A.[OrderRow] = R.[OrderRow]
+                   AND A.[Size] = R.[Size]
+                GROUP BY R.[OrderRow]
+                HAVING SUM(CASE WHEN ISNULL(A.[QtyAssigned],0) >= R.[QtyRequired] THEN 1 ELSE 0 END) = COUNT(*)
+    
+                -- Tabla temporal: #TB_DISPATCH_ORDER_OK_STRICT
+                -- Copia fija del set estricto para separarlo del fallback mixed.
+                SELECT
+                     [OrderRow]
+                INTO #TB_DISPATCH_ORDER_OK_STRICT
+                FROM #TB_DISPATCH_ORDER_OK
+    
+                -- Mantener solo asignaciones del modo estricto para ordenes completas.
+                DELETE A
+                FROM #TB_DISPATCH_ALLOC_RAW AS A
+                LEFT JOIN #TB_DISPATCH_ORDER_OK_STRICT AS K
+                    ON K.[OrderRow] = A.[OrderRow]
+                WHERE K.[OrderRow] IS NULL
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORDER_OK_STRICT
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ALLOC_RAW
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 10 MODO ESTRICTO'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | OrdersOKStrict=',@TraceCountA
+                    ,' | RowsAllocRawAfterStrict=',@TraceCountB
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
+    
+                -- Fallback: para ordenes no cubiertas por vendor unico, intentar por Style/Color (vendor mixed).
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10A FALLBACK STYLE/COLOR (VENDOR MIXED)')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 63,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Aplicando fallback vendor mixed para ordenes no cubiertas.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 10A FALLBACK STYLE/COLOR (VENDOR MIXED)'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+                -- Tabla temporal: #TB_DISPATCH_INV_REMAIN
+                -- Remanente de inventario despues del modo estricto (disponible para mixed).
+                SELECT
+                     I.[InvPoolRow]
+                    ,I.[Style]
+                    ,I.[Color]
+                    ,I.[Season]
+                    ,I.[TypeQuery]
+                    ,I.[OrderWIP]
+                    ,I.[OrigFabricVendorName]
+                    ,I.[PackDate]
+                    ,I.[BoxNumber]
+                    ,I.[CSVBoxNumber]
+                    ,I.[PPFG]
+                    ,I.[MO]
+                    ,I.[MO_ID]
+                    ,I.[Size]
+                    ,[QtyAvailable] = CAST(I.[QtyAvailable] - ISNULL(A.[QtyAssigned],0) AS FLOAT)
+                    ,I.[BIN]
+                    ,I.[PNHangtag]
+                    ,I.[CountryOfOrigin]
+                INTO #TB_DISPATCH_INV_REMAIN
+                FROM #TB_DISPATCH_INV_POOL AS I
+                LEFT JOIN (
+                    SELECT
+                         [InvPoolRow]
+                        ,[QtyAssigned] = SUM([QtyAssigned])
+                    FROM #TB_DISPATCH_ALLOC_RAW
+                    GROUP BY [InvPoolRow]
+                ) AS A
+                    ON A.[InvPoolRow] = I.[InvPoolRow]
+                WHERE CAST(I.[QtyAvailable] - ISNULL(A.[QtyAssigned],0) AS FLOAT) > 0
+    
+                -- Tabla temporal: #TB_DISPATCH_ORD_SIZE_PENDING
+                -- Demanda pendiente de ordenes no cubiertas por el modo estricto.
+                SELECT
+                     O.[OrderRow]
+                    ,O.[Style]
+                    ,O.[Color]
+                    ,O.[Size]
+                    ,O.[QtyRequired]
+                INTO #TB_DISPATCH_ORD_SIZE_PENDING
+                FROM #TB_DISPATCH_ORD_SIZE AS O
+                LEFT JOIN #TB_DISPATCH_ORDER_OK_STRICT AS K
+                    ON K.[OrderRow] = O.[OrderRow]
+                WHERE K.[OrderRow] IS NULL
+    
+                -- Tabla temporal: #TB_DISPATCH_ORD_REQ_SEQ_MIX
+                -- Demanda acumulada por talla para fallback mixed (sin vendor en particion).
+                SELECT
+                     O.[OrderRow]
+                    ,O.[Style]
+                    ,O.[Color]
+                    ,O.[Size]
+                    ,O.[QtyRequired]
+                    ,[CumReq]     = SUM(O.[QtyRequired]) OVER (
+                                        PARTITION BY O.[Style],O.[Color],O.[Size]
+                                        ORDER BY O.[OrderRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                                     )
+                    ,[CumReqPrev] = SUM(O.[QtyRequired]) OVER (
+                                        PARTITION BY O.[Style],O.[Color],O.[Size]
+                                        ORDER BY O.[OrderRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                                     )
+                INTO #TB_DISPATCH_ORD_REQ_SEQ_MIX
+                FROM #TB_DISPATCH_ORD_SIZE_PENDING AS O
+    
+                UPDATE S SET [CumReqPrev] = ISNULL([CumReqPrev],0)
+                FROM #TB_DISPATCH_ORD_REQ_SEQ_MIX AS S
 
-            -- Tabla temporal: #TB_DISPATCH_ALLOC_SIZE_MIX
-            -- Resumen por talla del resultado mixed para validar orden completa.
-            SELECT
-                 [OrderRow]
-                ,[Size]
-                ,[QtyRequired] = MAX([QtyRequired])
-                ,[QtyAssigned] = SUM([QtyAssigned])
-            INTO #TB_DISPATCH_ALLOC_SIZE_MIX
-            FROM #TB_DISPATCH_ALLOC_RAW_MIX
-            GROUP BY [OrderRow],[Size]
-
-            -- Tabla temporal: #TB_DISPATCH_ORDER_OK_MIX
-            -- Ordenes pendientes que si logran cobertura total usando mixed.
-            SELECT
-                 R.[OrderRow]
-            INTO #TB_DISPATCH_ORDER_OK_MIX
-            FROM #TB_DISPATCH_ORD_SIZE_PENDING AS R
-            LEFT JOIN #TB_DISPATCH_ALLOC_SIZE_MIX AS A
-                ON A.[OrderRow] = R.[OrderRow]
-               AND A.[Size] = R.[Size]
-            GROUP BY R.[OrderRow]
-            HAVING SUM(CASE WHEN ISNULL(A.[QtyAssigned],0) >= R.[QtyRequired] THEN 1 ELSE 0 END) = COUNT(*)
-
-            INSERT INTO #TB_DISPATCH_ALLOC_RAW (
-                 [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber],[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID],[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder],[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned],[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG],[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season],[PromiseDate],[InventoryDate],[RunDate]
-            )
-            SELECT
-                 [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber],[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID],[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder],[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned],[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG],[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season],[PromiseDate],[InventoryDate],[RunDate]
-            FROM #TB_DISPATCH_ALLOC_RAW_MIX
-            WHERE [OrderRow] IN (SELECT [OrderRow] FROM #TB_DISPATCH_ORDER_OK_MIX)
-
-            INSERT INTO #TB_DISPATCH_ORDER_OK([OrderRow])
-            SELECT
-                 M.[OrderRow]
-            FROM #TB_DISPATCH_ORDER_OK_MIX AS M
-            LEFT JOIN #TB_DISPATCH_ORDER_OK AS K
-                ON K.[OrderRow] = M.[OrderRow]
-            WHERE K.[OrderRow] IS NULL
-            SET @TraceNowDispatch = SYSDATETIME()
-            SELECT
-                @TraceCountA = COUNT_BIG(*)
-            FROM #TB_DISPATCH_INV_REMAIN
-            SELECT
-                @TraceCountB = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORD_SIZE_PENDING
-            SELECT
-                @TraceCountC = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ALLOC_RAW_MIX
-            SELECT
-                @TraceCountD = COUNT_BIG(*)
-            FROM #TB_DISPATCH_ORDER_OK_MIX
-            SELECT
-                @TraceQtyAssigned = CAST(COUNT_BIG(*) AS VARCHAR(30))
-            FROM #TB_DISPATCH_ORDER_OK
-            PRINT CONCAT(
-                FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
-                ,'         TRACE PASO 10A FALLBACK MIXED'
-                ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
-                ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
-                ,' | RowsInvRemain=',@TraceCountA
-                ,' | RowsOrdPending=',@TraceCountB
-                ,' | RowsAllocRawMix=',@TraceCountC
-                ,' | OrdersOKMix=',@TraceCountD
-                ,' | OrdersOKTotal=',@TraceQtyAssigned
-            )
-            SET @TracePrevDispatch = @TraceNowDispatch
+                -- Tabla temporal: #TB_DISPATCH_INV_SEQ_MIX
+                -- Inventario acumulado por talla para mixed, priorizando TypeQuery y FIFO.
+                SELECT
+                     I.*
+                    ,[CumInv]     = SUM(I.[QtyAvailable]) OVER (
+                                        PARTITION BY I.[Style],I.[Color],I.[Size]
+                                        ORDER BY I.[TypeQuery] ASC,I.[OrderWIP] ASC,I.[PackDate] ASC,I.[BoxNumber] ASC,I.[Season] DESC,I.[InvPoolRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                                     )
+                    ,[CumInvPrev] = SUM(I.[QtyAvailable]) OVER (
+                                        PARTITION BY I.[Style],I.[Color],I.[Size]
+                                        ORDER BY I.[TypeQuery] ASC,I.[OrderWIP] ASC,I.[PackDate] ASC,I.[BoxNumber] ASC,I.[Season] DESC,I.[InvPoolRow] ASC
+                                        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                                     )
+                INTO #TB_DISPATCH_INV_SEQ_MIX
+                FROM #TB_DISPATCH_INV_REMAIN AS I
+                INNER JOIN (
+                    SELECT DISTINCT [Style],[Color]
+                    FROM #TB_DISPATCH_ORD_SIZE_PENDING
+                ) AS G
+                    ON G.[Style] = I.[Style]
+                   AND G.[Color] = I.[Color]
+    
+                UPDATE S SET [CumInvPrev] = ISNULL([CumInvPrev],0)
+                FROM #TB_DISPATCH_INV_SEQ_MIX AS S
+    
+                -- Tabla temporal: #TB_DISPATCH_ALLOC_RAW_MIX
+                -- Asignacion detallada candidata en fallback mixed por Style/Color.
+                INSERT INTO #TB_DISPATCH_ALLOC_RAW_MIX (
+                     [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber]
+                    ,[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID]
+                    ,[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder]
+                    ,[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned]
+                    ,[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG]
+                    ,[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season]
+                    ,[PromiseDate],[InventoryDate],[RunDate]
+                )
+                SELECT
+                     O.[OrderRow]
+                    ,O.[Style]
+                    ,O.[Color]
+                    ,OB.[RequiredDate]
+                    ,OB.[ordenEmb]
+                    ,OB.[DocDate]
+                    ,OB.[Cust Due Date]
+                    ,OB.[Original Request Date]
+                    ,OB.[OrderID]
+                    ,OB.[PONumber]
+                    ,OB.[CustomerOrder]
+                    ,OB.[PWModulo]
+                    ,OB.[QtyWithdraw]
+                    ,OB.[FirstBlanksBoxNumber]
+                    ,OB.[MO]
+                    ,OB.[MO_ID]
+                    ,OB.[StatusOrder]
+                    ,OB.[SKUStatus]
+                    ,OB.[Status]
+                    ,OB.[Season]
+                    ,OB.[OrderTypeDescription]
+                    ,OB.[ApplicationOrder]
+                    ,I.[TypeQuery]
+                    ,I.[OrigFabricVendorName]
+                    ,O.[Size]
+                    ,[QtyRequired] = O.[QtyRequired]
+                    ,[QtyAssigned] = CAST(X.[EndPoint] - X.[StartPoint] AS FLOAT)
+                    ,I.[InvPoolRow]
+                    ,I.[OrderWIP]
+                    ,I.[PackDate]
+                    ,I.[BoxNumber]
+                    ,I.[CSVBoxNumber]
+                    ,I.[PPFG]
+                    ,I.[MO]
+                    ,I.[MO_ID]
+                    ,I.[BIN]
+                    ,I.[PNHangtag]
+                    ,I.[CountryOfOrigin]
+                    ,I.[Style]
+                    ,I.[Color]
+                    ,I.[Season]
+                    ,OB.[PromiseDate]
+                    ,OB.[InventoryDate]
+                    ,OB.[RunDate]
+                FROM #TB_DISPATCH_ORD_REQ_SEQ_MIX AS O
+                INNER JOIN #TB_DISPATCH_ORD_BASE AS OB
+                    ON OB.[OrderRow] = O.[OrderRow]
+                INNER JOIN #TB_DISPATCH_INV_SEQ_MIX AS I
+                    ON I.[Style] = O.[Style]
+                   AND I.[Color] = O.[Color]
+                   AND I.[Size] = O.[Size]
+                CROSS APPLY (
+                    SELECT
+                         [StartPoint] = CASE WHEN O.[CumReqPrev] > I.[CumInvPrev] THEN O.[CumReqPrev] ELSE I.[CumInvPrev] END
+                        ,[EndPoint]   = CASE WHEN O.[CumReq] < I.[CumInv] THEN O.[CumReq] ELSE I.[CumInv] END
+                ) AS X
+                WHERE X.[EndPoint] > X.[StartPoint]
+    
+                -- Tabla temporal: #TB_DISPATCH_ALLOC_SIZE_MIX
+                -- Resumen por talla del resultado mixed para validar orden completa.
+                SELECT
+                     [OrderRow]
+                    ,[Size]
+                    ,[QtyRequired] = MAX([QtyRequired])
+                    ,[QtyAssigned] = SUM([QtyAssigned])
+                INTO #TB_DISPATCH_ALLOC_SIZE_MIX
+                FROM #TB_DISPATCH_ALLOC_RAW_MIX
+                GROUP BY [OrderRow],[Size]
+    
+                -- Tabla temporal: #TB_DISPATCH_ORDER_OK_MIX
+                -- Ordenes pendientes que si logran cobertura total usando mixed.
+                SELECT
+                     R.[OrderRow]
+                INTO #TB_DISPATCH_ORDER_OK_MIX
+                FROM #TB_DISPATCH_ORD_SIZE_PENDING AS R
+                LEFT JOIN #TB_DISPATCH_ALLOC_SIZE_MIX AS A
+                    ON A.[OrderRow] = R.[OrderRow]
+                   AND A.[Size] = R.[Size]
+                GROUP BY R.[OrderRow]
+                HAVING SUM(CASE WHEN ISNULL(A.[QtyAssigned],0) >= R.[QtyRequired] THEN 1 ELSE 0 END) = COUNT(*)
+    
+                INSERT INTO #TB_DISPATCH_ALLOC_RAW (
+                     [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber],[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID],[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder],[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned],[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG],[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season],[PromiseDate],[InventoryDate],[RunDate]
+                )
+                SELECT
+                     [OrderRow],[Style],[Color],[RequiredDate],[ordenEmb],[DocDate],[Cust Due Date],[Original Request Date],[OrderID],[PONumber],[CustomerOrder],[PWModulo],[QtyWithdraw],[FirstBlanksBoxNumber],[MO],[MO_ID],[StatusOrder],[SKUStatus],[Status],[Season],[OrderTypeDescription],[ApplicationOrder],[TypeQuery],[OrigFabricVendorName],[Size],[QtyRequired],[QtyAssigned],[InvPoolRow],[OrderWIP],[Inv_Pack_Date],[BoxNumber],[CSVBoxNumber],[PPFG],[InvMO],[InvMO_ID],[BIN],[PNHangtag],[CountryOfOrigin],[inv_Style],[inv_Color],[inv_Season],[PromiseDate],[InventoryDate],[RunDate]
+                FROM #TB_DISPATCH_ALLOC_RAW_MIX
+                WHERE [OrderRow] IN (SELECT [OrderRow] FROM #TB_DISPATCH_ORDER_OK_MIX)
+    
+                INSERT INTO #TB_DISPATCH_ORDER_OK([OrderRow])
+                SELECT
+                     M.[OrderRow]
+                FROM #TB_DISPATCH_ORDER_OK_MIX AS M
+                LEFT JOIN #TB_DISPATCH_ORDER_OK AS K
+                    ON K.[OrderRow] = M.[OrderRow]
+                WHERE K.[OrderRow] IS NULL
+                SET @TraceNowDispatch = SYSDATETIME()
+                SELECT
+                    @TraceCountA = COUNT_BIG(*)
+                FROM #TB_DISPATCH_INV_REMAIN
+                SELECT
+                    @TraceCountB = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORD_SIZE_PENDING
+                SELECT
+                    @TraceCountC = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ALLOC_RAW_MIX
+                SELECT
+                    @TraceCountD = COUNT_BIG(*)
+                FROM #TB_DISPATCH_ORDER_OK_MIX
+                SELECT
+                    @TraceQtyAssigned = CAST(COUNT_BIG(*) AS VARCHAR(30))
+                FROM #TB_DISPATCH_ORDER_OK
+                PRINT CONCAT(
+                    FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff')
+                    ,'         TRACE PASO 10A FALLBACK MIXED'
+                    ,' | DeltaMs=',DATEDIFF(MILLISECOND,@TracePrevDispatch,@TraceNowDispatch)
+                    ,' | TotalMs=',DATEDIFF(MILLISECOND,@TraceStartDispatch,@TraceNowDispatch)
+                    ,' | RowsInvRemain=',@TraceCountA
+                    ,' | RowsOrdPending=',@TraceCountB
+                    ,' | RowsAllocRawMix=',@TraceCountC
+                    ,' | OrdersOKMix=',@TraceCountD
+                    ,' | OrdersOKTotal=',@TraceQtyAssigned
+                )
+                SET @TracePrevDispatch = @TraceNowDispatch
 
             END -- fin modo FIFO con grupos y vendor (flag=false)
             ELSE
             BEGIN -- inicio modo RESERVA todo-o-nada (flag=true)
 
-            ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            ----------PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA (flag=true)------------------------------------------------------------------------------------------
-            ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-            ----Explicacion del procedimiento para despacho en modo reserva
-            -------------------         Que hace el bloque
-            ------------------- Implementa despacho todo-o-nada por orden en orden FIFO, optimizado en 2 fases:
-            ------------------- FASE 1 - Loop FIFO ligero: determina que ordenes se pueden despachar.
-            -------------------   Para cada orden (en orden FIFO) verifica si TODAS las tallas requeridas
-            -------------------   tienen stock disponible (inventario total - ya comprometido por ordenes anteriores OK).
-            -------------------   Si aplica: registra la orden en #TB_DISPATCH_ORDER_OK y acumula comprometidos.
-            -------------------   Si no aplica: la orden queda pendiente sin consumir inventario.
-            -------------------   El check usa totales agregados (#TB_RESERVE_INV_AGG y #TB_RESERVE_COMMITTED),
-            -------------------   no window functions, lo que lo hace muy rapido aun con muchas ordenes.
-            ------------------- FASE 2 - Asignacion FIFO set-based (un solo paso):
-            -------------------   Con las ordenes OK ya determinadas, construye secuencias acumuladas de
-            -------------------   demanda (solo ordenes OK) e inventario (FIFO por TypeQuery/PackDate/BoxNumber),
-            -------------------   y usa CROSS APPLY de traslape para asignar cajas/MO especificas.
-            -------------------   Esta fase es equivalente a PASO 9 del modo normal pero ejecuta una sola vez.
-            ------------------- Notas:
-            -------------------   DiscardMPA y SuspendOrd se omiten sin consumir inventario.
-            -------------------   No aplica fallback mixed-vendor (la cobertura es total o la orden no despacha).
-            -------------------   Salidas: mismas tablas finales (#DispatchOrdersFromInventoryWIP, etc.).
-
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R1 INVENTARIO AGREGADO')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 55,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Calculando inventario disponible por talla.',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R1 INVENTARIO AGREGADO'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-
-            -- Tabla: #TB_RESERVE_INV_AGG
-            -- Inventario total por (Style, Color, Size). Lookup fijo para el loop de verificacion.
-            DROP TABLE IF EXISTS #TB_RESERVE_INV_AGG
-            SELECT
-                 [Style]    = I.[Style]
-                ,[Color]    = I.[Color]
-                ,[Size]     = I.[Size]
-                ,[QtyTotal] = SUM(I.[QtyAvailable])
-            INTO #TB_RESERVE_INV_AGG
-            FROM #TB_DISPATCH_INV_POOL AS I
-            GROUP BY I.[Style], I.[Color], I.[Size]
-
-            CREATE CLUSTERED INDEX IX_TB_RESERVE_INV_AGG
-                ON #TB_RESERVE_INV_AGG([Style],[Color],[Size])
-
-            -- Tabla: #TB_RESERVE_COMMITTED
-            -- Unidades ya comprometidas por (Style, Color, Size) a medida que avanzan las ordenes OK en el loop.
-            DROP TABLE IF EXISTS #TB_RESERVE_COMMITTED
-            SELECT
-                 [Style]        = D.[Style]
-                ,[Color]        = D.[Color]
-                ,[Size]         = D.[Size]
-                ,[QtyCommitted] = CAST(0 AS FLOAT)
-            INTO #TB_RESERVE_COMMITTED
-            FROM (
-                SELECT DISTINCT [Style],[Color],[Size]
-                FROM #TB_DISPATCH_ORD_SIZE
-            ) AS D
-
-            CREATE CLUSTERED INDEX IX_TB_RESERVE_COMMITTED
-                ON #TB_RESERVE_COMMITTED([Style],[Color],[Size])
-
-            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R2 LOOP FIFO ORDENES')
-            UPDATE [AppsLCA].[dbo].[TB_Global_Process]
-            SET [Percent] = 58,
-                [StepCode] = 'DISPATCH',
-                [StepNameUser] = 'Asignando inventario a ordenes',
-                [MessageUser] = 'Evaluando ordenes en modo reserva (todo-o-nada FIFO).',
-                [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R2 LOOP FIFO ORDENES'),500),
-                [UpdatedAt] = SYSDATETIME()
-            WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-
-            -- Loop FIFO ligero: solo verifica disponibilidad con totales; no hace window functions.
-            -- Itera unicamente sobre ordenes activas (sin gaps de OrderRow) para maxima eficiencia.
-            -- #TB_DISPATCH_ORDER_OK ya fue pre-creada vacia antes del IF/ELSE.
-            DECLARE @LoopOrderRow INT
-            DECLARE @LoopStart    INT = 0
-
-            WHILE 1 = 1
-            BEGIN
-                -- Avanzar al siguiente OrderRow activo (saltar bloqueadas y gaps)
-                SELECT @LoopOrderRow = MIN([OrderRow])
-                FROM #TB_DISPATCH_ORD_BASE
-                WHERE [OrderRow]   > @LoopStart
-                  AND [SuspendOrd] = 0
-
-                IF @LoopOrderRow IS NULL BREAK
-
-                -- Verificar que TODAS las tallas tienen stock disponible (total - comprometido)
-                IF NOT EXISTS (
-                    SELECT 1
-                    FROM #TB_DISPATCH_ORD_SIZE AS D
-                    LEFT JOIN #TB_RESERVE_INV_AGG AS IA
-                        ON IA.[Style] = D.[Style] AND IA.[Color] = D.[Color] AND IA.[Size] = D.[Size]
-                    LEFT JOIN #TB_RESERVE_COMMITTED AS C
-                        ON C.[Style]  = D.[Style] AND C.[Color]  = D.[Color] AND C.[Size]  = D.[Size]
-                    WHERE D.[OrderRow] = @LoopOrderRow
-                      AND D.[QtyRequired] > ISNULL(IA.[QtyTotal], 0) - ISNULL(C.[QtyCommitted], 0)
-                )
+                ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                ----------PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA (flag=true)------------------------------------------------------------------------------------------
+                ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                ----Explicacion del procedimiento para despacho en modo reserva
+                -------------------         Que hace el bloque
+                ------------------- Implementa despacho todo-o-nada por orden en orden FIFO, optimizado en 2 fases:
+                ------------------- FASE 1 - Loop FIFO ligero: determina que ordenes se pueden despachar.
+                -------------------   Para cada orden (en orden FIFO) verifica si TODAS las tallas requeridas
+                -------------------   tienen stock disponible (inventario total - ya comprometido por ordenes anteriores OK).
+                -------------------   Si aplica: registra la orden en #TB_DISPATCH_ORDER_OK y acumula comprometidos.
+                -------------------   Si no aplica: la orden queda pendiente sin consumir inventario.
+                -------------------   El check usa totales agregados (#TB_RESERVE_INV_AGG y #TB_RESERVE_COMMITTED),
+                -------------------   no window functions, lo que lo hace muy rapido aun con muchas ordenes.
+                ------------------- FASE 2 - Asignacion FIFO set-based (un solo paso):
+                -------------------   Con las ordenes OK ya determinadas, construye secuencias acumuladas de
+                -------------------   demanda (solo ordenes OK) e inventario (FIFO por TypeQuery/PackDate/BoxNumber),
+                -------------------   y usa CROSS APPLY de traslape para asignar cajas/MO especificas.
+                -------------------   Esta fase es equivalente a PASO 9 del modo normal pero ejecuta una sola vez.
+                ------------------- Notas:
+                -------------------   DiscardMPA y SuspendOrd se omiten sin consumir inventario.
+                -------------------   No aplica fallback mixed-vendor (la cobertura es total o la orden no despacha).
+                -------------------   Salidas: mismas tablas finales (#DispatchOrdersFromInventoryWIP, etc.).
+    
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R1 INVENTARIO AGREGADO')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 55,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Calculando inventario disponible por talla.',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R1 INVENTARIO AGREGADO'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+    
+                -- Tabla: #TB_RESERVE_INV_AGG
+                -- Inventario total por (Style, Color, Size). Lookup fijo para el loop de verificacion.
+                DROP TABLE IF EXISTS #TB_RESERVE_INV_AGG
+                SELECT
+                     [Style]    = I.[Style]
+                    ,[Color]    = I.[Color]
+                    ,[Size]     = I.[Size]
+                    ,[QtyTotal] = SUM(I.[QtyAvailable])
+                INTO #TB_RESERVE_INV_AGG
+                FROM #TB_DISPATCH_INV_POOL AS I
+                GROUP BY I.[Style], I.[Color], I.[Size]
+    
+                CREATE CLUSTERED INDEX IX_TB_RESERVE_INV_AGG
+                    ON #TB_RESERVE_INV_AGG([Style],[Color],[Size])
+    
+                -- Tabla: #TB_RESERVE_COMMITTED
+                -- Unidades ya comprometidas por (Style, Color, Size) a medida que avanzan las ordenes OK en el loop.
+                DROP TABLE IF EXISTS #TB_RESERVE_COMMITTED
+                SELECT
+                     [Style]        = D.[Style]
+                    ,[Color]        = D.[Color]
+                    ,[Size]         = D.[Size]
+                    ,[QtyCommitted] = CAST(0 AS FLOAT)
+                INTO #TB_RESERVE_COMMITTED
+                FROM (
+                    SELECT DISTINCT [Style],[Color],[Size]
+                    FROM #TB_DISPATCH_ORD_SIZE
+                ) AS D
+    
+                CREATE CLUSTERED INDEX IX_TB_RESERVE_COMMITTED
+                    ON #TB_RESERVE_COMMITTED([Style],[Color],[Size])
+    
+                PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R2 LOOP FIFO ORDENES')
+                UPDATE [AppsLCA].[dbo].[TB_Global_Process]
+                SET [Percent] = 58,
+                    [StepCode] = 'DISPATCH',
+                    [StepNameUser] = 'Asignando inventario a ordenes',
+                    [MessageUser] = 'Evaluando ordenes en modo reserva (todo-o-nada FIFO).',
+                    [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R2 LOOP FIFO ORDENES'),500),
+                    [UpdatedAt] = SYSDATETIME()
+                WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
+    
+                -- Loop FIFO ligero: solo verifica disponibilidad con totales; no hace window functions.
+                -- Itera unicamente sobre ordenes activas (sin gaps de OrderRow) para maxima eficiencia.
+                -- #TB_DISPATCH_ORDER_OK ya fue pre-creada vacia antes del IF/ELSE.
+                DECLARE @LoopOrderRow INT
+                DECLARE @LoopStart    INT = 0
+    
+                WHILE 1 = 1
                 BEGIN
-                    -- Orden despachable: registrar y acumular comprometidos para siguientes ordenes
-                    INSERT INTO #TB_DISPATCH_ORDER_OK ([OrderRow]) VALUES (@LoopOrderRow)
-
-                    UPDATE C
-                    SET C.[QtyCommitted] = C.[QtyCommitted] + D.[QtyRequired]
-                    FROM #TB_RESERVE_COMMITTED AS C
-                    INNER JOIN #TB_DISPATCH_ORD_SIZE AS D
-                        ON D.[Style] = C.[Style] AND D.[Color] = C.[Color] AND D.[Size] = C.[Size]
-                    WHERE D.[OrderRow] = @LoopOrderRow
-                END
-
-                SET @LoopStart = @LoopOrderRow
+                    -- Avanzar al siguiente OrderRow activo (saltar bloqueadas y gaps)
+                    SELECT @LoopOrderRow = MIN([OrderRow])
+                    FROM #TB_DISPATCH_ORD_BASE
+                    WHERE [OrderRow]   > @LoopStart
+                      AND [SuspendOrd] = 0
+    
+                    IF @LoopOrderRow IS NULL BREAK
+    
+                    -- Verificar que TODAS las tallas tienen stock disponible (total - comprometido)
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM #TB_DISPATCH_ORD_SIZE AS D
+                        LEFT JOIN #TB_RESERVE_INV_AGG AS IA
+                            ON IA.[Style] = D.[Style] AND IA.[Color] = D.[Color] AND IA.[Size] = D.[Size]
+                        LEFT JOIN #TB_RESERVE_COMMITTED AS C
+                            ON C.[Style]  = D.[Style] AND C.[Color]  = D.[Color] AND C.[Size]  = D.[Size]
+                        WHERE D.[OrderRow] = @LoopOrderRow
+                          AND D.[QtyRequired] > ISNULL(IA.[QtyTotal], 0) - ISNULL(C.[QtyCommitted], 0)
+                    )
+                    BEGIN
+                        -- Orden despachable: registrar y acumular comprometidos para siguientes ordenes
+                        INSERT INTO #TB_DISPATCH_ORDER_OK ([OrderRow]) VALUES (@LoopOrderRow)
+    
+                        UPDATE C
+                        SET C.[QtyCommitted] = C.[QtyCommitted] + D.[QtyRequired]
+                        FROM #TB_RESERVE_COMMITTED AS C
+                        INNER JOIN #TB_DISPATCH_ORD_SIZE AS D
+                            ON D.[Style] = C.[Style] AND D.[Color] = C.[Color] AND D.[Size] = C.[Size]
+                        WHERE D.[OrderRow] = @LoopOrderRow
+                    END
+    
+                    SET @LoopStart = @LoopOrderRow
             END -- fin WHILE loop FIFO
+
+            -- SELECT * FROM #TB_DISPATCH_ORDER_OK
+            -- RETURN ---REV_ELISA_MAURICIO
 
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R3 SECUENCIA DEMANDA')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -3959,6 +4213,9 @@ BEGIN
             FROM #TB_DISPATCH_ORD_SIZE AS O
             INNER JOIN #TB_DISPATCH_ORDER_OK AS K
                 ON K.[OrderRow] = O.[OrderRow]
+
+            -- SELECT * FROM #TB_RESERVE_ORD_SEQ
+            -- RETURN ---REV_ELISA_MAURICIO
 
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R4 SECUENCIA INVENTARIO')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -4001,6 +4258,9 @@ BEGIN
             ) AS G
                 ON G.[Style] = I.[Style] AND G.[Color] = I.[Color]
             WHERE ISNULL(I.[QtyAvailable], 0) > 0
+
+            -- SELECT * FROM #TB_RESERVE_INV_SEQ
+            -- RETURN ---REV_ELISA_MAURICIO
 
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. MODO RESERVA PASO R5 ASIGNACION FIFO')
             UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -4198,6 +4458,18 @@ BEGIN
             LEFT JOIN #TB_DISPATCH_ORD_BASE AS BASE_ORD
                 ON BASE_ORD.[OrderRow] = A.[OrderRow]
 
+
+-- select * from #DispatchOrdersFromInventoryWIP 
+-- where 
+--     origFabricVendorName like '%NG Text%' 
+--     and CommentFinal = 'Dispatched: mixed vendor'
+--     -- and 
+--     -- orderMO = 'EO5983924-221'
+
+-- select * from #DispatchOrdersFromInventoryWIP 
+-- where orderMO = 'EO5284471-837'
+-- return
+---memiin1194
             -- Resumen de ordenes despachadas.
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA DESPACHO DESDE INVENTARIO WIP. PASO 12 GENERAR RESUMEN DESPACHADAS')
             -- Tabla temporal: #TB_DISPATCH_ORDER_ALLOC_SUMMARY
@@ -4978,6 +5250,7 @@ BEGIN
                 ,[DateInPacking]
             INTO #TB_LCAComments
             FROM OPENQUERY([MARIADB],'SELECT * FROM wordpress.Planning_Backlog_LCAComments')
+            -- ORDER BY [OrderReport]
 
             DROP TABLE IF EXISTS #TB_LOOKUP_ORD_DEMAND_BY_MO
             SELECT
@@ -5255,8 +5528,7 @@ BEGIN
                     [MessageTech] = RIGHT(CONCAT(NULLIF([MessageTech],''), CASE WHEN NULLIF([MessageTech],'') IS NULL THEN '' ELSE CHAR(10) END, CONVERT(VARCHAR(23),SYSDATETIME(),121), ' - PROCEDIMIENTO PARA GENERACION DE BACKLOG. LOOKUP STATUS/DATE (ALL LOGS)'),500),
                     [UpdatedAt] = SYSDATETIME()
                 WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
-                
-                
+
                 DROP TABLE IF EXISTS #TB_BACKLOG_LOOKUP_STATUSDATE_ALLLOGS
                 SELECT
                      [ItemDetailID]     = SRC.[ItemDetailID]
@@ -5593,6 +5865,11 @@ BEGIN
                     [UpdatedAt] = SYSDATETIME()
                 WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
 
+
+
+
+
+
                 -- PROCESO BASE-1: Construir tabla base por talla para MOs Released/Forecast
                 -- Incluye cruce contra backlog activo L2Brand y datos produccion por talla.
                 -- Filtros utilizados:
@@ -5639,6 +5916,7 @@ BEGIN
                     ,[ShipDate]                   = CAST(NULL AS DATE)
 
                 INTO #TB_BACKLOG_INV_01_RF
+                -- SELECT * 
                 FROM (SELECT [StatusID],[StatusName] FROM [LCA].[dbo].[StatusNames] WITH(NOLOCK) WHERE [StatusID] IN(20,40)) AS SN
                 INNER JOIN [LCA].[dbo].[ManufactureOrders]      AS MO    WITH(NOLOCK) ON SN.[StatusID]          = MO.[StatusID]      AND MO.[StatusID] IN(20,40)
                 INNER JOIN [LCA].[dbo].[ManufactureDetails]     AS MD    WITH(NOLOCK) ON MD.[ManufactureID]     = MO.[ManufactureID] AND MD.[QuantityOrdered] > 0
@@ -5854,6 +6132,7 @@ BEGIN
                     ,[DateForConteiner]                 DATE            NULL
                     ,[LateOrder]                        INT             NULL
                     ,[DaysLateOrder]                    INT             NULL
+                    ,[Bin]                              VARCHAR(100)    NULL
                 )
                 
                 UPDATE [AppsLCA].[dbo].[TB_Global_Process]
@@ -6873,6 +7152,7 @@ BEGIN
                     ,[FabricDD]
                     ,[Waybill]
                     ,[ShipDate]
+                    ,[Bin]
                 )
                 SELECT
                      [R]                          = CAST(NULL AS BIGINT)
@@ -6934,6 +7214,7 @@ BEGIN
                     ,[FabricDD]                   = S.[FabricDD]
                     ,[Waybill]                    = S.[Waybill]
                     ,[ShipDate]                   = S.[ShipDate]
+                    ,[Bin]                        = S.[Bin]
                 FROM #TB_BACKLOG_PACKING_SHIP_WIP AS S
                 INNER JOIN #TB_BACKLOG_L2BRAND_ACTIVE AS BL ON BL.[ItemDetailID] = S.[ItemDetailID]
                 WHERE ISNULL(S.[Quantity],0) > 0
@@ -7277,6 +7558,15 @@ BEGIN
                 ,[StockCategory]                    = U.[StockCategory]
                 ,[Collection]                       = U.[Collection]
                 ,[PWModulo]                         = U.[PWModulo]
+                -- Fecha de assignment embebida al final de PWModulo (ej. 'ASSIGNMENT HW FG #512 2026-05-28').
+                -- Cubre ambas variantes de escritura ('ASSIGNMENT'/'ASSIGMENT'); si no empieza con ASSIG
+                -- (ej. 'Modulo # 02', cuando la orden se confecciona antes de asignarse), queda NULL.
+                ,[AssignmentDate]                   = CASE
+                                                        WHEN U.[PWModulo] LIKE 'ASSIG%'
+                                                        THEN TRY_CAST(RIGHT(U.[PWModulo], 10) AS DATE)
+                                                        ELSE NULL
+                                                      END
+                ,[ProductionLeadTimeDays]            = CAST(NULL AS INT)  -- se completa mas abajo (PASO 5), depende de ItemStatusBucket
                 ,[Bucket]                           = U.[Bucket]
                 ,[NewBucket]                        = U.[NewBucket]
                 ,[FabricDD]                         = U.[FabricDD]
@@ -7286,6 +7576,7 @@ BEGIN
                 ,[ProductDivision]                  = IIF((L2.[Style_Color] LIKE '%BUNDLE%'),'Bundles',U.[ProductDivision])
                 ,[Waybill]                          = U.[Waybill]
                 ,[ShipDate]                         = U.[ShipDate]
+                ,[Bin]                              = U.[Bin]
                 ,[discard_by_percentage]            = U.[discard_by_percentage]
                 ,[DateArriveInPackingForOrder]      = U.[DateArriveInPackingForOrder]
                 ,[PreviewLCAComments]               = CASE
@@ -7311,7 +7602,9 @@ BEGIN
                 ,[Original Request Date]            = OD.[Original Request Date]
                 ,[PromiseDate]                      = OD.[PromiseDate]
                 ,[InventoryDate]                    = OD.[InventoryDate]
+                ,[ShipCompleteYN]                   = CAST(NULL AS BIT)  -- se actualiza despues, justo tras crear #TB_BACKLOG_FINAL
                 ,[DateInsertAOO]                    = DIA.[DateInsertAOO]
+                ,[TypeRunDate]                       = @RunDate
                 ,[RunDate]                          = CASE @RunDate
                                                          WHEN 'DocDate'             THEN OD.[Doc Date]
                                                          WHEN 'CustDueDate'         THEN OD.[Cust Due Date]
@@ -7326,16 +7619,97 @@ BEGIN
                                                     --         WHEN 'OriginalRequestDate' THEN TRY_CAST(B.[OriginalRequestDate] AS DATE)
                                                     --         WHEN 'PromiseDate'         THEN TRY_CAST(B.[PromiseDate]         AS DATE)
                                                     --         ELSE                            B.[Req Ship]
+                -- Placeholders: se rellenan mas abajo con UPDATE desde #TB_BACKLOG_ITEM_EXPORTABLE,
+                -- una vez calculada (depende de #TB_BACKLOG_FINAL ya completo para armarse).
+                ,[ItemStatusBucket]                 = CAST(NULL AS VARCHAR(20))
+                ,[PctPacked]                         = CAST(NULL AS DECIMAL(18,4))
+                ,[ExportableYN]                      = CAST(0 AS BIT)
+                ,[ExportFlagCriteria]                = CAST(NULL AS VARCHAR(100))
+                ,[TypeExportN]                       = CAST(NULL AS INT)
+                -- Placeholder: se rellena mas abajo con UPDATE desde TB_Backlog_Parameters_LastBucket,
+                -- una vez #TB_BACKLOG_FINAL ya esta completo (mismo patron que ItemStatusBucket/etc.).
+                ,[Last BU]                           = CAST(NULL AS NVARCHAR(200))
             INTO #TB_BACKLOG_FINAL
-            FROM #TB_BACKLOG_L2BRAND_ACTIVE AS L2
-            LEFT JOIN #TB_BACKLOG_INVENTORY_UNIFIED AS U
-                ON U.[ItemDetailID] = L2.[ItemDetailID]
-            LEFT JOIN #TB_LOOKUP_BACKLOG_ORD_DATES AS OD
-                ON OD.[ItemDetailID] = L2.[ItemDetailID]
-            LEFT JOIN #TB_LOOKUP_BACKLOG_DATEINSERT_AOO AS DIA
-                ON DIA.[ItemDetailID] = L2.[ItemDetailID]
+            FROM        #TB_BACKLOG_L2BRAND_ACTIVE          AS L2
+            LEFT JOIN   #TB_BACKLOG_INVENTORY_UNIFIED       AS U    ON U.[ItemDetailID]     = L2.[ItemDetailID]
+            LEFT JOIN   #TB_LOOKUP_BACKLOG_ORD_DATES        AS OD   ON OD.[ItemDetailID]    = L2.[ItemDetailID]
+            LEFT JOIN   #TB_LOOKUP_BACKLOG_DATEINSERT_AOO   AS DIA  ON DIA.[ItemDetailID]   = L2.[ItemDetailID]
 
-                
+            -- ============================================================
+            -- ShipCompleteYN: se trae EN VIVO desde [db1.legacycaps.com].production.dbo.order_Master,
+            -- exactamente el mismo patron de batching por OrderNo que usa SP_L2Brand_ShipComplete.sql
+            -- (lineas 49-108 de ese archivo), pero con el universo de OrderNo sacado de
+            -- #TB_BACKLOG_FINAL.[L2_CustomerOrder] en vez de VW_view_qryLCA_Order_Export.[OrderNo].
+            -- L2_CustomerOrder = SUBSTRING(Order_No,1,9) de L2Brand y equivale al OrderNo real de LCA.
+            -- No se pasa por VW_view_qryLCA_Order_Export ni por ItemDetailID para este cruce.
+            -- Si no hay match remoto o el valor remoto es NULL, se deja NULL a proposito
+            -- (sin default todavia -- pendiente de definir).
+            -- ============================================================
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA GENERACION DE BACKLOG. SHIPCOMPLETEYN EN VIVO (BATCH OPENQUERY)')
+            DROP TABLE IF EXISTS #TB_BACKLOG_DISTINCT_ORDERNO
+            SELECT DISTINCT [L2_CustomerOrder] AS [OrderNo]
+            INTO #TB_BACKLOG_DISTINCT_ORDERNO
+            FROM #TB_BACKLOG_FINAL
+            WHERE [L2_CustomerOrder] IS NOT NULL
+
+            DROP TABLE IF EXISTS #TB_BACKLOG_REMOTE_SHIPCOMPLETE
+            CREATE TABLE #TB_BACKLOG_REMOTE_SHIPCOMPLETE
+            (
+                 [OrderNo]          VARCHAR(50)     NULL
+                ,[ShipCompleteYN]   BIT             NULL
+            )
+
+            -- ~300 * (2 comillas+10 digitos+coma) ~= 3900 caracteres, con margen de sobra bajo 8000
+            DECLARE @BatchSize_SC      INT = 300
+            DECLARE @BatchCount_SC     INT
+            DECLARE @CurrentBatch_SC   INT = 1
+            DECLARE @OrderList_SC      VARCHAR(MAX)
+            DECLARE @SQL_FILTER_SC     NVARCHAR(MAX)
+
+            DROP TABLE IF EXISTS #TB_BACKLOG_DISTINCT_ORDERNO_BATCH
+            SELECT
+                 [OrderNo]
+                ,[BatchNo] = ((ROW_NUMBER() OVER (ORDER BY [OrderNo]) - 1) / @BatchSize_SC) + 1
+            INTO #TB_BACKLOG_DISTINCT_ORDERNO_BATCH
+            FROM #TB_BACKLOG_DISTINCT_ORDERNO
+
+            SELECT @BatchCount_SC = MAX([BatchNo]) FROM #TB_BACKLOG_DISTINCT_ORDERNO_BATCH
+
+            WHILE @CurrentBatch_SC <= ISNULL(@BatchCount_SC, 0)
+            BEGIN
+                SELECT @OrderList_SC = STRING_AGG(CAST('''''' + [OrderNo] + '''''' AS VARCHAR(MAX)), ',')
+                FROM #TB_BACKLOG_DISTINCT_ORDERNO_BATCH
+                WHERE [BatchNo] = @CurrentBatch_SC
+
+                SET @SQL_FILTER_SC = N'
+            SELECT
+                 OrderNo
+                ,ShipCompleteYN
+            FROM OPENQUERY([db1.legacycaps.com], ''
+                SELECT OrderNo, ShipCompleteYN
+                FROM production.dbo.order_Master WITH(NOLOCK)
+                WHERE OrderNo IN (' + @OrderList_SC + N')
+            '')'
+
+                INSERT INTO #TB_BACKLOG_REMOTE_SHIPCOMPLETE (OrderNo, ShipCompleteYN)
+                EXEC sp_executesql @SQL_FILTER_SC
+
+                SET @CurrentBatch_SC = @CurrentBatch_SC + 1
+            END
+
+            CREATE UNIQUE CLUSTERED INDEX IX_TB_BACKLOG_REMOTE_SHIPCOMPLETE_OrderNo ON #TB_BACKLOG_REMOTE_SHIPCOMPLETE([OrderNo])
+
+            UPDATE F
+            SET F.[ShipCompleteYN] = RSC.[ShipCompleteYN]
+            FROM #TB_BACKLOG_FINAL AS F
+            LEFT JOIN #TB_BACKLOG_REMOTE_SHIPCOMPLETE AS RSC
+                ON RSC.[OrderNo] = F.[L2_CustomerOrder]
+
+            DROP TABLE IF EXISTS #TB_BACKLOG_DISTINCT_ORDERNO
+            DROP TABLE IF EXISTS #TB_BACKLOG_DISTINCT_ORDERNO_BATCH
+            DROP TABLE IF EXISTS #TB_BACKLOG_REMOTE_SHIPCOMPLETE
+
+
                 --   select * from #TB_BACKLOG_FINAL
                 -- where L2_ItemDetailID in( 
                 --     5988003
@@ -7671,7 +8045,314 @@ BEGIN
               AND F.[NewBucket] IS NULL
 
             -- select * from #TB_LCAComments
+
+            ------------------------------------------------------------
+            -- SET-BASED: RESUMEN POR CUSTOMER ORDER PARA EXPORTACION PARCIAL (ShipComplete/RS_Priority)
+            -- Un mismo ItemDetailID puede tener varias lineas (cajas/bultos) en #TB_BACKLOG_FINAL con
+            -- distinto PreviewLCAComments. Regla acordada: el ItemDetailID solo cuenta como "Packed"
+            -- si TODAS sus lineas ya llegaron a un estado Packed/Ready To Ship; si al menos una linea
+            -- sigue en produccion, el ItemDetailID completo cuenta como Production; solo cuenta como
+            -- Shipped si TODAS sus lineas estan Shipped.
+            ------------------------------------------------------------
+            IF OBJECT_ID('tempdb..#TB_BACKLOG_FINAL') IS NOT NULL
+               AND NOT EXISTS (
+                    SELECT 1
+                    FROM tempdb.sys.indexes
+                    WHERE [name] = 'IX_TB_BACKLOG_FINAL_CustomerOrder'
+                      AND [object_id] = OBJECT_ID('tempdb..#TB_BACKLOG_FINAL')
+               )
+            BEGIN
+                CREATE NONCLUSTERED INDEX IX_TB_BACKLOG_FINAL_CustomerOrder
+                    ON #TB_BACKLOG_FINAL ([L2_CustomerOrder])
+                    INCLUDE ([L2_ItemDetailID],[PreviewLCAComments],[ShipCompleteYN],[L2_RS_Priority],[RunDate]);
+            END
+
+            -- ============================================================================================================================
+            -- REGLA DE EXPORTACION PARCIAL (ShipComplete=0) SEGUN RS_Priority -- definida por el usuario 2026-07-21.
+            --
+            -- Si ShipComplete=1: NADA de esto aplica. Se debe esperar a que TODA la CO este Packed
+            -- (TotalWOProduction=0) y exportar todas las ordenes juntas (Regla 2, sin excepciones).
+            --
+            -- Si ShipComplete=0, por RS_Priority:
+            --
+            -- SWR:
+            --   - Si CO >= @PctUmbral Packed+Quemadas -> exportar YA (sin importar que tan lejos este el RunDate).
+            --   - Si CO <  @PctUmbral                  -> exportar solo si el item esta quemado
+            --                                     (faltan <= @DiasQuemada_SWR dias para su RunDate).
+            --
+            -- DSE:
+            --   - Si CO >= @PctUmbral Packed+Quemadas -> exportar SOLO si ademas faltan <= @DiasExportarPct_DSE
+            --                                     dias para el RunDate (el % solo no alcanza, hace falta
+            --                                     estar cerca de la fecha tambien).
+            --   - Si CO <  @PctUmbral                  -> exportar solo si HOY ya alcanzo/paso el RunDate
+            --                                     (@DiasQuemada_DSE = 0, "justo en la fecha requerida").
+            --
+            -- NONE / vacio / NULL:
+            --   - Si CO >= @PctUmbral Packed+Quemadas -> exportar SOLO si ademas faltan <= @DiasExportarPct_NONE
+            --                                     dias para el RunDate (ej. usuario: "si estoy en 1-agosto
+            --                                     no puedo exportar por % ordenes con RunDate mayor al
+            --                                     30-septiembre" = 60 dias, ahora es 21 dias (cambio solicitado 2026-07-21 RA por llamada KevinRivas )).
+            --   - Si CO <  @PctUmbral                  -> exportar solo si el item esta quemado
+            --                                     (faltan <= @DiasQuemada_NONE dias para su RunDate).
+            --
+            -- Todas las variables son ajustables aqui sin tocar el resto del codigo.
+            -- ============================================================================================================================
+            DECLARE @PctUmbral                  DECIMAL(5,4)    = 0.50
+            DECLARE @DiasQuemada_SWR            INT             = 7
+            DECLARE @DiasQuemada_DSE            INT             = 0
+            DECLARE @DiasExportarPct_DSE        INT             = 7
+            DECLARE @DiasQuemada_NONE           INT             = 7
+            DECLARE @DiasExportarPct_NONE       INT             = 21
+            DECLARE @DiasExportarPct100_NONE    INT             = 40
+
+
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA GENERACION DE BACKLOG. CLASIFICACION EXPORTACION (PASO 1-4)')
+            -- PASO 1: clasificar cada ItemDetailID (todas sus lineas) en Production / Packed / Shipped
+            DROP TABLE IF EXISTS #TB_BACKLOG_ITEM_STATUS
+            SELECT
+                 [CustomerOrder]        = F.[L2_CustomerOrder]
+                ,[ItemDetailID]         = F.[L2_ItemDetailID]
+                ,[ShipCompleteYN]       = MAX(CAST(F.[ShipCompleteYN] AS INT))
+                ,[RS_Priority]          = MAX(F.[L2_RS_Priority])
+                ,[RunDate]              = MAX(F.[RunDate])
+                ,[TotalLines]           = COUNT(*)
+                ,[LinesProduction]      = SUM(CASE
+                                                WHEN F.[PreviewLCAComments] IN ('Picked','Packed Ready To Export','Packed','Packed in Block S','Packed in Block N','Ready To Ship','Shipped')
+                                                THEN 0 ELSE 1
+                                              END)
+                ,[LinesShipped]         = SUM(CASE WHEN F.[PreviewLCAComments] = 'Shipped' THEN 1 ELSE 0 END)
+                ,[LinesReleasedForecast] = SUM(CASE WHEN UPPER(ISNULL(F.[Status],'')) IN ('RELEASED','FORECAST') THEN 1 ELSE 0 END)
+            INTO #TB_BACKLOG_ITEM_STATUS
+            FROM #TB_BACKLOG_FINAL AS F
+            GROUP BY F.[L2_CustomerOrder], F.[L2_ItemDetailID]
+
+            -- PASO 2: bandera "quemada" (misma regla de fecha para ShipComplete 0 o 1)
+            DROP TABLE IF EXISTS #TB_BACKLOG_ITEM_STATUS_FLAGGED
+            SELECT
+                 S.*
+                ,[ItemStatusBucket]     = CASE
+                                            WHEN S.[LinesProduction] > 0             THEN 'Production'
+                                            WHEN S.[LinesShipped] = S.[TotalLines]   THEN 'Shipped'
+                                            ELSE 'Packed'
+                                          END
+                ,[IsQuemada]            = CASE
+                                            WHEN S.[RS_Priority] = 'SWR' THEN IIF(DATEDIFF(DAY, CAST(GETDATE() AS DATE), S.[RunDate]) <= @DiasQuemada_SWR, 1, 0)
+                                            WHEN S.[RS_Priority] = 'DSE' THEN IIF(DATEDIFF(DAY, CAST(GETDATE() AS DATE), S.[RunDate]) <= @DiasQuemada_DSE, 1, 0)
+                                            ELSE IIF(DATEDIFF(DAY, CAST(GETDATE() AS DATE), S.[RunDate]) <= @DiasQuemada_NONE, 1, 0)  -- RS_Priority vacio/NULL/otro valor
+                                          END
+                -- Todas las lineas del item deben ser Released/Forecast (mismo criterio "peor caso" que Packed/Shipped);
+                -- si al menos una linea ya avanzo a un estado de proceso activo, no cuenta aqui.
+                ,[IsReleasedForecast]   = CASE WHEN S.[LinesReleasedForecast] = S.[TotalLines] THEN 1 ELSE 0 END
+            INTO #TB_BACKLOG_ITEM_STATUS_FLAGGED
+            FROM #TB_BACKLOG_ITEM_STATUS AS S
+
+            DROP TABLE IF EXISTS #TB_BACKLOG_ITEM_STATUS
+
+            -- PASO 3: resumen final por Customer Order
+            DROP TABLE IF EXISTS #TB_CustomerOrder_ReadyToShip
+            SELECT
+                 [CustomerOrder]            = F.[CustomerOrder]
+                ,[ShipCompleteYN]           = MAX(F.[ShipCompleteYN])
+                ,[TotalWO]                  = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] <> 'Shipped' THEN F.[ItemDetailID] END)
+                ,[TotalShipped]             = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] =  'Shipped' THEN F.[ItemDetailID] END)
+                ,[TotalWOPackedQuemadas]    = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] = 'Packed' AND F.[IsQuemada] = 1 THEN F.[ItemDetailID] END)
+                ,[TotalWOPacked]            = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] = 'Packed' AND F.[IsQuemada] = 0 THEN F.[ItemDetailID] END)
+                ,[TotalWOProduction]        = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] = 'Production' THEN F.[ItemDetailID] END)
+                -- Desglose de TotalWOProduction: aun no arranca produccion (Released/Forecast) vs ya esta en proceso activo
+                ,[TotalWOReleasedForecast]  = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] = 'Production' AND F.[IsReleasedForecast] = 1 THEN F.[ItemDetailID] END)
+                ,[TotalWOInProcess]         = COUNT(DISTINCT CASE WHEN F.[ItemStatusBucket] = 'Production' AND F.[IsReleasedForecast] = 0 THEN F.[ItemDetailID] END)
+            INTO #TB_CustomerOrder_ReadyToShip
+            FROM #TB_BACKLOG_ITEM_STATUS_FLAGGED AS F
+            GROUP BY F.[CustomerOrder]
+
+            -- Codigos numericos para ExportFlagCriteriaID (mismo criterio que el texto de ExportFlagCriteria,
+            -- para poder filtrar/agrupar por numero en vez de comparar texto).
+            DECLARE @Criteria_ShipCompleteAllPacked     INT = 1
+            DECLARE @Criteria_ShipCompleteWaiting       INT = 2
+            DECLARE @Criteria_SWR_Pct                   INT = 3
+            DECLARE @Criteria_SWR_Quemada               INT = 4
+            DECLARE @Criteria_DSE_PctFecha              INT = 5
+            DECLARE @Criteria_DSE_Quemada               INT = 6
+            DECLARE @Criteria_NONE_PctFecha             INT = 7
+            DECLARE @Criteria_NONE_Quemada              INT = 8
+            DECLARE @Criteria_NoCumple                  INT = 9
+            DECLARE @Criteria_NONE_Pct100Ext            INT = 10
+
+
+            -- PASO 4: bandera exportable por ItemDetailID (solo aplica a items en bucket 'Packed';
+            -- Production no esta fisicamente listo, Shipped ya se exporto).
+            --
+            -- Regla 2 (ShipComplete=1): SIEMPRE gana primero y NO se mezcla con nada de RS_Priority/%/fecha --
+            -- exportable solo cuando TODA la CO ya esta Packed (TotalWOProduction=0); si no, esperar el resto.
+            --
+            -- Regla 1 (ShipComplete=0): depende de RS_Priority (ver comentario arriba de las variables
+            -- @PctUmbral/@DiasQuemada_*/@DiasExportarPct_* para el detalle de cada caso SWR/DSE/NONE).
+            --
+            -- Si ShipCompleteYN es NULL (no se pudo determinar), no aplica ninguna regla -> no exportable.
+            DROP TABLE IF EXISTS #TB_BACKLOG_ITEM_EXPORTABLE
+            SELECT
+                 I.[CustomerOrder]
+                ,I.[ItemDetailID]
+                ,I.[ItemStatusBucket]
+                ,I.[RS_Priority]
+                ,I.[RunDate]
+                ,D.[DaysToRunDate]
+                ,I.[IsQuemada]
+                ,I.[IsReleasedForecast]
+                ,CO.[ShipCompleteYN]
+                ,CO.[TotalWO]
+                ,CO.[TotalWOProduction]
+                ,CO.[TotalWOReleasedForecast]
+                ,CO.[TotalWOInProcess]
+                ,[PctPacked]            = CASE WHEN CO.[TotalWO] > 0
+                                               THEN CAST(CO.[TotalWOPacked] + CO.[TotalWOPackedQuemadas] AS DECIMAL(18,4)) / CO.[TotalWO]
+                                               ELSE NULL
+                                          END
+                -- TypeExportN: unica evaluacion de toda la logica de negocio (Regla 2 / Regla 1 por
+                -- RS_Priority). ExportableYN y ExportFlagCriteria se derivan de este numero despues,
+                -- con un UPDATE, en vez de repetir estas mismas condiciones tres veces.
+                ,[TypeExportN]          = CASE
+                                            WHEN I.[ItemStatusBucket] <> 'Packed' THEN NULL
+
+                                            WHEN CO.[ShipCompleteYN] = 1 AND CO.[TotalWOProduction] = 0 THEN @Criteria_ShipCompleteAllPacked
+                                            WHEN CO.[ShipCompleteYN] = 1                                THEN @Criteria_ShipCompleteWaiting
+
+                                            WHEN CO.[ShipCompleteYN] = 0 AND I.[RS_Priority] = 'SWR' AND CO.[TotalWO] > 0 AND CAST(CO.[TotalWOPacked] + CO.[TotalWOPackedQuemadas] AS DECIMAL(18,4)) / CO.[TotalWO] >= @PctUmbral
+                                            THEN @Criteria_SWR_Pct
+                                            WHEN CO.[ShipCompleteYN] = 0 AND I.[RS_Priority] = 'SWR' AND D.[DaysToRunDate] <= @DiasQuemada_SWR
+                                            THEN @Criteria_SWR_Quemada
+
+                                            WHEN CO.[ShipCompleteYN] = 0 AND I.[RS_Priority] = 'DSE' AND CO.[TotalWO] > 0 AND CAST(CO.[TotalWOPacked] + CO.[TotalWOPackedQuemadas] AS DECIMAL(18,4)) / CO.[TotalWO] >= @PctUmbral AND D.[DaysToRunDate] <= @DiasExportarPct_DSE
+                                            THEN @Criteria_DSE_PctFecha
+                                            WHEN CO.[ShipCompleteYN] = 0 AND I.[RS_Priority] = 'DSE' AND D.[DaysToRunDate] <= @DiasQuemada_DSE
+                                            THEN @Criteria_DSE_Quemada
+
+                                            WHEN CO.[ShipCompleteYN] = 0 AND (I.[RS_Priority] IS NULL OR I.[RS_Priority] NOT IN ('SWR','DSE')) AND CO.[TotalWO] > 0 AND CAST(CO.[TotalWOPacked] + CO.[TotalWOPackedQuemadas] AS DECIMAL(18,4)) / CO.[TotalWO] >= @PctUmbral AND D.[DaysToRunDate] <= @DiasExportarPct_NONE
+                                            THEN @Criteria_NONE_PctFecha
+                                            
+                                            WHEN CO.[ShipCompleteYN] = 0 AND (I.[RS_Priority] IS NULL OR I.[RS_Priority] NOT IN ('SWR','DSE')) AND CO.[TotalWO] > 0 AND CAST(CO.[TotalWOPacked] + CO.[TotalWOPackedQuemadas] AS DECIMAL(18,4)) / CO.[TotalWO] >= 1 AND D.[DaysToRunDate] > @DiasExportarPct_NONE AND D.[DaysToRunDate] <= @DiasExportarPct100_NONE
+                                            THEN @Criteria_NONE_Pct100Ext
+
+
+                                            WHEN CO.[ShipCompleteYN] = 0 AND (I.[RS_Priority] IS NULL OR I.[RS_Priority] NOT IN ('SWR','DSE')) AND D.[DaysToRunDate] <= @DiasQuemada_NONE
+                                            THEN @Criteria_NONE_Quemada
+
+                                            ELSE @Criteria_NoCumple
+                                          END
+                ,[ExportableYN]         = CAST(0 AS BIT)          -- se completa abajo con UPDATE, a partir de TypeExportN
+                ,[ExportFlagCriteria]   = CAST(NULL AS VARCHAR(100))  -- se completa abajo con UPDATE, a partir de TypeExportN
+            INTO #TB_BACKLOG_ITEM_EXPORTABLE
+            FROM #TB_BACKLOG_ITEM_STATUS_FLAGGED AS I
+            INNER JOIN #TB_CustomerOrder_ReadyToShip AS CO
+                ON CO.[CustomerOrder] = I.[CustomerOrder]
+            CROSS APPLY (VALUES (DATEDIFF(DAY, CAST(GETDATE() AS DATE), I.[RunDate]))) AS D([DaysToRunDate])
+
+            -- UPDATE unico: deriva ExportableYN (bit) y ExportFlagCriteria (texto) a partir de
+            -- TypeExportN. Es solo un mapeo numero->bit/texto, NO repite la logica de negocio de arriba.
+            UPDATE #TB_BACKLOG_ITEM_EXPORTABLE
+            SET
+                 [ExportableYN]       = CAST(   CASE
+                                                    WHEN [TypeExportN] IN (
+                                                             @Criteria_ShipCompleteAllPacked
+                                                            ,@Criteria_SWR_Pct
+                                                            ,@Criteria_SWR_Quemada
+                                                            ,@Criteria_DSE_PctFecha
+                                                            ,@Criteria_DSE_Quemada
+                                                            ,@Criteria_NONE_PctFecha
+                                                            ,@Criteria_NONE_Quemada
+                                                            ,@Criteria_NONE_Pct100Ext
+
+                                                    ) THEN 1 
+                                                ELSE 0
+                                                END 
+                                            AS BIT)
+                ,[ExportFlagCriteria] = CASE [TypeExportN]
+                                            WHEN @Criteria_ShipCompleteAllPacked THEN 'ShipComplete: CO 100% Packed'
+                                            WHEN @Criteria_ShipCompleteWaiting   THEN 'ShipComplete: esperando resto de la CO'
+                                            WHEN @Criteria_SWR_Pct               THEN CONCAT('SWR: CO >= ', @PctUmbral * 100, '%')
+                                            WHEN @Criteria_SWR_Quemada           THEN CONCAT('SWR: quemada (<=', @DiasQuemada_SWR, ' dias)')
+                                            WHEN @Criteria_DSE_PctFecha          THEN CONCAT('DSE: CO >= ', @PctUmbral * 100, '% y <=', @DiasExportarPct_DSE, ' dias')
+                                            WHEN @Criteria_DSE_Quemada           THEN 'DSE: quemada (fecha requerida alcanzada)'
+                                            WHEN @Criteria_NONE_PctFecha         THEN CONCAT('NONE: CO >= ', @PctUmbral * 100, '% y <=', @DiasExportarPct_NONE, ' dias')
+                                            WHEN @Criteria_NONE_Pct100Ext        THEN CONCAT('NONE: CO 100% y ', @DiasExportarPct_NONE + 1, '-', @DiasExportarPct100_NONE, ' dias')
+
+                                            WHEN @Criteria_NONE_Quemada          THEN CONCAT('NONE: quemada (<=', @DiasQuemada_NONE, ' dias)')
+                                            WHEN @Criteria_NoCumple              THEN 'No cumple regla de exportacion'
+                                            ELSE NULL  -- TypeExportN NULL -> item en Production/Shipped
+                                          END
+
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA GENERACION DE BACKLOG. UPDATE FINAL EXPORTACION (PASO 5)')
+            -- PASO 5: unir de vuelta a #TB_BACKLOG_FINAL (1:N por ItemDetailID -- todas las lineas
+            -- de caja/bulto del mismo item reciben el mismo valor, ya que la decision es por item).
+            UPDATE F SET
+                 F.[ItemStatusBucket]      = E.[ItemStatusBucket]
+                ,F.[PctPacked]             = E.[PctPacked]
+                ,F.[ExportableYN]          = E.[ExportableYN]
+                ,F.[ExportFlagCriteria]    = E.[ExportFlagCriteria]
+                ,F.[TypeExportN]           = E.[TypeExportN]
+                -- Production LeadTime: solo si hay fecha de assignment y el item no esta Shipped
+                -- (usa E.[ItemStatusBucket], el valor nuevo que se esta asignando en este mismo UPDATE).
+                ,F.[ProductionLeadTimeDays] = CASE
+                                                WHEN F.[AssignmentDate] IS NOT NULL AND E.[ItemStatusBucket] <> 'Shipped'
+                                                THEN DATEDIFF(DAY, F.[AssignmentDate], CAST(GETDATE() AS DATE))
+                                                ELSE NULL
+                                              END
+            FROM #TB_BACKLOG_FINAL AS F
+            INNER JOIN #TB_BACKLOG_ITEM_EXPORTABLE AS E
+                ON E.[ItemDetailID] = F.[L2_ItemDetailID]
+
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA GENERACION DE BACKLOG. FIN CLASIFICACION EXPORTACION')
+
+            DROP TABLE IF EXISTS #TB_BACKLOG_ITEM_STATUS_FLAGGED
+
+            -- PASO 6: [Last BU] -- ultimo bucket conocido, cargado manualmente por el usuario
+            -- (Tool Settings) en [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]. 1:N por
+            -- ItemDetailID, igual que el UPDATE de exportacion de arriba.
+            PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         PROCEDIMIENTO PARA GENERACION DE BACKLOG. UPDATE LAST BU (TB_Backlog_Parameters_LastBucket)')
+            IF OBJECT_ID('[AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket]','U') IS NOT NULL
+            BEGIN
+                UPDATE F
+                SET F.[Last BU] = P.[LastBucket]
+                FROM #TB_BACKLOG_FINAL AS F
+                INNER JOIN [AppsLCA].[dbo].[TB_Backlog_Parameters_LastBucket] AS P WITH (NOLOCK)
+                    ON P.[ItemDetailID] = F.[L2_ItemDetailID]
+            END
+
+            -- select * from #TB_CustomerOrder_ReadyToShip
+            -- where TotalWO > 0 and TotalWOPackedQuemadas > 0
+            -- -- and CustomerOrder = '226084297'
+            -- order by TotalWO
+
+            -- select * from #TB_CustomerOrder_ReadyToShip
+            -- where TotalWO > 0 --and TotalWOPackedQuemadas > 0
+            -- and CustomerOrder = '225085223'
+            -- order by TotalWO
+
+            -- select * from #TB_BACKLOG_ITEM_EXPORTABLE
+            -- where ExportableYN = 1
+            -- -- where CustomerOrder = '226080607'
+            -- -- where CustomerOrder = '225085223'
+            -- order by CustomerOrder,ExportableYN DESC,RunDate ASC
+
+            -- -- select * from #TB_CustomerOrder_ReadyToShip
+            -- -- where TotalWO > 0 
+            -- -- and CustomerOrder = '226084297'
+            -- -- order by TotalWO
+
+            -- -- select * from #TB_BACKLOG_ITEM_EXPORTABLE
+            -- -- where CustomerOrder = '226084297'
+            -- -- order by ExportableYN DESC, CustomerOrder
             
+            
+            -- -- select * FROM #TB_BACKLOG_FINAL
+            
+            -- --  select distinct pwmodulo FROM #TB_BACKLOG_FINAL
+            --  select * FROM #TB_BACKLOG_FINAL
+            --  where pwmodulo not like 'ASSIG%'
+             
+            
+        
+
             PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'  FIN    PROCEDIMIENTO PARA GENERACION DE BACKLOG')
 
         ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -7687,26 +8368,45 @@ BEGIN
                     [UpdatedAt] = SYSDATETIME()
                 WHERE [KeyGenerated] = @KeyGenerated AND [Process] = @ProcessName;
                 
-        SET @result = (
-            SELECT
-                 [KeyGenerated] = @KeyGenerated
-                ,[Status]       = 'DONE'
-                ,[Process]      = @ProcessName
-                ,[DataTables]   = JSON_QUERY(
-                    (
-                SELECT
-                     [Ordenes]                    = JSON_QUERY((SELECT A.* FROM #TB_FINAL_PROC_ORDENES_DEMAND                           AS A ORDER BY A.[RowData]           FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[InventarioActivo]           = JSON_QUERY((SELECT A.* FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO                        AS A ORDER BY A.[RowData]           FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[DetalleOrdenesDespachadas]  = JSON_QUERY((SELECT A.* FROM #DispatchOrdersFromInventoryWIP                         AS A ORDER BY A.[RowData]           FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[OrdenesDespachadas]         = JSON_QUERY((SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched        AS A ORDER BY A.[RowData]           FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[OrdenesNoDespachadas]       = JSON_QUERY((SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched     AS A ORDER BY A.[RowData]           FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[CsvFinal]                   = JSON_QUERY((SELECT A.* FROM #TB_FINAL_PROC_CSV                                      AS A ORDER BY A.[Date], A.[Hour]    FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    -- ,[BacklogL2BrandActive]       = JSON_QUERY((SELECT A.* FROM #TB_BACKLOG_L2BRAND_ACTIVE                             AS A ORDER BY A.[RowData]            FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    -- ,[BacklogLCA]                 = JSON_QUERY((SELECT A.* FROM #TB_BACKLOG_INVENTORY_UNIFIED                          AS A ORDER BY A.[R],A.[RowData]      FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    -- ,[Backlog]               = JSON_QUERY((SELECT A.* FROM #TB_BACKLOG_FINAL                                      AS A ORDER BY A.[FinalRowData]       FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    ,[Backlog]                    = JSON_QUERY((    
-                                                                SELECT 
-                                                                     [TypeRunDate] = @RunDate
+        -- ============================================================================================================================
+        -- Construccion del JSON final EN VARIABLES SEPARADAS (una por seccion), con PRINT del tamano
+        -- (LEN) de cada una, para medir cuanto pesa/tarda cada seccion en vez de tener todo en un solo
+        -- SET @result monolitico donde no se puede instrumentar nada. Mismo resultado final, cero
+        -- cambio de logica -- JSON_QUERY(@variable) al combinar embebe el JSON tal cual, sin re-escapar.
+        -- ============================================================================================================================
+        DECLARE @json_Ordenes                   NVARCHAR(MAX)
+        DECLARE @json_InventarioActivo          NVARCHAR(MAX)
+        DECLARE @json_DetalleOrdenesDespachadas NVARCHAR(MAX)
+        DECLARE @json_OrdenesDespachadas        NVARCHAR(MAX)
+        DECLARE @json_OrdenesNoDespachadas      NVARCHAR(MAX)
+        DECLARE @json_CsvFinal                  NVARCHAR(MAX)
+        DECLARE @json_Backlog                   NVARCHAR(MAX)
+
+        -- Ordenes: el usuario no lo usa -- se deja en NULL sin construir el JSON (ahorra tiempo/memoria).
+        -- SET @json_Ordenes = NULL
+        SET @json_Ordenes = (SELECT TOP 1 A.* FROM #TB_FINAL_PROC_ORDENES_DEMAND AS A ORDER BY A.[RowData] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON Ordenes armado. Chars=', ISNULL(CAST(LEN(@json_Ordenes) AS VARCHAR(20)),'0'))
+
+        SET @json_InventarioActivo = (SELECT A.* FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO AS A ORDER BY A.[RowData] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON InventarioActivo armado. Chars=', ISNULL(CAST(LEN(@json_InventarioActivo) AS VARCHAR(20)),'0'))
+
+        SET @json_DetalleOrdenesDespachadas = (SELECT A.* FROM #DispatchOrdersFromInventoryWIP AS A ORDER BY A.[RowData] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON DetalleOrdenesDespachadas armado. Chars=', ISNULL(CAST(LEN(@json_DetalleOrdenesDespachadas) AS VARCHAR(20)),'0'))
+
+        -- OrdenesDespachadas: el usuario no lo usa -- se deja en NULL sin construir el JSON.
+        -- SET @json_OrdenesDespachadas = NULL
+        SET @json_OrdenesDespachadas = (SELECT TOP 1 A.* FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched AS A ORDER BY A.[RowData] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON OrdenesDespachadas armado. Chars=', ISNULL(CAST(LEN(@json_OrdenesDespachadas) AS VARCHAR(20)),'0'))
+
+        SET @json_OrdenesNoDespachadas = (SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched AS A ORDER BY A.[RowData] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON OrdenesNoDespachadas armado. Chars=', ISNULL(CAST(LEN(@json_OrdenesNoDespachadas) AS VARCHAR(20)),'0'))
+
+        SET @json_CsvFinal = (SELECT A.* FROM #TB_FINAL_PROC_CSV AS A ORDER BY A.[Date], A.[Hour] FOR JSON PATH, INCLUDE_NULL_VALUES)
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON CsvFinal armado. Chars=', ISNULL(CAST(LEN(@json_CsvFinal) AS VARCHAR(20)),'0'))
+
+        SET @json_Backlog = (
+                                                                SELECT
+                                                                     [TypeRunDate]                  = A.[TypeRunDate]
                                                                     ,[RunDate]                      = A.[RunDate]
                                                                     ,[DueDate]                      = A.[L2_DueDate]
                                                                     ,[PromiseDate]                  = A.[PromiseDate]
@@ -7716,7 +8416,7 @@ BEGIN
                                                                     ,[DateInsertAOO]                = CAST(A.[DateInsertAOO] AS DATE)
                                                                     ,[Week]                         = CONCAT('WEEK ',RIGHT(CONCAT('00',CAST(DATEPART(WEEK, CAST(A.[RunDate] AS DATE)) AS VARCHAR(2))),2))
                                                                     ,[CustName]                     = A.[L2_CustName]
-                                                                    
+                                                                    ,[ShipComplete]                 = A.[ShipCompleteYN]
                                                                     ,[Order_No]                     = A.[L2_Order_No]
                                                                     ,[ItemDetailID]                 = A.[L2_ItemDetailID]
                                                                     ,[L2_Quantity]                  = A.[L2_Quantity]           --COLUMNAS AGREGADA BACKLOG
@@ -7745,9 +8445,9 @@ BEGIN
                                                                     ,[Group]                        = A.[L2_Group]           
                                                                     ,[SalesChannel]                 = A.[L2_SalesChannel]               
                                                                     ,[ArtStatus]                    = A.[ArtStatus]
-                                                                    ,[LCAComments]                  = A.[LCAComments]      
-                                                                    ,[Last BU]                      = NULL
-                                                                    ,[New BU]                       = A.[NewBucket]           
+                                                                    ,[LCAComments]                  = A.[LCAComments]
+                                                                    ,[Last BU]                      = A.[Last BU]
+                                                                    ,[New BU]                       = A.[NewBucket]
                                                                     ,[Delta]                        = NULL    
                                                                     ,[window]                       = A.[L2_Window]
                                                                     ,[PONumber]                     = A.[PONumber]  
@@ -7765,7 +8465,8 @@ BEGIN
                                                                     ,[Season]                       = A.[Season]                        ----COLUMNAS AGREGADA BACKLOG            
                                                                     ,[Color]                        = A.[Color]                         ----COLUMNAS AGREGADA BACKLOG             
                                                                     ,[BundleBarcode]                = A.[BundleBarcode]                 ----COLUMNAS AGREGADA BACKLOG
-                                                                    ,[BoxNumber]                    = A.[BoxNumber]                     ----COLUMNAS AGREGADA BACKLOG
+                                                                    -- ,[BoxNumber]                    = A.[BoxNumber]                     ----COLUMNAS AGREGADA BACKLOG
+                                                                    ,[BoxNumber]                    = A.[FormattedBoxNumber]            ----COLUMNAS AGREGADA BACKLOG
                                                                     ,[MOStatus]                     = A.[Status]                        ----COLUMNAS AGREGADA BACKLOG                
                                                                     ,[ProductionStatus]             = A.[ProductionStatus]              ----COLUMNAS AGREGADA BACKLOG                
                                                                     ,[PWModulo]                     = A.[PWModulo]                      ----COLUMNAS AGREGADA BACKLOG
@@ -7782,7 +8483,11 @@ BEGIN
                                                                     ,[DaysLateOrder]                = A.[DaysLateOrder]                 ----COLUMNAS AGREGADA BACKLOG
                                                                     ,[Waybill]                      = A.[Waybill]                       ----COLUMNAS AGREGADA BACKLOG
                                                                     ,[ShipDate]                     = A.[ShipDate]                      ----COLUMNAS AGREGADA BACKLOG
+                                                                    ,[Bin]                          = A.[Bin]                           ----COLUMNAS AGREGADA BACKLOG
                                                                     ,[InventoryLineType]            = A.[InventoryLineType]             ----COLUMNAS AGREGADA BACKLOG
+                                                                    ,[ExportYN]                     = A.[ExportableYN]                  ----COLUMNAS AGREGADA BACKLOG (ShipComplete/RS_Priority)
+                                                                    ,[ExportComment]                = A.[ExportFlagCriteria]            ----COLUMNAS AGREGADA BACKLOG (ShipComplete/RS_Priority)
+                                                                    ,[ProductionLeadTime]           = A.[ProductionLeadTimeDays]        ----COLUMNAS AGREGADA BACKLOG (Production LeadTime)
                                                                                 
                                                                     ,[ScreenPrint]                  = A.[ScreenPrint]               
                                                                     ,[ScreenPrintAfter]	            = A.[ScreenPrintAfter]	         
@@ -7814,17 +8519,35 @@ BEGIN
                                                                     ,[Qty_EmbHWHDP]                 = A.[Qty_EmbHWHDP]              
                                                                     ,[Qty_EmbAppDirect]             = A.[Qty_EmbAppDirect]          
                                                                     ,[Qty_EmbAppLBA]                = A.[Qty_EmbAppLBA]             
-                                                                FROM #TB_BACKLOG_FINAL    AS A 
-                                                                ORDER BY A.[FinalRowData]   
-                                                                    FOR JSON PATH, INCLUDE_NULL_VALUES))
-                    FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER
+                                                                FROM #TB_BACKLOG_FINAL    AS A
+                                                                ORDER BY A.[FinalRowData]
+                                                                    FOR JSON PATH, INCLUDE_NULL_VALUES
+        )
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON Backlog armado. Chars=', ISNULL(CAST(LEN(@json_Backlog) AS VARCHAR(20)),'0'))
 
+        SET @result = (
+            SELECT
+                 [KeyGenerated] = @KeyGenerated
+                ,[Status]       = 'DONE'
+                ,[Process]      = @ProcessName
+                ,[DataTables]   = JSON_QUERY(
+                    (
+                SELECT
+                     [Ordenes]                    = JSON_QUERY(@json_Ordenes)
+                    ,[InventarioActivo]           = JSON_QUERY(@json_InventarioActivo)
+                    ,[DetalleOrdenesDespachadas]  = JSON_QUERY(@json_DetalleOrdenesDespachadas)
+                    ,[OrdenesDespachadas]         = JSON_QUERY(@json_OrdenesDespachadas)
+                    ,[OrdenesNoDespachadas]       = JSON_QUERY(@json_OrdenesNoDespachadas)
+                    ,[CsvFinal]                   = JSON_QUERY(@json_CsvFinal)
+                    ,[Backlog]                    = JSON_QUERY(@json_Backlog)
+                    FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER
                     )
                 )
             FOR JSON PATH, INCLUDE_NULL_VALUES
-        )   
-        
-                                                               
+        )
+
+        PRINT CONCAT(FORMAT(GETDATE(), 'yyyy-MM-dd HH:mm:ss.fff'),'         JSON FINAL (@result) ARMADO. Chars=', ISNULL(CAST(LEN(@result) AS VARCHAR(20)),'0'))
+
         -- SELECT mANUFACTURENUMBER,ManufactureID,sTATUSID FROM LCA.dbo.ManufactureOrders
         -- where ManufactureNumber in (
         -- 'EO5935782-441','EO5934609-869','EO5859406-315','EO5859409-485','EO5953386-869','EO5935797-315','EO5953477-315','EO5935617-089','EO5934600-416','EO5934666-315','EO5934649-441','EO5934629-724','EO5935554-101','EO5953408-752','EO5934632-391','EO5935610-752','EO5859770-305','EO5959384-632','EO5938546-461','EO5953518-632','EO5935636-225','EO5938515-632','EO5934673-315','EO5938575-632','EO5859154-NAV'
@@ -7838,7 +8561,19 @@ BEGIN
         -- SELECT A.* FROM #TB_FINAL_PROC_CSV                                      AS A ORDER BY A.[Date], A.[Hour]    
         
         
-        
+-- select * from (SELECT COUNT(*) AS [CountData],'#TB_FINAL_PROC_ORDENES_DEMAND                           ' as tb FROM #TB_FINAL_PROC_ORDENES_DEMAND                            ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#TB_FINAL_PROC_INVENTARIO_ACTIVO                        ' as tb FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO                         ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#DispatchOrdersFromInventoryWIP                         ' as tb FROM #DispatchOrdersFromInventoryWIP                          ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#DispatchOrdersFromInventoryWIP_OrdersDispatched        ' as tb FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched         ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#DispatchOrdersFromInventoryWIP_OrdersNotDispatched     ' as tb FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched      ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#TB_FINAL_PROC_CSV                                      ' as tb FROM #TB_FINAL_PROC_CSV                                       ) as tb union all
+-- select * from (SELECT COUNT(*) AS [CountData],'#TB_BACKLOG_FINAL    ' as tb FROM #TB_BACKLOG_FINAL    ) as tb
+
+
+
+-- SELECT  * FROM #TB_BACKLOG_FINAL    AS A
+-- WHERE ExportableYN = 1
+
 --         SELECT OrderRow, Style, Color, Make, CommentFinal, CommentSizeMissing
 -- FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched
 -- ORDER BY Style, Color
@@ -7915,56 +8650,3 @@ EndProcedureDispatchInventory:
 -- SELECT @otherData
 
 END
-
-
-
-
-
-
-
-
-
--- SELECT A.* FROM #DispatchOrdersFromInventoryWIP AS A 
--- WHERE Style = 'NDS110' 
--- ORDER BY A.[RowData] 
-
-
--- SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched AS A 
--- WHERE Style = 'NDS110' 
--- ORDER BY A.[RowData] 
-
-
--- SELECT * FROM #TB_FINAL_PROC_ORDENES_DEMAND
--- WHERE Style = 'NDS110' 
-
--- SELECT * FROM #TB_FINAL_PROC_CSV
--- WHERE ord_style = 'NDS110' 
-
--- ----RFP
-
--- ----PONER COLUMNAS DE L2BRAND
--- ----AGREGAR LAS QUE NO ESTAN EN BASE LCA
-
--- SELECT A.* FROM #TB_FINAL_PROC_ORDENES_DEMAND                           AS A ORDER BY A.[RowData]        
--- SELECT A.* FROM #TB_FINAL_PROC_INVENTARIO_ACTIVO                        AS A ORDER BY A.[RowData]        
--- SELECT A.* FROM #DispatchOrdersFromInventoryWIP                         AS A ORDER BY A.[RowData]        
--- SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersDispatched        AS A ORDER BY A.[RowData]        
--- SELECT A.* FROM #DispatchOrdersFromInventoryWIP_OrdersNotDispatched     AS A ORDER BY A.[RowData]        
--- SELECT A.* FROM #TB_FINAL_PROC_CSV                                      AS A ORDER BY A.[Date], A.[Hour] 
--- SELECT A.* FROM #TB_BACKLOG_L2BRAND_ACTIVE                             AS A ORDER BY A.[RowData]         
--- SELECT A.* FROM #TB_BACKLOG_INVENTORY_UNIFIED                          AS A ORDER BY A.[R],A.[RowData]   
-
-
-
-
-
--- select 
---     SKUStatus,
--- * 
---  FROM [AppsLCA].[dbo].[TB_L2Brand_view_qryOpenOrderSuppl_162] AS L2 WITH(NOLOCK)
---                 WHERE ItemDetailID = '5795075' 
-                 
---                  and ISNULL(L2.[SKUStatus],0) <= 40
---                   AND ISNULL(L2.[Quantity],0) > 0
---                   AND L2.[ItemDetailID] IS NOT NULL
---                   AND L2.[CustName] NOT LIKE 'L2 SKU Set Up%'

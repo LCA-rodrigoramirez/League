@@ -445,23 +445,23 @@ SELECT
 FROM #TB_OrdersExport AS OE
 LEFT  JOIN #TB_CodesEMB AS CE ON OE.OrderID = CE.OrderID
 INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON OE.OrderID = OD.OrderID
-WHERE ItemDetailID in (6058114,6058120)
+WHERE ItemDetailID in (5733214)
 return
 
 --SELECT * FROM #TB_CodesEMB WHERE PONumber = 'ORD-5557634'
 
-SELECT 
-	 OD.OrderID
-	,OD.PONumber
-	,OD.Comments26
-	,vvla.app
-	,CE.*
-	-- UPDATE OD SET
-	-- Comments26 = CE.Codes
-FROM #TB_CodesEMB AS CE
-INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON CE.OrderID = OD.OrderID
-INNER JOIN (SELECT ItemDetailID,COUNT(AppliqueMaterial) as app FROM AppsLCA.legacycaps.VW_view_LCA_Applique GROUP BY ItemDetailID) AS VVLA ON CE.ItemDetailID = vvla.ItemDetailID
-WHERE Codes <> OD.Comments26
+-- SELECT 
+-- 	 OD.OrderID
+-- 	,OD.PONumber
+-- 	,OD.Comments26
+-- 	,vvla.app
+-- 	,CE.*
+-- 	-- UPDATE OD SET
+-- 	-- Comments26 = CE.Codes
+-- FROM #TB_CodesEMB AS CE
+-- INNER JOIN [192.168.1.53].LCA.dbo.Orders AS OD WITH(NOLOCK) ON CE.OrderID = OD.OrderID
+-- INNER JOIN (SELECT ItemDetailID,COUNT(AppliqueMaterial) as app FROM AppsLCA.legacycaps.VW_view_LCA_Applique GROUP BY ItemDetailID) AS VVLA ON CE.ItemDetailID = vvla.ItemDetailID
+-- WHERE Codes <> OD.Comments26
 -- LEFT(Codes,1) <> VVLA.app
 
 SELECT
