@@ -16,7 +16,7 @@ Declare @Executing_Date datetime = null
 Declare @Finished_Date datetime=null
 Declare @TransferVal INT = 0
 
--- SET @WayBill = 'APP-20260706'
+-- SET @WayBill = 'AIR-APP-20260825'
 declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status]
 		where status='Pending'
 
@@ -29,8 +29,9 @@ while @@Fetch_status=0
 -- --  delete from appslca.dbo.Import_Export_CommercialInvoice_TEST where WayBill =@WayBill
 -- delete from appslca.dbo.Import_Export_CommercialInvoice where WayBill =@WayBill
 -- delete from AppsLCA.dbo.Import_Export_DeclarationExport where WayBill =@WayBill
-delete from [192.168.1.93].appslca.dbo.CI_Import_Export_CommercialInvoice where WayBill =@WayBill
-delete from [192.168.1.93].AppsLCA.dbo.CI_Import_Export_DeclarationExport where WayBill =@WayBill
+-- delete from [192.168.1.93].appslca.dbo.CI_Import_Export_CommercialInvoice where WayBill =@WayBill
+-- delete from [192.168.1.93].AppsLCA.dbo.CI_Import_Export_DeclarationExport where WayBill =@WayBill
+-- delete from [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle where WayBill =@WayBill
 
   update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status] set [Status] = 'Executing', Executing_Date=getdate() 
   	where waybill =@WayBill
@@ -50,6 +51,8 @@ DROP TABLE IF EXISTS #TB_COMPOSITION
 DROP TABLE IF EXISTS #Positions
 DROP TABLE IF EXISTS #Extracted
 DROP TABLE IF EXISTS #Cleaned
+DROP TABLE IF EXISTS #CS
+DROP TABLE IF EXISTS #TB_Certification
 
 -- SELECT *
 -- INTO #TB_Transfer_Kardex
@@ -159,6 +162,7 @@ SELECT
     [ManufactureID]         = B.ManufactureId
     ,[MO]                   = B.MO
     ,[Manufacturer]         = B.Manufacturer
+    ,[ManufacturerID]       = B.ManufacturerID
     ,[Proportion]           = B.Proportion
     ,[CountryOfOrigin]      = B.CountryOfOrigin
     ,[TariffCategory]       = B.TariffCategory
@@ -263,7 +267,8 @@ AND TI.DepartureDate IS NULL
 		,[InvoicingDescription]		=	WB99.[InvoicingDescription]		
 		,[GrossWeightKGSXUnits]		=	WB99.[GrossWeightKGSXUnits]	
 		,[Quantity]					=	WB99.[Quantity]				
-		,[Manufacturer]				=	WB99.[Manufacturer]			
+		,[Manufacturer]				=	WB99.[Manufacturer]
+		,[ManufacturerID]			=	WB99.[ManufacturerID]
 		,[CountryOfOrigin]			=	WB99.[CountryOfOrigin]		
 		,[ProductDivision]			=	WB99.[ProductDivision]		
 		,[US_HTSCode2]				=	WB99.[US_HTSCode2]			
@@ -371,6 +376,7 @@ AND TI.DepartureDate IS NULL
 												ELSE SB.Qty
 											END
 			,[Manufacturer]				=	COALESCE(SB.Manufacturer, TB_MO_02.Manufacturer,TB_MO_2.Manufacturer)
+			,[ManufacturerID]			= 	CAST(NULL AS INT)
 			,[CountryOfOrigin]			=	COALESCE(SB.CountryOfOrigin, TB_MO_02.CountryOfOrigin,TB_MO_2.CountryOfOrigin)
 			,[ProductDivision]			=	ST.Comments9
 			,[US_HTSCode2]				=	case 
@@ -589,13 +595,14 @@ AND TI.DepartureDate IS NULL
 		,[GrossWeightKGSXUnits]		=	WB99.[GrossWeightKGSXUnits]	
 		,[Quantity]					=	WB99.[Quantity]				
 		,[Manufacturer]				=	WB99.[Manufacturer]			
+		,[ManufacturerID]			=	WB99.[ManufacturerID]
 		,[CountryOfOrigin]			=	WB99.[CountryOfOrigin]		
 		,[ProductDivision]			=	WB99.[ProductDivision]		
 		,[US_HTSCode2]				=	WB99.[US_HTSCode2]			
 		,[TariffCategory]			=	CAST(NULL AS VARCHAR(100))
 		,[RO_ID]					=	WB99.[RO_ID]			
 		,[RO]						=	WB99.[RO]				
-		,[ManufactureID]			=	WB99.[ManufactureID]	
+		,[ManufactureID]			=	WB99.[ManufactureID]
 		,[MO]						=	WB99.[MO]				
 		,[IDExport] 				=	WB99.[IDExport] 		
 		,[IDImport] 				=	WB99.[IDImport] 		
@@ -680,8 +687,9 @@ AND TI.DepartureDate IS NULL
 											end
 			,[GrossWeightKGSXUnits]		=	ROUND(SB.[Gross_Weight_kgs],3)
 			,[Quantity]					=	TK.QtyExport									
-			,[Manufacturer]				=	COALESCE(TI.Manufacturer, TB_MO_02.Manufacturer,TB_MO_2.Manufacturer)
-			,[CountryOfOrigin]			=	COALESCE(TI.CountryOfOriginName, TB_MO_02.CountryOfOrigin,TB_MO_2.CountryOfOrigin)
+			,[Manufacturer]				=	COALESCE(SB.Manufacturer, TB_MO_02.Manufacturer,TB_MO_2.Manufacturer)
+			,[ManufacturerID]			= 	CAST(NULL AS INT)
+			,[CountryOfOrigin]			=	COALESCE(SB.CountryOfOrigin, TB_MO_02.CountryOfOrigin,TB_MO_2.CountryOfOrigin)
 			,[ProductDivision]			=	ST.Comments9 
 			,[US_HTSCode2]				=	case 
 												when ST.Comments9 not like '%Head%' then HTS.US_HTSCode 
@@ -960,8 +968,124 @@ INNER JOIN #TB_Transfer AS TR ON CI.FormattedBoxNumber = TR.FormattedBoxNumber
 			UPDATE S SET
 				[TariffCategory] = F.TariffCategory
 			FROM #TB_Transfer  AS S
-			INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND F.RTariffCategory = 1 
+			INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND F.RTariffCategory = 1
 			WHERE S.TariffCategory IS NULL
+
+	------- UPDATE MANUFACTURERID DE DATA CI DESDE FAMO SUMMARY (solo donde vino NULL) --------
+		----option 1: RO_ID + Style + Color + Size
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategoryKey1 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 2: RO_ID + Style + Color
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key2] = F.[Key2] AND F.Proportion = 1 AND F.RTariffCategoryKey2 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 3: RO_ID + Style
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key3] = F.[Key3] AND F.Proportion = 1 AND F.RTariffCategoryKey3 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 5: RO_ID
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategory = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+
+		----option 1: ManufactureID + Style + Color + Size
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategoryKey1 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 2: ManufactureID + Style + Color
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key2] = F.[Key2] AND F.Proportion = 1 AND F.RTariffCategoryKey2 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 3: ManufactureID + Style
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key3] = F.[Key3] AND F.Proportion = 1 AND F.RTariffCategoryKey3 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 5: ManufactureID
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_DataCI  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND F.RTariffCategory = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+	------- UPDATE MANUFACTURERID DE DATA TRANSFER DESDE FAMO SUMMARY (solo donde vino NULL) --------
+		----option 1: RO_ID + Style + Color + Size
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategoryKey1 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 2: RO_ID + Style + Color
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key2] = F.[Key2] AND F.Proportion = 1 AND F.RTariffCategoryKey2 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 3: RO_ID + Style
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key3] = F.[Key3] AND F.Proportion = 1 AND F.RTariffCategoryKey3 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+		----option 5: RO_ID
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.RO_ID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategory = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.RO_ID IS NOT NULL AND S.ManufacturerID IS NULL
+
+
+		----option 1: ManufactureID + Style + Color + Size
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key1] = F.[Key1] AND F.Proportion = 1 AND F.RTariffCategoryKey1 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 2: ManufactureID + Style + Color
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key2] = F.[Key2] AND F.Proportion = 1 AND F.RTariffCategoryKey2 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 3: ManufactureID + Style
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND S.[Key3] = F.[Key3] AND F.Proportion = 1 AND F.RTariffCategoryKey3 = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
+
+		----option 5: ManufactureID
+		UPDATE S SET
+			[ManufacturerID] = F.ManufacturerID
+		FROM #TB_Transfer  AS S
+		INNER JOIN #TB_FAMO_SUMMARY     AS F ON S.ManufactureID = F.ManufactureID    AND F.RTariffCategory = 1 AND S.Manufacturer = F.Manufacturer
+		WHERE S.ManufacturerID IS NULL
 
 	------- UPDATE DE CAMPOS QUE DEPENDEN DEL TARIFF CATEGORY ----------
 		UPDATE S SET
@@ -1218,6 +1342,7 @@ LEFT JOIN
 		 AND TDA.ManufacturerGroupKelly = TDA2.ManufacturerGroupKelly
 		 AND TDA.Orden = TDA2.Orden 
 
+-- return
 --- INSERT FINAL EN AMBAS TABLAS
 
 -- DROP TABLE IF EXISTS dbo.CI_Import_Export_CommercialInvoice
@@ -1510,6 +1635,135 @@ BEGIN
 		,[InvoicingDescription]
 		,[Manufacturer]
 END
+
+	------------------------------------------- STYLE CERTIFICATION -------------------------------------
+		-- CertificationStylesID se materializa una sola vez en local para no pegarle al linked server
+        -- fila por fila dentro del UPDATE (eso era lo que tardaba los 30+s: nested loop remoto
+        -- fila por fila, en vez de una única transferencia set-based de la tabla completa).
+        SELECT
+             [StyleID], [StyleColorID], [VendorName], [FabricConstruction], [AddressID]
+            ,[IdVersion], [NumeroIntertek], [CertifyID]
+        INTO #CS
+        FROM [192.168.1.93].AppsLCA.dbo.CertificationStylesID WITH(NOLOCK)
+		WHERE [IdVersion] IS NOT NULL
+
+        -- Correlativo DocumentID: AAAAMM + secuencial de 4 dígitos, uno solo por corrida del SP
+        -- (todas las filas de #TB_Certification comparten el mismo DocumentID). El secuencial
+        -- continúa desde el máximo ya guardado en destino para el mismo año-mes; si no hay
+        -- filas de ese año-mes todavía (o la tabla recién se creó), arranca en 1.
+        DECLARE @DocumentYYYYMM VARCHAR(6) = FORMAT(GETDATE(), 'yyyyMM')
+        DECLARE @NextSeq        INT
+
+        SELECT @NextSeq = MAX(CAST(RIGHT([DocumentID], 4) AS INT)) + 1
+        FROM [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle WITH(NOLOCK)
+        WHERE LEFT([DocumentID], 6) = @DocumentYYYYMM
+
+        SET @NextSeq = ISNULL(@NextSeq, 1)
+
+        DECLARE @DocumentID VARCHAR(20) = @DocumentYYYYMM + RIGHT('0000' + CAST(@NextSeq AS VARCHAR(4)), 4)
+
+        SELECT
+             [StyleNumber]              = CI.[StyleNumber]
+			,[StyleID]					= OI.[StyleID]
+            ,[IDVersion]                = CAST(NULL AS VARCHAR(200))
+            ,[CertifyID]                = CAST(NULL AS VARCHAR(200))
+            ,[FabricConstruction]       = CAST(NULL AS VARCHAR(200))
+			,[InvoicingDescription]		= CI.[InvoicingDescription]
+            ,[Manufacturer]             = CI.[Manufacturer]
+            ,[ManufacturerID]           = CI.[ManufacturerID]
+            ,[IDExport]                 = CI.[IDExport]
+            ,[CI_DocumentID]            = CI.[DocumentID]
+            ,[DocumentID]               = @DocumentID
+        INTO #TB_Certification
+        FROM #TB_DataCI						 AS CI
+        INNER JOIN LCA.dbo.ManufactureOrders AS MO WITH(NOLOCK) ON COALESCE(CI.[RO_ID], CI.[ManufactureID]) = MO.[ManufactureID] AND CI.[ProductDivision] <> 'Headwear'
+        INNER JOIN LCA.dbo.OrderItems        AS OI WITH(NOLOCK) ON OI.[OrderItemID]     = MO.[FirstOrderItemID]
+        GROUP BY
+             CI.[StyleNumber]
+			,OI.[StyleID]
+            ,CI.[Manufacturer]
+            ,CI.[ManufacturerID]
+            ,CI.[IDExport]
+			,CI.[InvoicingDescription]
+            ,CI.[DocumentID]
+
+        UNION ALL
+
+        SELECT
+             [StyleNumber]              = CI.[StyleNumber]
+			,[StyleID]					= OI.[StyleID]
+            ,[IDVersion]                = CAST(NULL AS VARCHAR(200))
+            ,[CertifyID]                = CAST(NULL AS VARCHAR(200))
+            ,[FabricConstruction]       = CAST(NULL AS VARCHAR(200))
+			,[InvoicingDescription]		= CI.[InvoicingDescription]
+            ,[Manufacturer]             = CI.[Manufacturer]
+            ,[ManufacturerID]           = CI.[ManufacturerID]
+            ,[IDExport]                 = CI.[IDExport]
+            ,[CI_DocumentID]            = CI.[DocumentID]
+            ,[DocumentID]               = @DocumentID
+        FROM #TB_Transfer AS CI WITH(NOLOCK)
+        INNER JOIN LCA.dbo.ManufactureOrders AS MO WITH(NOLOCK) ON COALESCE(CI.[RO_ID], CI.[ManufactureID]) = MO.[ManufactureID] AND CI.[ProductDivision] <> 'Headwear'
+        INNER JOIN LCA.dbo.OrderItems        AS OI WITH(NOLOCK) ON OI.[OrderItemID]     = MO.[FirstOrderItemID]
+        GROUP BY
+             CI.[StyleNumber]
+			,OI.[StyleID]
+            ,CI.[Manufacturer]
+            ,CI.[ManufacturerID]
+            ,CI.[IDExport]
+			,CI.[InvoicingDescription]
+            ,CI.[DocumentID]
+
+        -- Llena los datos de certificación desde #CS por UPDATE, relacionando por StyleID + ManufacturerID (CS.AddressID).
+        -- Si un StyleID+ManufacturerID tiene más de un registro en #CS, queda el que SQL Server aplique
+        -- (no determinístico) — aceptado, no se necesita conservar esa multiplicidad.
+        UPDATE TC SET
+             [IDVersion]          = CS.[IdVersion]
+            ,[CertifyID]          = CS.[CertifyID]
+            ,[FabricConstruction] = CS.[FabricConstruction]
+        FROM #TB_Certification AS TC
+        INNER JOIN #CS AS CS ON TC.[StyleID] = CS.[StyleID]
+                             AND TC.[ManufacturerID] = CS.[AddressID]
+							 AND TC.[InvoicingDescription] LIKE '%' + CS.[FabricConstruction] + '%'
+
+        UPDATE TC SET
+             [IDVersion]          = CS.[IdVersion]
+            ,[CertifyID]          = CS.[CertifyID]
+            ,[FabricConstruction] = CS.[FabricConstruction]
+        FROM #TB_Certification AS TC
+        INNER JOIN #CS AS CS ON TC.[StyleID] = CS.[StyleID]
+                             AND TC.[ManufacturerID] = CS.[AddressID]
+		WHERE (TC.[IDVersion] IS NULL AND TC.[CertifyID] IS NULL AND TC.[FabricConstruction] IS NULL)
+
+		UPDATE TC SET
+			[FabricConstruction] = [InvoicingDescription]
+		FROM #TB_Certification AS TC
+		WHERE [FabricConstruction] IS NULL
+
+        -- Tabla destino en el linked server (crear una sola vez, ver script al final del archivo):
+        -- [192.168.1.93].[AppsLCA].[dbo].[CI_Import_Export_CertificationStyle]
+
+        INSERT INTO [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle
+            ([DocumentID], [IDExport], [CI_DocumentID], [StyleNumber], [StyleID], [IDVersion], [CertifyID], [FabricConstruction], [Manufacturer], [Waybill])
+        SELECT
+             [DocumentID]
+            ,[IDExport]
+            ,[CI_DocumentID]
+            ,[StyleNumber]
+            ,[StyleID]
+            ,[IDVersion]
+            ,[CertifyID]
+            ,[FabricConstruction]
+            ,[Manufacturer]
+			,@WayBill AS Waybill
+        FROM #TB_Certification
+		-- WHERE IDVersion IS NULL
+		ORDER BY StyleID
+
+		-- SELECT DISTINCT StyleNumber, StyleID, Manufacturer FROM #TB_Certification WHERE IDVersion IS NULL
+
+
+		-- WHERE SeasonName NOT LIKE '%FG%' AND IdVersion <> '16CFR § 1610.1(d)(1)' AND StyleID = 1427
+	------------------------------------------- STYLE CERTIFICATION -------------------------------------
 	
 update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status] set [Status] = 'Finished', Finished_Date=getdate() 
 	where waybill =@WayBill
@@ -1521,5 +1775,4 @@ update [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status] set [Status] = 'F
 	end
 close WayBill_status
 deallocate WayBill_status
-
 END

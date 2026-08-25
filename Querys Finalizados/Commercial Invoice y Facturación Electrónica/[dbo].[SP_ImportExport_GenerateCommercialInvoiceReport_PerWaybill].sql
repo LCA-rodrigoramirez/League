@@ -13,15 +13,17 @@ AS
 BEGIN
     SET NOCOUNT ON
 
-    -- DECLARE @WayBill AS NVARCHAR(MAX) = 'AIR-APP-20251201'
+    -- DECLARE @WayBill AS NVARCHAR(MAX) = 'AIR-APP-20260824'
 
     DECLARE @resultCommercial       AS NVARCHAR(MAX)
     DECLARE @result9802             AS NVARCHAR(MAX)
     DECLARE @resultSummaryKelly     AS NVARCHAR(MAX)
+    DECLARE @resultCertification    AS NVARCHAR(MAX)
 
     DROP TABLE IF EXISTS #TB_NormalCI
     DROP TABLE IF EXISTS #TB_TransferCI
     DROP TABLE IF EXISTS #BaseSummary
+    DROP TABLE IF EXISTS #TB_Cerification
 
     -------------------------------------------RESULT COMMERCIAL INVOICE CAFTA/NONCAFTA -------------------------------------
 
@@ -107,7 +109,7 @@ BEGIN
              [R]                        = ROW_NUMBER() OVER(ORDER BY CI.[Orden], CI.[InvoicingDescription],CI.[CountryOfOrigin], CI.[Manufacturer])
             ,[WayBill]                  = CI.[WayBill]
             ,[ContainerNumber]          = CI.[Container]    
-            ,[StyleNumber]              = CI.[StyleNumber]    
+            ,[StyleNumber]              = CI.[StyleNumber]
             ,[InvoicingDescription]     = CI.[InvoicingDescription]            
             ,[US_HTSDescription]        = CI.[US_HTSDescription]            
             ,[US_HTSCode]               = COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])
@@ -417,8 +419,6 @@ BEGIN
     -------------------------------------------RESULT COMMERCIAL INVOICE 9802 -------------------------------------
 
     -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
-    
-    -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
 
         CREATE TABLE #BaseSummary
         (
@@ -548,13 +548,97 @@ BEGIN
 
     -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
 
+        SELECT
+             [DocumentID]           = [DocumentID]
+            ,[StyleNumber]          = [StyleNumber]
+            ,[IDVersion]            = [IDVersion]
+            ,[CertifyID]            = [CertifyID]
+            ,[FabricConstruction]   = [FabricConstruction]
+            ,[WayBill]              = [WayBill]
+            ,[Manufacturer]         = [Manufacturer]
+            ,[CommentVersion1]      = CAST(NULL AS VARCHAR(500))
+            ,[CommentVersion2]      = CAST(NULL AS VARCHAR(500))
+        INTO #TB_Cerification
+        FROM [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle WITH(NOLOCK)
+        WHERE Waybill = @WayBill
+        GROUP BY
+             [DocumentID]
+            ,[StyleNumber]
+            ,[IDVersion]
+            ,[CertifyID]
+            ,[FabricConstruction]
+            ,[WayBill]
+            ,[Manufacturer]
+
+        UPDATE TC SET
+            [CommentVersion1] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(1)') > 0
+                                , '16CFR § 1610.1(d)(1): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(1), as the garments are manufactured from plain surface fabrics weighing 2.6 ounces per square yard (88.2 g/m²) or greater.'
+                                , '')
+
+            ,[CommentVersion2] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(2)') > 0
+                                , '16CFR § 1610.1(d)(2): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(2), as the garments are manufactured entirely from exempt fibers (acrylic, modacrylic, nylon, olefin, polyester, wool, or a combination thereof).'
+                                , '')
+        FROM #TB_Cerification AS TC
+
+        SET @resultCertification = (
+
+            SELECT
+                 [ReportHeader] = (
+
+                                    SELECT
+                                         [DocumentID]
+                                        ,[CommentReport]   = 'See below the list of styles along with their corresponding certificates, waybill: ' + @WayBill + '.'
+                                        ,[CommentVersion1]
+                                        ,[CommentVersion2]
+                                        ,[WayBill]
+                                    FROM #TB_Cerification
+                                    GROUP BY 
+                                         [DocumentID]
+                                        ,[WayBill]
+                                        ,[CommentVersion1]
+                                        ,[CommentVersion2]
+                                    FOR JSON PATH, INCLUDE_NULL_VALUES
+
+                                  )
+
+                ,[ReportData]   = (
+                                    SELECT
+                                         [StyleNumber]
+                                        ,[IDVersion]            = CASE
+                                                                    WHEN [IDVersion] = '16CFR § 1610.1(d)(1)' THEN CONCAT([IDVersion],'*')
+                                                                    WHEN [IDVersion] = '16CFR § 1610.1(d)(2)' THEN CONCAT([IDVersion],'*')
+                                                                  ELSE [IDVersion]
+                                                                  END
+                                        ,[CertifyID]
+                                        ,[FabricConstruction]
+                                        ,[Manufacturer]
+                                    FROM #TB_Cerification
+                                    FOR JSON PATH, INCLUDE_NULL_VALUES
+                                  )
+            FOR JSON PATH, INCLUDE_NULL_VALUES
+        )
+
+    ------------------------------------------- RESULT STYLE CERTIFICATION -------------------------------------
+
+        
+
+    -- SELECT * FROM AppsLCA.dbo.CertificationStylesID WHERE StyleNumber  = '31014' AND IdVersion IS NOT NULL
+    -- SELECT CI.*
+    -- FROM [192.168.1.93].appslca.dbo.CI_Import_Export_CommercialInvoice AS CI WITH(NOLOCK) 
+    -- INNER JOIN LCA.dbo.ManufactureOrders AS MO WITH(NOLOCK) ON COALESCE(CI.[RO_ID], CI.[ManufactureID]) = MO.[ManufactureID]
+    -- INNER JOIN LCA.dbo.OrderItems        AS OI WITH(NOLOCK) ON OI.[OrderItemID]     = MO.[FirstOrderItemID]
+    -- WHERE StyleNumber  = '31014' AND Waybill = 'APP-20260818'
+    
+    -- SELECT * FROM [192.168.1.93].[AppsLCA].dbo.CertificationStylesID WHERE StyleNumber = '31014' AND IdVersion = 'D300303D'
+    ------------------------------------------- RESULT STYLE CERTIFICATION -------------------------------------
+
 
 
     SELECT 
         [Commercial]    = JSON_QUERY(ISNULL(@resultCommercial,'[]'))
        ,[Transfer]      = JSON_QUERY(ISNULL(@result9802,'[]'))
        ,[Summary]       = JSON_QUERY(ISNULL(@resultSummaryKelly,'[]'))
+       ,[Certification] = JSON_QUERY(ISNULL(@resultCertification,'[]'))
     FOR JSON PATH
 
-    -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
 END
