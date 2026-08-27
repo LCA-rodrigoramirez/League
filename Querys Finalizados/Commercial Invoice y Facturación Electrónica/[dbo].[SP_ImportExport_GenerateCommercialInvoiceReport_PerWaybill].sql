@@ -425,6 +425,7 @@ BEGIN
             [R] INT
             , [Line] INT
             , [DocumentID] NVARCHAR(200)
+            , [StyleNumber] NVARCHAR(200)
             , [InvoicingDescription] NVARCHAR(500)
             , [US_HTSCode] NVARCHAR(100)
             , [Manufacturer] NVARCHAR(300)
@@ -441,13 +442,14 @@ BEGIN
 
         INSERT INTO #BaseSummary
         (
-            [R], [Line], [DocumentID], [InvoicingDescription], [US_HTSCode], [Manufacturer],
+            [R], [Line], [DocumentID], [StyleNumber], [InvoicingDescription], [US_HTSCode], [Manufacturer],
             [Orden], [Quantity], [QuantityDoz], [TotalPrice], [TotalBlankPrice], [TotalFobValue], [DecorationValue]
         )
         SELECT 
             [R] = ROW_NUMBER() OVER(ORDER BY TB.[R_Order],TB.[Line] , TB.[InvoicingDescription], TB.[Manufacturer])
             , [Line] = TB.[Line]
             , TB.[DocumentID]
+            , TB.[StyleNumber]
             , TB.[InvoicingDescription]
             , TB.[US_HTSCode]
             , TB.[Manufacturer]
@@ -464,6 +466,7 @@ BEGIN
                 [R_Order] = CI.[Orden]  -- SOLO PARA ORDEN GLOBAL, NO ES Line
                 , [Line]                 = CI.[LineGroupKelly]
                 , [DocumentID]           = CI.[DocumentID]  
+                , [StyleNumber]          = CI.[StyleNumber]
                 , [InvoicingDescription] = CI.[InvoicingDescription]            
                 , [US_HTSCode]           = COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])
                 , [Manufacturer]         = CONCAT(CI.[Manufacturer], '/', CI.[CountryOfOrigin])
@@ -479,6 +482,7 @@ BEGIN
             GROUP BY  
                   CI.[LineGroupKelly]
                 , CI.[DocumentID]
+                , CI.[StyleNumber]
                 , CI.[InvoicingDescription]
                 , COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])
                 , CONCAT(CI.[Manufacturer], '/', CI.[CountryOfOrigin])
@@ -489,7 +493,8 @@ BEGIN
             SELECT
                 [R_Order] = CI.[Orden]
                 , [Line]                 = CI.[LineGroupKelly]
-                , [DocumentID]           = CI.[DocumentID]  
+                , [DocumentID]           = CI.[DocumentID]
+                , [StyleNumber]          = CI.[StyleNumber]
                 , [InvoicingDescription] = CI.[InvoicingDescription]            
                 , [US_HTSCode]           = COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])    
                 , [Manufacturer]         = CONCAT(CI.[Manufacturer], '/', CI.[CountryOfOrigin])
@@ -505,6 +510,7 @@ BEGIN
             GROUP BY
                   CI.[LineGroupKelly]
                 , CI.[DocumentID]
+                , CI.[StyleNumber]
                 , CI.[InvoicingDescription]
                 , COALESCE(CI.[US_HTSCode2],CI.[US_HTSCode])
                 , CONCAT(CI.[Manufacturer], '/', CI.[CountryOfOrigin])
@@ -518,13 +524,14 @@ BEGIN
 
         INSERT INTO #BaseSummary
         (
-            [R], [Line], [DocumentID], [InvoicingDescription], [US_HTSCode], [Manufacturer],
+            [R], [Line], [DocumentID], [StyleNumber], [InvoicingDescription], [US_HTSCode], [Manufacturer],
             [Orden], [Quantity], [QuantityDoz], [TotalPrice], [TotalBlankPrice], [TotalFobValue], [DecorationValue]
         )
         SELECT
             [R] = MAX([R]) + 1  -- Para quedar justo debajo del último del mismo DocumentID
             , [Line] = NULL -- correlativo interno
             , [DocumentID]
+            , [StyleNumber] = NULL
             , [InvoicingDescription] = NULL
             , [US_HTSCode] = 'TOTAL INVOICE'
             , [Manufacturer] = NULL
@@ -553,9 +560,9 @@ BEGIN
             ,[StyleNumber]          = [StyleNumber]
             ,[IDVersion]            = [IDVersion]
             ,[CertifyID]            = [CertifyID]
-            ,[FabricConstruction]   = [FabricConstruction]
+            -- ,[FabricConstruction]   = [FabricConstruction]
             ,[WayBill]              = [WayBill]
-            ,[Manufacturer]         = [Manufacturer]
+            ,[Manufacturer]         = IIF([Manufacturer] = 'League LTDA', 'League C.A Ltda. de C.V',[Manufacturer])
             ,[CommentVersion1]      = CAST(NULL AS VARCHAR(500))
             ,[CommentVersion2]      = CAST(NULL AS VARCHAR(500))
         INTO #TB_Cerification
@@ -566,7 +573,7 @@ BEGIN
             ,[StyleNumber]
             ,[IDVersion]
             ,[CertifyID]
-            ,[FabricConstruction]
+            -- ,[FabricConstruction]
             ,[WayBill]
             ,[Manufacturer]
 
@@ -610,9 +617,10 @@ BEGIN
                                                                   ELSE [IDVersion]
                                                                   END
                                         ,[CertifyID]
-                                        ,[FabricConstruction]
+                                        -- ,[FabricConstruction]
                                         ,[Manufacturer]
                                     FROM #TB_Cerification
+                                    ORDER BY StyleNumber
                                     FOR JSON PATH, INCLUDE_NULL_VALUES
                                   )
             FOR JSON PATH, INCLUDE_NULL_VALUES
