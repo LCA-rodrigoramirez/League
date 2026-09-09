@@ -187,8 +187,8 @@ BEGIN
     -- SET @process = 'partnumber-validate'
     -- SET @data  = '{
     --                 "selectedOptions":[
-    --                     {"PONumber":"LCA23069"},
-    --                     {"PONumber":"LCA23342"}
+    --                     {"PONumber":"LCA23691"},
+    --                     {"PONumber":"LCA23652-1"}
     --                 ]
     --             }'
 
@@ -867,7 +867,7 @@ BEGIN
                      TGC.[PO]
                     ,PDC.[ItemNumber]
                     ,PDC.[PartNumber]
-                    ,PDC.[BoxNumber]
+                    ,[BoxNumber] = CAST(PDC.[BoxNumber] AS VARCHAR(100))
                     ,PDC.[Units]
                     ,PDC.[Warehouse]
                     ,PDC.[SAC]
@@ -876,7 +876,7 @@ BEGIN
                 INNER JOIN [AppsLCA].[dbo].[Table_PODataCSV] AS PDC WITH(NOLOCK) ON TGC.[PO] = PDC.[PONumber] AND TGC.[CodEmpleado] = PDC.[IDUsuario]
                 INNER JOIN [LCA].[dboReaders].[VW_PurchaseOrdersDetails] AS POD WITH(NOLOCK) ON PDC.[PONumber] = POD.[PONumber]
                                                                                              AND PDC.[ItemNumber] = POD.[Item]
-                FOR JSON PATH
+                FOR JSON PATH, INCLUDE_NULL_VALUES
             )
 
             INSERT INTO [AppsLCA].[dbo].[Table_UploadItemsPPM]
@@ -1681,7 +1681,8 @@ BEGIN
                 ,[Qty]              = ABS(SUM(CT.[Quantity]))
                 ,[BoxSerialNumber]  = RC.[ContainerCode]
                 ,[BoxLabel]         = CONCAT(CAST(GETDATE() AS DATE),'-',RC.[ContainerCode] )
-                ,[BoxComments]      = CONCAT(RC.[ContainerCode], ' - CREATED WITH THE RECEIVE CONTAINERS APP')
+                -- ,[BoxComments]      = CONCAT(RC.[ContainerCode], ' - CREATED WITH THE RECEIVE CONTAINERS APP')
+                ,[BoxComments]      = CONCAT('BX:',RC.[ContainerCode], ':')
                 ,[PartNumber_RC]    = RMC.[PartNumber]
                 ,[RawMaterialID_RC] = RMC.[RawMaterialID]   
                 ,[PartNumber_ST]    = CAST(NULL AS VARCHAR(200))
@@ -2232,6 +2233,7 @@ BEGIN
         BEGIN
             DROP TABLE IF EXISTS #TB_MO
             DROP TABLE IF EXISTS #TB_PO_Details
+            DROP TABLE IF EXISTS #TB_PO_MO_Diff
             DROP TABLE IF EXISTS #TempPOVal
             DROP TABLE IF EXISTS #TB_MO_FIL
             DROP TABLE IF EXISTS #TB_INV_UNIVERSE
@@ -2288,6 +2290,9 @@ BEGIN
             INNER JOIN [LCA].[dbo].[PurchaseDetails]    AS PD   WITH(NOLOCK) ON PO.[PurchaseID] = PD.[PurchaseID]
             INNER JOIN [LCA].[dbo].[RawMaterials]       AS RM   WITH(NOLOCK) ON PD.[RawMaterialID] = RM.[RawMaterialID]
 
+            CREATE INDEX IX_TB_PO_Details_PurchaseDetailID ON #TB_PO_Details ([PurchaseDetailID])
+            CREATE INDEX IX_TB_PO_Details_PartNumber       ON #TB_PO_Details ([PartNumber])
+
             UPDATE TPD SET
                 [Style] = case when charindex('-',TPD.PartNumber)>0
                                                         then substring( TPD.PartNumber ,1, charindex('-',TPD.PartNumber)-1)
@@ -2314,6 +2319,8 @@ BEGIN
                                                                             --'S','M','L')
                                                                 ) SizeValue ON TPD.[PurchaseDetailID] = SizeValue.[PurchaseDetailID]
 
+            CREATE INDEX IX_TB_PO_Details_Style_Color_Size ON #TB_PO_Details ([Style], [Color], [Size])
+
             -- Resolucion 1: el PartNumber ya es directamente un InvItemNo valido en AppsLCA
             -- InvItemNo es numerico (bigint) en LCA_L2B_InventoryID, se castea a varchar para
             -- poder compararlo contra PartNumber sin que SQL intente convertir PartNumber a bigint
@@ -2328,6 +2335,8 @@ BEGIN
             FROM #TB_PO_Details AS TPD
             LEFT  JOIN AppsLCA.legacycaps.LCA_L2B_InventoryID AS L2 WITH(NOLOCK) ON TPD.[Style] = L2.[Style] AND TPD.[Color] = L2.[Color] AND TPD.[Size] = L2.[GarmentSize]
             WHERE TPD.[InvItemNoL2] IS NULL
+
+            CREATE INDEX IX_TB_PO_Details_InvItemNoL2 ON #TB_PO_Details ([InvItemNoL2])
 
             -- #TB_MO: igual que antes, pero sin tocar el linked server remoto aqui;
             -- InvItemNoL2Val se llena mas abajo desde la tabla remota ya cacheada localmente
@@ -2357,10 +2366,14 @@ BEGIN
             LEFT  JOIN LCA.dbo.RawAllocations		AS RA WITH(NOLOCK) ON MO.ManufactureID = RA.ManufactureID
             LEFT  JOIN LCA.dbo.RawMaterials			AS RM WITH(NOLOCK) ON RA.RawMaterialID = RM.RawMaterialID
 
+            CREATE INDEX IX_TB_MO_Style_Color_Size ON #TB_MO ([Style], [Color], [Size])
+
             UPDATE TM SET
                 InvItemNoL2 = CAST(L2.InvItemNo AS NVARCHAR(200))
             FROM #TB_MO AS TM
             LEFT  JOIN AppsLCA.legacycaps.LCA_L2B_InventoryID AS L2 WITH(NOLOCK) ON TM.Style = L2.Style AND TM.Color = L2.Color AND TM.Size = L2.GarmentSize
+
+            CREATE INDEX IX_TB_MO_InvItemNoL2 ON #TB_MO ([InvItemNoL2])
 
             -- ============================================================
             -- Universo de InvItemNo (PO + MO) para traer de
@@ -2435,6 +2448,8 @@ BEGIN
                 SET @CurrentBatch_SCS = @CurrentBatch_SCS + 1
             END
 
+            CREATE INDEX IX_TB_RemoteInventory_InvItemNo ON #TB_RemoteInventory ([InvItemNo])
+
             -- InvItemNoL2Val: lo que realmente existe hoy en el sistema remoto para ese InvItemNoL2
             UPDATE TPD SET
                 InvItemNoL2Val = RI.[InvItemNo]
@@ -2451,11 +2466,29 @@ BEGIN
 
             -- Solo se dejan las discrepancias; si alguno de los dos es NULL, tambien se reporta
             -- (NULL = NULL / NULL = valor no son verdaderos en SQL, por eso el DELETE no los borra)
+            ------------------------------- VALIDACION PO PARTNUMBER VS MO PARTNUMBER ------------------------------------
+
+                SELECT
+                     [PO]           = TPO.PO
+                    ,[PartNumberPO] = TPO.PartNumber
+                    ,[MO]           = TMO.MO
+                    ,[PartNumberMO] = TMO.PartNumberMO
+                INTO #TB_PO_MO_Diff
+                FROM #TB_PO_Details AS TPO
+                FULL JOIN #TB_MO    AS TMO ON TPO.Style = TMO.Style AND TPO.Color = TMO.Color AND TPO.[Size] = TMO.[Size]
+                WHERE TMO.MO IS NOT NULL
+                AND TPO.PartNumber <> TMO.PartNumberMO
+
+
+            ------------------------------- VALIDACION PO PARTNUMBER VS MO PARTNUMBER ------------------------------------
+
             DELETE FROM #TB_PO_Details
             WHERE [InvItemNoL2] = [InvItemNoL2Val]
 
             DELETE FROM #TB_MO
             WHERE [InvItemNoL2] = [InvItemNoL2Val]
+
+
 
             SET @result =
             (
@@ -2490,6 +2523,15 @@ BEGIN
                                             ,[ProductionComments]
                                         FROM #TB_MO FOR JSON PATH, INCLUDE_NULL_VALUES
                                     )
+                        ,[PO_MO Diff] = (
+                                            SELECT
+                                                [PO]          
+                                                ,[PartNumberPO]
+                                                ,[MO]          
+                                                ,[PartNumberMO]
+                                            FROM #TB_PO_MO_Diff
+                                            FOR JSON PATH, INCLUDE_NULL_VALUES
+                                        )
 
                 ) AS TB_FINAL
                 FOR JSON PATH, INCLUDE_NULL_VALUES
