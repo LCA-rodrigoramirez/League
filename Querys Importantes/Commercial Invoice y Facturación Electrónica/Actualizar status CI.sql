@@ -1,4 +1,4 @@
-SELECT * FROM AppsLCA.dbo.ImportExport_CommercialInvoice_Status WITH(NOLOCK) WHERE waybill = 'APP-20260217'
+SELECT * FROM AppsLCA.dbo.ImportExport_CommercialInvoice_Status WITH(NOLOCK) WHERE waybill = 'AIR-APP-20260903-2'
 SELECT * FROM AppsLCA.dbo.ImportExport_CommercialInvoice_Status_Drawback WITH(NOLOCK) WHERE waybill = 'HW-20250616'
 
  

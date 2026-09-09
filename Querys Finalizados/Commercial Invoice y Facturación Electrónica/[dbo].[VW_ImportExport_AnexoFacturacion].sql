@@ -18,8 +18,8 @@ GO
 BEGIN
     SET NOCOUNT ON;
 
-     DECLARE @DateFrom AS DATE = '2026-07-01'
-     DECLARE @DateTo   AS DATE = '2026-07-31'
+     DECLARE @DateFrom AS DATE = '2026-08-01'
+     DECLARE @DateTo   AS DATE = '2026-08-31'
     DROP TABLE IF EXISTS #AnexoFacturacion
     DROP TABLE IF EXISTS #TB_EORO_ChangeCost
 
@@ -557,9 +557,22 @@ BEGIN
     ,AF.RO_Cost
     ,AF.ROID_Cost
   FROM #AnexoFacturacion AS AF WITH(NOLOCK)
-  WHERE ManufactureID = 978897 AND MONTH(ShipDate) = 7
+  WHERE SeasonName = 'EMB FG' AND RO_ID <> ROID_Cost
 
-  
+  SELECT
+  *
+  FROM #AnexoFacturacion AS AF
+  INNER JOIN LCA.dbo.ManufactureOrders  AS MO   WITH(NOLOCK) ON AF.ManufactureID = MO.ManufactureID
+  INNER JOIN LCA.dbo.OrderItems         AS OI   WITH(NOLOCK) ON MO.FirstOrderItemID = OI.OrderItemID
+  INNER JOIN LCA.dbo.Styles             AS ST   WITH(NOLOCK) ON OI.StyleID = ST.StyleID
+  INNER JOIN LCA.dbo.Styles             AS BS   WITH(NOLOCK) ON ST.BlankStyleID = BS.StyleID
+  INNER JOIN LCA.dbo.Seasons            AS SE   WITH(NOLOCK) ON BS.SeasonID = SE.SeasonID
+  INNER JOIN LCA.dbo.ManufactureOrders  AS RO   WITH(NOLOCK) ON AF.RO_ID = RO.ManufactureID
+  INNER JOIN LCA.dbo.OrderItems         AS OI2  WITH(NOLOCK) ON RO.FirstOrderItemID = OI2.OrderItemID
+  INNER JOIN LCA.dbo.Styles             AS ST2  WITH(NOLOCK) ON OI2.StyleID = ST2.StyleID
+  INNER JOIN LCA.dbo.Seasons            AS SE2  WITH(NOLOCK) ON ST2.SeasonID = SE2.SeasonID
+
+  WHERE SE.SeasonName <> SE2.SeasonName
 
 
 END

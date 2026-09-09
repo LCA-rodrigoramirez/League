@@ -20,8 +20,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- DECLARE @DateFrom AS DATE = '2026-07-20'
-    -- DECLARE @DateTo   AS DATE = '2026-07-24'
+    -- DECLARE @DateFrom AS DATE = '2026-01-01'
+    -- DECLARE @DateTo   AS DATE = '2026-08-31'
     DROP TABLE IF EXISTS #AnexoFacturacion
 
     SELECT
@@ -32,6 +32,10 @@ BEGIN
         ,[Total_UnitFreightCost]           = CONVERT(NUMERIC(18,4), 0)
         ,[Invoice]                         = CAST(NULL AS NVARCHAR(500))
         ,[US_HTSCode]                      = CAST(NULL AS NVARCHAR(50))
+        ,[TypeData]								= CAST(NULL AS VARCHAR(50))
+		,[BlankROStyleID]						= CAST(NULL AS INT)
+        ,[UnitMin]                         = CAST(0 AS DECIMAL(18,2))
+        ,[TotalMin]                        = CAST(0 AS DECIMAL(18,2))
     INTO #AnexoFacturacion
     FROM
     (
@@ -43,6 +47,7 @@ BEGIN
             ,[PONumber]
             ,[BoxNumber]                         = AF.[BoxNumber]
             ,[StyleNumber]
+            ,[StyleID]                           = OI.[StyleID]
             ,[StyleColor]                        = AF.[StyleColor]
             ,[SeasonName]
             ,[Qty]
@@ -294,6 +299,23 @@ BEGIN
                   AND AF.[PartNumber] = ''
     ) AS AFPN
 
+    UPDATE T SET
+			[TypeData] = CASE
+							WHEN [Manufacturer] NOT LIKE 'League%' AND [ProductDivision] <> 'Other Service' AND [SeasonName] LIKE '%FG%' THEN 'SEMI'
+							WHEN [Manufacturer] LIKE 'League%' AND [SeasonName] LIKE '%FG%' THEN 'SEMI'
+							WHEN [Manufacturer] LIKE 'League%' AND [SeasonName] NOT LIKE '%FG%' THEN 'LCA'
+							WHEN [ProductDivision] = 'Other Service' THEN 'LCA'
+							ELSE 'Not Found'
+						 END
+
+		FROM #AnexoFacturacion AS T
+
+    UPDATE T SET
+			[BlankROStyleID] = OI.[StyleID]
+		FROM #AnexoFacturacion AS T
+		INNER JOIN [LCA].[dbo].[ManufactureOrders] 	AS MO WITH(NOLOCK) ON T.[RO_ID] = MO.[ManufactureID] AND T.[SeasonName] NOT LIKE '%FG%'
+		INNER JOIN [LCA].[dbo].[OrderItems]			AS OI WITH(NOLOCK) ON MO.[FirstOrderItemID] = OI.[OrderItemID]
+
     -------------------------------------------------------------------------------------------------------------------------------------------------------
     -- UPDATE de UnitFreightCost_Ponderado / Total_UnitFreightCost_Ponderado (antes JOIN directo contra TB_MO_PartNumber_IM_Materials)
     -------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -420,6 +442,32 @@ BEGIN
             AND SBA.[StyleColor] = T.[StyleColor]
             AND SBA.[GarmentSize] = T.[Size]
 
+    UPDATE T SET
+         [UnitMin] 	= SAM.[Quantity]
+        ,[TotalMin]	= SAM.[Quantity] * T.[Qty]
+    FROM #AnexoFacturacion AS T
+    INNER JOIN
+    (
+        SELECT
+            ST.[StyleID]
+            ,ST.[StyleNumber]
+            ,ST.[StyleName]
+            ,CC.[CategoryName]
+            ,CS.[SubCategoryName]
+            ,SN.[StatusName]
+            ,SE.[SeasonName]
+            ,CL.[ComponentName]
+            ,[Quantity]				= CAST(SD.[Quantity] AS DECIMAL(18,2))
+        FROM (SELECT [StyleID] = COALESCE(BlankROStyleID,StyleID) FROM #AnexoFacturacion GROUP BY COALESCE(BlankROStyleID,StyleID)) AS T 
+        INNER JOIN [Financial].[dbo].[Styles] 				AS ST WITH(NOLOCK) ON ST.[StyleID] = T.[StyleID]
+        INNER JOIN [Financial].[dbo].[StyleDetails] 			AS SD WITH(NOLOCK) ON ST.[StyleID] = SD.[StyleID]
+        INNER JOIN [Financial].[dbo].[ComponentLibrary] 		AS CL WITH(NOLOCK) ON SD.[ComponentID] = CL.[ComponentID] AND (CL.[ComponentName] NOT LIKE '%Expected%')
+        INNER JOIN [Financial].[dbo].[ComponentCategories] 	AS CC WITH(NOLOCK) ON CL.[ComponentCategoryID] = CC.[ComponentCategoryID] AND CC.[ComponentCategoryID] = 9
+        INNER JOIN [Financial].[dbo].[ComponentSubcategories] AS CS WITH(NOLOCK) ON CL.[SubCategoryID] = CS.[SubCategoryID] AND CS.[SubCategoryID] = 15
+        INNER JOIN [Financial].[dbo].[StatusNames] 			AS SN WITH(NOLOCK) ON ST.[StatusID] = SN.[StatusID] AND ST.[StatusID] IN (64,105)
+        LEFT  JOIN [Financial].[dbo].[Seasons] 				AS SE WITH(NOLOCK) ON ST.[SeasonID] = SE.[SeasonID]
+    ) AS SAM ON COALESCE(T.[BlankROStyleID],T.[StyleID]) = SAM.[StyleID]
+
     SELECT
          [ShipDate]
         ,[Waybill]
@@ -511,8 +559,11 @@ BEGIN
         ,[Total_UnitFreightCost_Ponderado]
         ,[UnitFreightCost]                
         ,[Total_UnitFreightCost]          
-        ,[Invoice]                                
+        ,[Invoice]
+        ,[UnitMin]
+        ,[TotalMin]
     FROM #AnexoFacturacion ORDER BY ShipDate DESC
+
 
 END
 GO
