@@ -16,7 +16,7 @@ Declare @Executing_Date datetime = null
 Declare @Finished_Date datetime=null
 Declare @TransferVal INT = 0
 
-SET @WayBill = 'APP-20260827'
+SET @WayBill = 'APP-20260903'
 -- declare WayBill_status cursor for select  * from [AppsLCA].[dbo].[ImportExport_CommercialInvoice_Status]
 -- 		where status='Pending'
 
@@ -125,18 +125,21 @@ CTE_Proporcion AS (
 )
 SELECT
      IDExport
-    ,IDImport   = ID
+    ,IDImport   = CTE.ID
     ,IDKardex
     ,QtyExport          = CAST( (QtyExport / Cnt) + CASE
                             WHEN RN <= QtyExport % Cnt THEN 1 ELSE 0 END AS INT)
     ,QtyExport_Original = QtyExport
-    ,RO_ID
+    ,CTE.RO_ID
     ,IM5
+	,WeightExport		= CAST( (AF.Gross_Weight_kgs / Cnt)  AS decimal(18,4))
     -- ,ID
 INTO #TB_Transfer_Kardex
-FROM CTE_Proporcion
+FROM CTE_Proporcion AS CTE
+LEFT JOIN AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH(NOLOCK) ON AF.ID = CTE.IDExport
 WHERE CAST( (QtyExport / Cnt) + CASE
                             WHEN RN <= QtyExport % Cnt THEN 1 ELSE 0 END AS INT) > 0
+
 
 SELECT *
 INTO #TB_ContentFabric
@@ -1727,7 +1730,7 @@ LEFT JOIN
             ,[CertifyID]          = CS.[CertifyID]
             ,[FabricConstruction] = CS.[FabricConstruction]
         FROM #TB_Certification AS TC
-        INNER JOIN #CS AS CS ON TC.[StyleExport] = CS.[StyleNumber]
+        INNER JOIN #CS AS CS ON TC.[StyleNumber] = CS.[StyleNumber]
                              AND TC.[ManufacturerID] = CS.[AddressID]
 							 AND TC.[InvoicingDescription] LIKE '%' + CS.[FabricConstruction] + '%'
 
@@ -1736,7 +1739,7 @@ LEFT JOIN
             ,[CertifyID]          = CS.[CertifyID]
             ,[FabricConstruction] = CS.[FabricConstruction]
         FROM #TB_Certification AS TC
-        INNER JOIN #CS AS CS ON TC.[StyleExport] = CS.[StyleNumber]
+        INNER JOIN #CS AS CS ON TC.[StyleNumber] = CS.[StyleNumber]
                              AND TC.[ManufacturerID] = CS.[AddressID]
 		WHERE (TC.[IDVersion] IS NULL AND TC.[CertifyID] IS NULL AND TC.[FabricConstruction] IS NULL)
 

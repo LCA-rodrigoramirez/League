@@ -13,7 +13,7 @@ AS
 BEGIN
     SET NOCOUNT ON
 
-    -- DECLARE @WayBill AS NVARCHAR(MAX) = 'AIR-APP-20260824'
+    -- DECLARE @WayBill AS NVARCHAR(MAX) = 'AIR-HW-20260904'
 
     DECLARE @resultCommercial       AS NVARCHAR(MAX)
     DECLARE @result9802             AS NVARCHAR(MAX)
@@ -101,6 +101,11 @@ BEGIN
             ,[InvoicingGroupKelly]    VARCHAR(200)
             ,[ManufacturerGroupKelly]   VARCHAR(200)
             ,[LineGroupKelly]       INT
+            ,[ProductDivision]      VARCHAR(50)
+            ,[LineColor]            BIT
+            ,[IDVersion]            VARCHAR(50)
+            ,[CommentVersion1]          VARCHAR(500)
+            ,[CommentVersion2]          VARCHAR(500)
 
         )
 
@@ -134,6 +139,11 @@ BEGIN
             ,[InvoicingGroupKelly]      = CI.[InvoicingGroupKelly]
             ,[ManufacturerGroupKelly]   = CI.[ManufacturerGroupKelly]
             ,[LineGroupKelly]           = CI.[LineGroupKelly]
+            ,[ProductDivision]          = CI.[ProductDivision]
+            ,[LineColor]                = CAST(0 AS BIT)
+            ,[IDVersion]                = CAST(NULL AS VARCHAR(50))
+            ,[CommentVersion1]          = CAST(NULL AS VARCHAR(500))
+            ,[CommentVersion2]          = CAST(NULL AS VARCHAR(500))
         FROM [192.168.1.93].appslca.dbo.CI_Import_Export_CommercialInvoice AS CI WITH(NOLOCK)
         WHERE Waybill IN (@WayBill)
         GROUP BY
@@ -154,6 +164,7 @@ BEGIN
             ,CI.[InvoicingGroupKelly]
             ,CI.[ManufacturerGroupKelly]
             ,CI.[LineGroupKelly]
+            ,CI.[ProductDivision]
 
         INSERT INTO #TB_NormalCI
         (
@@ -200,6 +211,32 @@ BEGIN
             , [ManufacturerGroupKelly]
             , [LineGroupKelly]
             
+
+        UPDATE CI SET
+            [IDVersion] = CS.[IDVersion]
+        FROM #TB_NormalCI AS CI
+        INNER JOIN [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle AS CS ON CI.[StyleNumber] = CS.[StyleNumber] 
+                                                                                        AND CI.[DocumentID] = CS.[CI_DocumentID]
+                                                                                        AND CI.[Manufacturer] = CS.[Manufacturer]
+
+        UPDATE CI SET
+            [LineColor] = CASE
+                            WHEN ProductDivision = 'Headwear' THEN 0
+                            WHEN IDVersion IS NOT NULL THEN 0
+                            ELSE 1
+                          END
+        FROM #TB_NormalCI AS CI
+
+        UPDATE CI SET
+            [CommentVersion1] = IIF((SELECT COUNT(*) FROM #TB_NormalCI WHERE IDVersion = '16CFR § 1610.1(d)(1)') > 0
+                                , '16CFR § 1610.1(d)(1): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(1), as the garments are manufactured from plain surface fabrics weighing 2.6 ounces per square yard (88.2 g/m²) or greater.'
+                                , '')
+
+            ,[CommentVersion2] = IIF((SELECT COUNT(*) FROM #TB_NormalCI WHERE IDVersion = '16CFR § 1610.1(d)(2)') > 0
+                                , '16CFR § 1610.1(d)(2): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(2), as the garments are manufactured entirely from exempt fibers (acrylic, modacrylic, nylon, olefin, polyester, wool, or a combination thereof).'
+                                , '')
+        FROM #TB_NormalCI AS CI
+
          SET @resultCommercial = (
             SELECT * 
             FROM #TB_NormalCI
@@ -301,6 +338,11 @@ BEGIN
             ,[InvoicingGroupKelly]      VARCHAR(200)
             ,[ManufacturerGroupKelly]   VARCHAR(200)
             ,[LineGroupKelly]           INT
+            ,[IDVersion]                VARCHAR(50)
+            ,[ProductDivision]          VARCHAR(50)
+            ,[LineColor]                BIT
+            ,[CommentVersion1]          VARCHAR(500)
+            ,[CommentVersion2]          VARCHAR(500)
 
         )
 
@@ -338,7 +380,12 @@ BEGIN
             ,[DocumentID]               = DE.[DocumentID]
             ,[InvoicingGroupKelly]      = DE.[InvoicingGroupKelly]    
             ,[ManufacturerGroupKelly]   = DE.[ManufacturerGroupKelly]
-            ,[LineGroupKelly]           = DE.[LineGroupKelly]        
+            ,[LineGroupKelly]           = DE.[LineGroupKelly]
+            ,[ProductDivision]          = DE.[ProductDivision]
+            ,[LineColor]                = CAST(0 AS BIT)
+            ,[IDVersion]                = CAST(NULL AS VARCHAR(50))
+            ,[CommentVersion1]          = CAST(NULL AS VARCHAR(500))
+            ,[CommentVersion2]          = CAST(NULL AS VARCHAR(500))    
         FROM [192.168.1.93].AppsLCA.dbo.CI_Import_Export_DeclarationExport AS DE
         WHERE Waybill IN (@WayBill)
         GROUP BY
@@ -364,6 +411,7 @@ BEGIN
             ,DE.[InvoicingGroupKelly]   
             ,DE.[ManufacturerGroupKelly]
             ,DE.[LineGroupKelly]        
+            ,DE.[ProductDivision]
 
         INSERT INTO #TB_TransferCI
         (
@@ -409,6 +457,31 @@ BEGIN
             , [Manufacturer]
             , [ManufacturerGroupKelly]
             , [LineGroupKelly]
+
+        UPDATE DE SET
+            [IDVersion] = CS.[IDVersion]
+        FROM #TB_TransferCI AS DE
+        INNER JOIN [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle AS CS ON DE.[StyleNumber] = CS.[StyleNumber] 
+                                                                                        AND DE.[DocumentID] = CS.[CI_DocumentID]
+                                                                                        AND DE.[Manufacturer] = CS.[Manufacturer]
+
+        UPDATE DE SET
+            [LineColor] = CASE
+                            WHEN ProductDivision = 'Headwear' THEN 0
+                            WHEN IDVersion IS NOT NULL THEN 0
+                            ELSE 1
+                          END
+        FROM #TB_TransferCI AS DE
+
+        UPDATE CI SET
+            [CommentVersion1] = IIF((SELECT COUNT(*) FROM #TB_TransferCI WHERE IDVersion = '16CFR § 1610.1(d)(1)') > 0
+                                , '16CFR § 1610.1(d)(1): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(1), as the garments are manufactured from plain surface fabrics weighing 2.6 ounces per square yard (88.2 g/m²) or greater.'
+                                , '')
+
+            ,[CommentVersion2] = IIF((SELECT COUNT(*) FROM #TB_TransferCI WHERE IDVersion = '16CFR § 1610.1(d)(2)') > 0
+                                , '16CFR § 1610.1(d)(2): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(2), as the garments are manufactured entirely from exempt fibers (acrylic, modacrylic, nylon, olefin, polyester, wool, or a combination thereof).'
+                                , '')
+        FROM #TB_TransferCI AS CI
 
         SET @result9802 = (
             SELECT * 
@@ -553,80 +626,80 @@ BEGIN
             FOR JSON PATH, INCLUDE_NULL_VALUES
         );
 
-    -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
+    -- -------------------------------------------RESULT SUMMARY KELLY GLOBAL -------------------------------------
 
-        SELECT
-             [DocumentID]           = [DocumentID]
-            ,[StyleNumber]          = [StyleNumber]
-            ,[IDVersion]            = [IDVersion]
-            ,[CertifyID]            = [CertifyID]
-            -- ,[FabricConstruction]   = [FabricConstruction]
-            ,[WayBill]              = [WayBill]
-            ,[Manufacturer]         = IIF([Manufacturer] = 'League LTDA', 'League C.A Ltda. de C.V',[Manufacturer])
-            ,[CommentVersion1]      = CAST(NULL AS VARCHAR(500))
-            ,[CommentVersion2]      = CAST(NULL AS VARCHAR(500))
-        INTO #TB_Cerification
-        FROM [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle WITH(NOLOCK)
-        WHERE Waybill = @WayBill
-        GROUP BY
-             [DocumentID]
-            ,[StyleNumber]
-            ,[IDVersion]
-            ,[CertifyID]
-            -- ,[FabricConstruction]
-            ,[WayBill]
-            ,[Manufacturer]
+    --     SELECT
+    --          [DocumentID]           = [DocumentID]
+    --         ,[StyleNumber]          = [StyleNumber]
+    --         ,[IDVersion]            = [IDVersion]
+    --         ,[CertifyID]            = [CertifyID]
+    --         -- ,[FabricConstruction]   = [FabricConstruction]
+    --         ,[WayBill]              = [WayBill]
+    --         ,[Manufacturer]         = IIF([Manufacturer] = 'League LTDA', 'League C.A Ltda. de C.V',[Manufacturer])
+    --         ,[CommentVersion1]      = CAST(NULL AS VARCHAR(500))
+    --         ,[CommentVersion2]      = CAST(NULL AS VARCHAR(500))
+    --     INTO #TB_Cerification
+    --     FROM [192.168.1.93].AppsLCA.dbo.CI_Import_Export_CertificationStyle WITH(NOLOCK)
+    --     WHERE Waybill = @WayBill
+    --     GROUP BY
+    --          [DocumentID]
+    --         ,[StyleNumber]
+    --         ,[IDVersion]
+    --         ,[CertifyID]
+    --         -- ,[FabricConstruction]
+    --         ,[WayBill]
+    --         ,[Manufacturer]
 
-        UPDATE TC SET
-            [CommentVersion1] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(1)') > 0
-                                , '16CFR § 1610.1(d)(1): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(1), as the garments are manufactured from plain surface fabrics weighing 2.6 ounces per square yard (88.2 g/m²) or greater.'
-                                , '')
+    --     UPDATE TC SET
+    --         [CommentVersion1] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(1)') > 0
+    --                             , '16CFR § 1610.1(d)(1): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(1), as the garments are manufactured from plain surface fabrics weighing 2.6 ounces per square yard (88.2 g/m²) or greater.'
+    --                             , '')
 
-            ,[CommentVersion2] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(2)') > 0
-                                , '16CFR § 1610.1(d)(2): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(2), as the garments are manufactured entirely from exempt fibers (acrylic, modacrylic, nylon, olefin, polyester, wool, or a combination thereof).'
-                                , '')
-        FROM #TB_Cerification AS TC
+    --         ,[CommentVersion2] = IIF((SELECT COUNT(*) FROM #TB_Cerification WHERE IDVersion = '16CFR § 1610.1(d)(2)') > 0
+    --                             , '16CFR § 1610.1(d)(2): The adult wearing apparel covered by this commercial invoice is exempt from flammability testing pursuant to 16 CFR § 1610.1(d)(2), as the garments are manufactured entirely from exempt fibers (acrylic, modacrylic, nylon, olefin, polyester, wool, or a combination thereof).'
+    --                             , '')
+    --     FROM #TB_Cerification AS TC
 
-        SET @resultCertification = (
+    --     SET @resultCertification = (
 
-            SELECT
-                 [ReportHeader] = (
+    --         SELECT
+    --              [ReportHeader] = (
 
-                                    SELECT
-                                         [DocumentID]
-                                        ,[CommentReport]   = 'See below the list of styles along with their corresponding certificates, waybill: ' + @WayBill + '.'
-                                        ,[CommentVersion1]
-                                        ,[CommentVersion2]
-                                        ,[WayBill]
-                                    FROM #TB_Cerification
-                                    GROUP BY 
-                                         [DocumentID]
-                                        ,[WayBill]
-                                        ,[CommentVersion1]
-                                        ,[CommentVersion2]
-                                    FOR JSON PATH, INCLUDE_NULL_VALUES
+    --                                 SELECT
+    --                                      [DocumentID]
+    --                                     ,[CommentReport]   = 'See below the list of styles along with their corresponding certificates, waybill: ' + @WayBill + '.'
+    --                                     ,[CommentVersion1]
+    --                                     ,[CommentVersion2]
+    --                                     ,[WayBill]
+    --                                 FROM #TB_Cerification
+    --                                 GROUP BY 
+    --                                      [DocumentID]
+    --                                     ,[WayBill]
+    --                                     ,[CommentVersion1]
+    --                                     ,[CommentVersion2]
+    --                                 FOR JSON PATH, INCLUDE_NULL_VALUES
 
-                                  )
+    --                               )
 
-                ,[ReportData]   = (
-                                    SELECT
-                                         [StyleNumber]
-                                        ,[IDVersion]            = CASE
-                                                                    WHEN [IDVersion] = '16CFR § 1610.1(d)(1)' THEN CONCAT([IDVersion],'*')
-                                                                    WHEN [IDVersion] = '16CFR § 1610.1(d)(2)' THEN CONCAT([IDVersion],'*')
-                                                                  ELSE [IDVersion]
-                                                                  END
-                                        ,[CertifyID]
-                                        -- ,[FabricConstruction]
-                                        ,[Manufacturer]
-                                    FROM #TB_Cerification
-                                    ORDER BY StyleNumber
-                                    FOR JSON PATH, INCLUDE_NULL_VALUES
-                                  )
-            FOR JSON PATH, INCLUDE_NULL_VALUES
-        )
+    --             ,[ReportData]   = (
+    --                                 SELECT
+    --                                      [StyleNumber]
+    --                                     ,[IDVersion]            = CASE
+    --                                                                 WHEN [IDVersion] = '16CFR § 1610.1(d)(1)' THEN CONCAT([IDVersion],'*')
+    --                                                                 WHEN [IDVersion] = '16CFR § 1610.1(d)(2)' THEN CONCAT([IDVersion],'*')
+    --                                                               ELSE [IDVersion]
+    --                                                               END
+    --                                     ,[CertifyID]
+    --                                     -- ,[FabricConstruction]
+    --                                     ,[Manufacturer]
+    --                                 FROM #TB_Cerification
+    --                                 ORDER BY StyleNumber
+    --                                 FOR JSON PATH, INCLUDE_NULL_VALUES
+    --                               )
+    --         FOR JSON PATH, INCLUDE_NULL_VALUES
+    --     )
 
-    ------------------------------------------- RESULT STYLE CERTIFICATION -------------------------------------
+    -- ------------------------------------------- RESULT STYLE CERTIFICATION -------------------------------------
 
         
 
@@ -646,7 +719,7 @@ BEGIN
         [Commercial]    = JSON_QUERY(ISNULL(@resultCommercial,'[]'))
        ,[Transfer]      = JSON_QUERY(ISNULL(@result9802,'[]'))
        ,[Summary]       = JSON_QUERY(ISNULL(@resultSummaryKelly,'[]'))
-       ,[Certification] = JSON_QUERY(ISNULL(@resultCertification,'[]'))
+    --    ,[Certification] = JSON_QUERY(ISNULL(@resultCertification,'[]'))
     FOR JSON PATH
 
 END
