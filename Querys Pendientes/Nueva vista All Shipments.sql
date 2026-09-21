@@ -46,6 +46,7 @@ WITH CTE_AnexoFacturacion AS
         ,AF.[FormattedBoxNumber]
     FROM AppsLCA.dbo.ImportExport_AnexoFacturacion AS AF WITH(NOLOCK)
     INNER JOIN AppsLCA.dbo.DTE_FACTURAS_ELECTRONICAS AS DTE WITH(NOLOCK) ON AF.[Waybill] = DTE.[factura] AND AF.[Batch] = DTE.[items] AND DTE.[invalidado] = 0
+    INNER JOIN AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs AS T WITH(NOLOCK) ON AF.ID = T.IDExport
     WHERE AF.[ShipDate] > '2026-08-28'
 )
 SELECT
