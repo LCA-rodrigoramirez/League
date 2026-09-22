@@ -128,6 +128,6 @@ SELECT
 *
 ,CalculatedPriceAPP * Qty AS Total2
 FROM #TB_DetailedPrice
--- WHERE Style = 'QU100' 
-WHERE [Month] = 8
+WHERE Style = 'MON140' 
+AND [Month] = 8
 ORDER BY Price DESC
