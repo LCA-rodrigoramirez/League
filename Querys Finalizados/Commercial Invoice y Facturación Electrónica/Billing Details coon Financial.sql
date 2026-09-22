@@ -85,7 +85,7 @@ select distinct BoxNumber, ShipDate from  [AppsLCA].[dbo].[ImportExport_Shipment
 	  -- boxnumber in ('00786738') 
 	--   and boxnumber in ('01173241','01173241')--('00762770','00762127','00762131')
 	where shipdate >= @VFecha
-	and shipdate >= @VFecha2
+	and shipdate <= @VFecha2
 	-- waybill =@VWaybill
 	-- --boxnumber in ('00718618') 
 
@@ -210,6 +210,7 @@ Select
 --select sum(qty) as qty   from #tboxes1  
 
 --select * from [LCA].[dbo].[VW_Check_Sales_Prices_in_Invoices_SeekMO_3] where boxnumber ='00673224' order by stylenumber
+return
 
 create table #TInvoiceBatch (
 	Boxnumber varchar(200) null,
@@ -364,6 +365,7 @@ select distinct Boxnumber, StyleNumber, GarmentSize, sum(qty) as qty,  Manufactu
 --select * from #UnitsOriginal_1 	where eo_id=560853 --and eo_style='L900' and Size ='M'
 --select * from #UnitsOriginal_2		where eo_id=560853 --and eo_style='L900' and Size ='M'
 
+return
 
 declare @EO varchar(200)
 declare @EO_ID int
@@ -492,6 +494,8 @@ update TB1 set TB1.InvoiceBatch = TIBatch.InvoiceBatch, TB1.Batch = TIBatch.Batc
 --select * from #TBoxes1 where boxnumber in ('00675739') order by boxnumber
 
 --select * from #UnitsOriginal_2
+
+-- return
 
 ---Proceso para actualizar las columnas RO, Ro_ID en el curstos #Tboxes1
 	declare Cur_UpdateRO cursor for select * from #UnitsOriginal_2
@@ -856,7 +860,7 @@ Select
 				
 
 
-	--SELECT *
+	-- SELECT ABC10.*
 	from #TBoxes3 ABC10
 		left join  [Financial].[dbo].[VW_Check_Sales_Prices_in_Invoices_SeekMO_2]  TYU with (nolock)
 			on ABC10.BoxNumber = TYU.BoxNumber
@@ -867,6 +871,7 @@ Select
 			on MO1.OrderID = EMBR1.OrderID and EMBR1.StatusID <=90 
 		left join [Financial].[dboReaders].[VW_EORO] VWEORO with (nolock)
 			on TYU.MOID = VWEORO.EO_ID and ABC10.RO_ID = VWEORO.RO_ID
+	-- WHERE ABC10.BoxNumber = '01207265'
 		left join Financial.dbo.ManufactureOrders MO2 with (nolock)
 			on VWEORO.RO_ID = MO2.ManufactureID and MO2.StatusID <=90
 		left join Financial.dbo.Orders EMBR2 with (nolock)
@@ -924,7 +929,10 @@ update #ABC11_Pre set PrintCount = iif( try_cast(PrintCount as int) is null, 0, 
 --select * from #ABC11_Pre where BoxNumber = '01096152'
 --select * from #TBoxes3 where GarmentSize = 'L'
 --order by BoxNumber
---return
+return
+
+-- Declare @VScreenPr decimal(12,2) = null
+-- set @VScreenPr = (select top 1 LaborProduction from #SalesEmbroidery where code='ScreenPr')
 
 insert into #TBoxes2
 select distinct ABC11.*,
@@ -1237,6 +1245,7 @@ SELECT ManufactureNumber, ManufactureID,
   where manufactureID  in (select distinct ManufactureID from #TBoxes2)   
   group by ManufactureNumber, ManufactureID
 
+return
 
 create table #TPartNumber (
 	ManufactureId int null,
@@ -1475,6 +1484,8 @@ select * from [192.168.1.93].[AppsLCA].[dbo].[TA_TStdCost_FG]
 
 --select * from  #TStdCost_Full where style ='05pdt' and color='012'
 --select * from  #TStdCost_FG   where style ='05pdt' and color='012'
+RETURN
+
 create table #abc4_1 (
 	boxnumber varchar(100) null,
 	Stylenumber varchar(100) null,
@@ -1790,9 +1801,11 @@ INNER JOIN
 	INNER JOIN Financial.dbo.Styles	AS ST2 WITH(NOLOCK) ON ST1.BlankStyleID = ST2.StyleID 
 	AND ST1.BlankStyleID IS NOT NULL and IIF(ST2.StyleNumber = ST1.StyleNumber,1,0) = 0
 	GROUP BY ST1.StyleNumber, ST2.StyleNumber
-) AS SaleST ON TB2.StyleNumber = SaleST.SaleStyle AND WayBill = @VWaybill
+) AS SaleST ON TB2.StyleNumber = SaleST.SaleStyle
 
 --select * from #tboxes2 --where boxnumber ='00773784'
+
+return
 
 insert into #Report
 Select distinct	 ABC2.ShipDate, 
@@ -2010,7 +2023,7 @@ Select distinct	 ABC2.ShipDate,
 
     -- (SCPD.TotalBlank + SCPD.TotalDecoration) as Price,
 	CASE 
-        WHEN ABC2.ShipDate >= @DateNewFreight THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
+        WHEN ABC2.ShipDate >= '2027-01-01' THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
         ELSE (SCPD.TotalBlank + SCPD.TotalDecoration) 
     END as Price,
     
@@ -2022,7 +2035,7 @@ Select distinct	 ABC2.ShipDate,
 	-- end as [Total_$]
 	-- (SCPD.TotalBlank + SCPD.TotalDecoration) * ABC2.Qty as [Total_$]
 	(CASE 
-        WHEN ABC2.ShipDate >= @DateNewFreight THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
+        WHEN ABC2.ShipDate >= '2027-01-01' THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
         ELSE (SCPD.TotalBlank + SCPD.TotalDecoration) 
     END) * ABC2.Qty as [Total_$]
 
@@ -2165,7 +2178,7 @@ Select distinct	 ABC2.ShipDate,
 	, case when  abc4_3.metodo=1
 	
 			then (CASE 
-                        WHEN ABC2.ShipDate >= @DateNewFreight THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
+                        WHEN ABC2.ShipDate >= '2027-01-01' THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
                         ELSE (SCPD.TotalBlank + SCPD.TotalDecoration) 
                   END  * ABC2.Qty 
 					) * 0.8
@@ -2174,12 +2187,12 @@ Select distinct	 ABC2.ShipDate,
 
     , case when  abc4_3.metodo=1
 			then (CASE 
-                    WHEN ABC2.ShipDate >= @DateNewFreight THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
+                    WHEN ABC2.ShipDate >= '2027-01-01' THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
                     ELSE (SCPD.TotalBlank + SCPD.TotalDecoration) 
                   END  * ABC2.Qty
 					) * 0.2
 			else (CASE 
-                    WHEN ABC2.ShipDate >= @DateNewFreight THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
+                    WHEN ABC2.ShipDate >= '2027-01-01' THEN (SCPD.TotalBlank + SCPD.OutboundFreight + SCPD.TotalDecoration) 
                     ELSE (SCPD.TotalBlank + SCPD.TotalDecoration) 
                   END  * ABC2.Qty 
 					) - 
@@ -2546,7 +2559,60 @@ from #Report BD
         FROM #Report AS AF
         INNER JOIN #TB_LABOR AS TL ON AF.StyleNumber = TL.StyleNumber AND AF.SeasonName = TL.Season
 
-	
+	ALTER TABLE #Report
+    ADD UnitFreightCost_Ponderado DECIMAL(18,4) NULL
+
+    UPDATE T SET
+         T.[UnitFreightCost_Ponderado]       = IIF(
+                                                    FAMF2.[MAKE] > 0
+                                                AND FAMF2.[Contracts_FreightPrice] IS NOT NULL
+                                                ,CONVERT(NUMERIC(18,4), ROUND(FAMF2.[Contracts_FreightPrice] / FAMF2.[MAKE], 4))
+                                                ,0
+                                            )
+    FROM #Report AS T
+    LEFT JOIN [AppsLCA].[dbo].[Financial_TB_MO_PartNumber_IM_Materials] AS FAMF2 WITH(NOLOCK) ON T.[RO_ID] = FAMF2.[ManufactureID]
+
+    ALTER TABLE #Report
+    ADD Unit_ReceivingCost DECIMAL(18,4) NULL
+
+    ALTER TABLE #Report
+    ADD Total_ReceivingCost DECIMAL(18,4) NULL
+
+    UPDATE  R SET
+         Unit_ReceivingCost = R.Receiving_Cost + R.UnitFreightCost_Ponderado
+        ,Total_ReceivingCost = (ISNULL(R.Receiving_Cost,0) + ISNULL(R.UnitFreightCost_Ponderado,0)) * R.Qty
+    FROM #Report AS R
+
+    SELECT
+		 sum(Qty)
+        ,sum(Total$) as total
+        -- ,BoxNumber
+    FROM #Report
+	-- WHERE Waybill = 'AIR-APP-20260803'
+	GROUP BY
+		BoxNumber
+	ORDER BY
+		BoxNumber
+    -- GROUP BY
+    --     ProductDivision
+
+	SELECT
+		 sum(Receiving_Cost * Qty) AS Receiving
+        ,sum(Total$) as total
+        -- ,Waybill
+    FROM #Report
+	-- GROUP BY Waybill
+	-- ORDER BY Waybill
+
+	SELECT  
+		SUM(Total_ReceivingCost)
+		,ProductDivision
+	FROM #Report
+	GROUP BY ProductDivision
+
+	SELECT * FROM #ABC11_Pre WHERE BoxNumber = '01207265'
+
+	SELECT * FROM AppsLCA.dbo.ImportExport_AnexoFacturacion WITH(NOLOCK) WHERE BoxNumber = '01207265'
     return
 	--WHERE BasePrice + Screen_Print + Embroidery + Sublimation <> Price
 
