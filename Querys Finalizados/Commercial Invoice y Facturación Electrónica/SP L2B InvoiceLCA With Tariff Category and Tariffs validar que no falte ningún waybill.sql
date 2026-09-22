@@ -16,8 +16,8 @@ GO
 ------5) Construye el resultado final y lo guarda en AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs.
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
--- CREATE OR ALTER PROCEDURE [dbo].[SP_L2Brands_Units_Invoiced_WithTariffs_InsertAll]
--- AS
+CREATE OR ALTER PROCEDURE [dbo].[SP_L2Brands_Units_Invoiced_WithTariffs_InsertPendingWaybills]
+AS
 BEGIN
     SET NOCOUNT ON;
 
@@ -65,7 +65,7 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX IX_Prices_Waybill ON #TB_Prices (Waybill, ShipDate);
 
-    -----------------------------------------------------------------------------------------
+        -----------------------------------------------------------------------------------------
     -- 2. Base de facturacion  (#TB_Bill = CTE_Bill)
     PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] Paso 2: Cargando #TB_Bill (base de facturacion)...';
     --    Solo columnas directas de AF. Los campos derivados se calculan en los UPDATEs A-D.
@@ -91,9 +91,15 @@ BEGIN
         ,[FOBTotal]         = IIF(AF.[ShipDate] >= '2025-11-21' AND AF.[Waybill] LIKE '%AIR%' AND CHARINDEX('FG', AF.[SeasonName]) > 0
                                  ,AF.[Total$] - (AF.[Qty] * 0.64)
                                  ,AF.[Total$] - (AF.[Qty] * 0.25))
+        ,[NorthBoundFreight]    = AF.[Price_AirFreight] + AF.[Price_OceanFreight]
+        ,[InlandFreight]        = AF.[InlandFreight]
+        ,[OutboundFreight]      = AF.[OutboundFreight]
+        ,[InboundFreight]       = AF.[InboundFreight]
+        ,[ShipTo Port]          = COALESCE(AF.[ShipTo],AF.[PuertoDestino])
+        ,[Gross_Weight]         = AF.[Gross_Weight_kgs]
         ----Campos calculados por UPDATE A
         ,[TariffCategory]   = CAST(NULL AS NVARCHAR(50))
-        ,[CountryOfOrigin]  = CAST(NULL AS NVARCHAR(100))
+        ,[CountryOfOrigin]  = AF.[CountryOfOrigin]
         ----Campos calculados por UPDATE B
         ,[MO]               = CAST(NULL AS NVARCHAR(100))
         ,[US_HTSCode]       = CAST(NULL AS NVARCHAR(50))
@@ -104,16 +110,25 @@ BEGIN
         ,[ExportDate]       = CAST(NULL AS DATE)
         ,[TypeExport]       = CAST(NULL AS NVARCHAR(50))
         ----Campos calculados por UPDATE D (tarifas)
-        ,[301China_%]       = CAST(NULL AS DECIMAL(18,6))
-        ,[Fenta_%]          = CAST(NULL AS DECIMAL(18,6))
-        ,[Recip_%]          = CAST(NULL AS DECIMAL(18,6))
-        ,[Tariff122_%]      = CAST(NULL AS DECIMAL(18,6))
-        ,[HTS_%]            = CAST(NULL AS DECIMAL(18,6))
+        ,[301China_%]       = CAST(NULL AS DECIMAL(18,4))
+        ,[Fenta_%]          = CAST(NULL AS DECIMAL(18,4))
+        ,[Recip_%]          = CAST(NULL AS DECIMAL(18,4))
+        ,[Tariff122_%]      = CAST(NULL AS DECIMAL(18,4))
+        ,[Tariff301_%]      = CAST(NULL AS DECIMAL(18,4))
+        ,[HTS_%]            = CAST(NULL AS DECIMAL(18,4))
+        ,[HTS_Spec_%]       = CAST(NULL AS DECIMAL(18,4))
+        ,[MPF_%]            = CAST(NULL AS DECIMAL(18,6))
+        ,[HMF_%]            = CAST(NULL AS DECIMAL(18,5))
+        ,[CottonFee_%]      = CAST(NULL AS DECIMAL(18,7))
         ,[301China_Tariff]  = CAST(NULL AS DECIMAL(18,4))
         ,[Fenta_Tariff]     = CAST(NULL AS DECIMAL(18,4))
         ,[Recip_Tariff]     = CAST(NULL AS DECIMAL(18,4))
         ,[HTS_Tariff]       = CAST(NULL AS DECIMAL(18,4))
         ,[Tariff122_Tariff] = CAST(NULL AS DECIMAL(18,4))
+        ,[Tariff301_Tariff] = CAST(NULL AS DECIMAL(18,4))
+        ,[MPF_Tariff]       = CAST(NULL AS DECIMAL(18,4))
+        ,[HMF_Tariff]       = CAST(NULL AS DECIMAL(18,4))
+        ,[CottonFee_Tariff] = CAST(NULL AS DECIMAL(18,4))
         ,[TotalTariff]      = CAST(NULL AS DECIMAL(18,4))
         ----Campos calculados por UPDATE B (estilo en blanco y StyleID)
         ,[BlankStyle]       = CAST(NULL AS NVARCHAR(100))
@@ -471,6 +486,9 @@ BEGIN
         ,[Fenta_%]     = C.[Fenta_%]
         ,[Recip_%]     = C.[Recip_%]
         ,[Tariff122_%] = C.[Tariff122_%]
+        ,[Tariff301_%] = C.[Tariff301_%]
+        ,[MPF_%]       = 0.003464
+        ,[HMF_%]       = 0.00125
     FROM #TB_Bill AS B
     INNER JOIN
     (
@@ -480,6 +498,7 @@ BEGIN
             ,[Fenta_%]     = COALESCE(TT.[Fenta],     TT2.[Fenta]    )
             ,[Recip_%]     = COALESCE(TT.[Recip],     TT2.[Recip]    )
             ,[Tariff122_%] = COALESCE(TT.[Tariff122], TT2.[Tariff122])
+            ,[Tariff301_%] = COALESCE(TT.[Tariff301], TT2.[Tariff122])
         FROM #TB_Bill AS A
         LEFT JOIN [AppsLCA].[dbo].[TB_Transfer_TariffCOO] AS TT WITH (NOLOCK)
                 ON TT.[Type]            = A.[ProductDivision]
@@ -489,7 +508,7 @@ BEGIN
         LEFT JOIN
         (
             SELECT S.[Type], S.[COO], S.[CountryOfOrigin], S.[DateFrom]
-                  ,S.[301China], S.[Fenta], S.[Recip], S.[Tariff122]
+                  ,S.[301China], S.[Fenta], S.[Recip], S.[Tariff122], S.[Tariff301]
             FROM [AppsLCA].[dbo].[TB_Transfer_TariffCOO] AS S WITH (NOLOCK)
             INNER JOIN
             (
@@ -522,11 +541,23 @@ BEGIN
                       WHEN THTS.[ADValoremRate] IS NULL AND B.[StyleNumber] = 'YBKT'   THEN 0.075
                       ELSE THTS.[ADValoremRate]
                   END
+        ,[HTS_Spec_%] = THTS.[SpecRate]
     FROM #TB_Bill AS B
     LEFT JOIN [AppsLCA].[dbo].[TB_Transfer_HTSTariff] AS THTS WITH (NOLOCK)
             ON THTS.[SACKellyGlobal] = B.[US_HTSCode]
     WHERE b.ExportDate >= '2025-12-12'
 
+    -----------------------------------------------------------------------------------------
+    -- UPDATE D-1c: Porcentaje Cotton Fee  (CottonFee_Assessment por US_HTSCode)
+    -----------------------------------------------------------------------------------------
+    PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] UPDATE D-1c: Porcentaje Cotton Fee...';
+    UPDATE B
+    SET [CottonFee_%] = THTS.[CentsPerKG]
+
+    FROM #TB_Bill AS B
+    LEFT JOIN [AppsLCA].[dbo].[CottonFee_Assessment] AS THTS WITH (NOLOCK)
+            ON THTS.[HTS] = B.[US_HTSCode]
+    WHERE b.ExportDate >= '2025-12-12'
 
     UPDATE B
     SET
@@ -557,6 +588,20 @@ BEGIN
                                                     WHEN [TariffCategory] = 'NO CAFTA RULE 9802' THEN ([TotalDecoration] * Quantity)
                                                     WHEN [TariffCategory] = 'NO CAFTA'           THEN [FOBTotal]
                                               END
+        ,[Tariff301_Tariff] = [Tariff301_%] * CASE WHEN [TariffCategory] = 'CAFTA'              THEN 0.000
+                                                    WHEN [TariffCategory] = 'NO CAFTA RULE 9802' THEN ([TotalDecoration] * Quantity)
+                                                    WHEN [TariffCategory] = 'NO CAFTA'           THEN [FOBTotal]
+                                              END
+        ,[MPF_Tariff]       = [MPF_%]       * CASE WHEN [TariffCategory] = 'CAFTA'              THEN 0.000
+                                                    WHEN [TariffCategory] = 'NO CAFTA RULE 9802' THEN (0.000)
+                                                    WHEN [TariffCategory] = 'NO CAFTA'           THEN [FOBTotal]
+                                              END
+        ,[HMF_Tariff]       = [HMF_%]       * CASE WHEN [TariffCategory] = 'CAFTA' AND [Waybill] NOT LIKE '%AIR%'               THEN [FOBTotal]
+                                                    WHEN [TariffCategory] = 'NO CAFTA RULE 9802' AND [Waybill] NOT LIKE '%AIR%' THEN (([TotalDecoration] + [BasePrice]) * Quantity)
+                                                    WHEN [TariffCategory] = 'NO CAFTA'           AND [Waybill] NOT LIKE '%AIR%' THEN [FOBTotal]
+                                              END
+
+        ,[CottonFee_Tariff] = [CottonFee_%] * [Gross_Weight]
     WHERE ExportDate >= '2025-12-12'
 
     UPDATE B SET
@@ -565,6 +610,10 @@ BEGIN
         ,[Recip_Tariff]     = COALESCE(VAE.TValue_Recip_$,0.00)
         ,[HTS_Tariff]       = COALESCE(VAE.TValue_HTS_$,0.00)
         ,[Tariff122_Tariff] = 0.00
+        ,[Tariff301_Tariff] = 0.00
+        ,[MPF_Tariff] = 0.00
+        ,[HMF_Tariff] = 0.00
+        ,[CottonFee_Tariff] = 0.00
         
     FROM #TB_Bill AS B
     LEFT JOIN AppsLCA.dbo.TB_Transfer_Validation_allExport AS VAE WITH(NOLOCK) ON B.ID = VAE.Original_IDExport
@@ -577,6 +626,10 @@ BEGIN
                         + COALESCE([Recip_Tariff],0.00)
                         + COALESCE([HTS_Tariff],0.00)
                         + COALESCE([Tariff122_Tariff],0.00)
+                        + COALESCE([Tariff301_Tariff],0.00)
+                        + COALESCE([MPF_Tariff],0.00)
+                        + COALESCE([HMF_Tariff],0.00)
+                        + COALESCE([CottonFee_Tariff],0.00)
 
     -----------------------------------------------------------------------------------------
     -- 3. Lookup inventario L2B  (#TB_L2BrandInv = CTE_L2BrandInv)
@@ -730,7 +783,7 @@ BEGIN
 
         INSERT INTO AppsLCA.legacycaps.TB_L2Brands_Units_Invoiced_WithTariffs
         (
-            [IDExport]
+             [IDExport]
             ,[Size]
             ,[StyleColor]
             ,[Quantity]
@@ -743,13 +796,8 @@ BEGIN
             ,[ItemDetailID]
             ,[Item #]
             ,[Blank_InvoicedPrice]
-            ,[InlandFreight]
-            ,[NorthBoundFreight]
-            ,[OutboundFreight]
-            ,[InboundFreight]
             ,[CustomerPO]
             ,[StyleOption]
-            ,[ShipToPort]
             ,[Waybill]
             ,[Decoration_Invoiced_Price]
             ,[Unit_Invoiced_Price]
@@ -761,14 +809,85 @@ BEGIN
             ,[Recip_Tariff]
             ,[HTS_Tariff]
             ,[Tariff122_Tariff]
+            ,[Tariff301_Tariff]
+            ,[MPF_Tariff]
+            ,[HMF_Tariff]
+            ,[CottonFee_Tariff]
             ,[TotalTariff]
-            ,[Entry #]
+            ,[Entry #]  
             ,[EntryDate]
+            ,[ShipToPort]
+            ,[InlandFreight]
+            ,[NorthBoundFreight]
+            ,[OutboundFreight]
+            ,[InboundFreight]
         )
         SELECT
-        *
-        FROM #TB_All_Shipment
+            [IDExport]                  = AF.[ID]
+            ,[Size]                      = AF.[Size]
+            ,[StyleColor]                = AF.[StyleColor]
+            ,[Quantity]                  = AF.[Quantity]
+            ,[Style]                     = AF.[StyleNumber]
+            ,[StyleID]                   = COALESCE(SCPD.[StyleID], AF.[StyleID])
+            ,[TariffCategory]            = AF.[TariffCategory]
+            ,[TransactionDate]           = SCP.[ShipDate]
+            ,[MO]                        = AF.[MO]
+            ,[MO_ID]                     = AF.[ManufactureID]
+            ,[ItemDetailID]              = COALESCE(SCPD.[ItemDetailID], OD.[ItemDetailID_Calc])
+            ,[Item #]                    = L2BInv.[InvItemID]
+            ,[Blank_InvoicedPrice]       = CASE
+                                            WHEN SCP.[ShipDate] < '2026-02-10' THEN AF.[BasePrice]
+                                            ELSE IIF(SCPD.[TotalBlank] <> AF.[BasePrice], AF.[BasePrice], SCPD.[TotalBlank])
+                                        END
+            ,[CustomerPO]                = OD.[CustomerPO_Calc]
+            ,[StyleOption]               = AF.[StyleOption]
+            ,[Waybill]                   = AF.[Waybill]
+            ,[Decoration_Invoiced_Price] = CASE
+                                            WHEN SCP.[ShipDate] < '2026-02-10' THEN AF.[TotalDecoration]
+                                            ELSE SCPD.[TotalDecoration]
+                                        END
+            ,[Unit_Invoiced_Price]       = CASE
+                                            WHEN SCP.[ShipDate] < '2026-02-10' THEN AF.[UnitPrice]
+                                            ELSE SCPD.[TotalBlank] + SCPD.[TotalDecoration]
+                                        END
+            ,[CountryOfOrigin]           = AF.[CountryOfOrigin]
+            ,[US_HTSCode]                = AF.[US_HTSCode]
+            -- ,[ProductDivision]           = AF.[ProductDivision]
+            ,[FOBTotal]                  = AF.[FOBTotal]
+            ,[301China_Tariff]           = AF.[301China_Tariff]
+            ,[Fenta_Tariff]              = AF.[Fenta_Tariff]
+            ,[Recip_Tariff]              = AF.[Recip_Tariff]
+            ,[HTS_Tariff]                = AF.[HTS_Tariff]
+            ,[Tariff122_Tariff]          = AF.[Tariff122_Tariff]
+            ,[Tariff301_Tariff]          = AF.[Tariff301_Tariff]
+            ,[MPF_Tariff]                = AF.[MPF_Tariff]
+            ,[HMF_Tariff]                = AF.[HMF_Tariff]
+            ,[CottonFee_Tariff]          = AF.[CottonFee_Tariff]
+            ,[TotalTariff]               = AF.[TotalTariff]
+            ,[Entry #]                   = AF.[Entry #]
+            ,[EntryDate]                 = AF.[EntryDate]
+            ,[ShipTo Port]               = AF.[ShipTo Port]
+            ,[InlandFreight]             = AF.[InlandFreight]
+            ,[NorthBoundFreight]         = AF.[NorthBoundFreight]
+            ,[OutboundFreight]           = AF.[OutboundFreight]
+            ,[InboundFreight]            = AF.[InboundFreight]
+            -- ,[TypeExport]                = AF.[TypeExport]
+        FROM #TB_Prices AS SCP
+        INNER JOIN #TB_Bill AS AF
+                ON SCP.[Waybill]  = AF.[Waybill]
+            AND SCP.[ShipDate] = AF.[ShipDate]
+        LEFT JOIN AppsLCA.dbo.TB_ShipmentCheckPricesDetail AS SCPD WITH (NOLOCK)
+                ON SCP.[ID] = SCPD.[shipmentCheckPrices_id]
+            AND SCPD.[ManufactureID] = AF.[ManufactureID]
+        LEFT JOIN #TB_Orders AS OD
+                ON AF.[OrderID] = OD.[OrderID]
+        LEFT JOIN #TB_L2BrandInv AS L2BInv
+                ON AF.[BlankStyle] = L2BInv.[Style]
+            AND COALESCE(SCPD.[Color], AF.[StyleColor]) = L2BInv.[Color]
+            AND AF.[Size] = L2BInv.[Size]
+            AND L2BInv.[R] = 1
     END
 
+    PRINT '[ ' + CONVERT(VARCHAR(23), GETDATE(), 121) + ' ] SP finalizado.';
 END
 GO
